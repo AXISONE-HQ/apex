@@ -1,0 +1,28 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/apex-prod/apex-api:$SHORT_SHA
+      - .
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - apex-prod-api
+      - --image
+      - us-central1-docker.pkg.dev/$PROJECT_ID/apex-prod/apex-api:$SHORT_SHA
+      - --region
+      - us-central1
+      - --service-account
+      - apex-prod-runtime@$PROJECT_ID.iam.gserviceaccount.com
+      - --add-cloudsql-instances
+      - $PROJECT_ID:us-central1:apex-prod-sql
+      - --set-secrets
+      - DATABASE_URL=apex-prod-database-url:latest
+      - --set-env-vars
+      - NODE_ENV=production
+      - --allow-unauthenticated
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/apex-prod/apex-api:$SHORT_SHA

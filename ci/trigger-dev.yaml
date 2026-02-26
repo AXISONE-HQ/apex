@@ -1,0 +1,7 @@
+name: apex-dev-develop
+description: Deploy dev on develop pushes
+filename: service/cloudbuild/cloudbuild.dev.yaml
+repositoryEventConfig:
+  repository: projects/apex-v1-488611/locations/us-central1/connections/apex-v1-gh/repositories/apex-repo
+  push:
+    branch: ^develop$

@@ -1,0 +1,66 @@
+import { Router } from "express";
+import { verifyIdentityToken } from "../auth/firebase.js";
+import { upsertUserFromIdentity } from "../repositories/usersRepo.js";
+import { createSession, destroySession } from "../repositories/sessionsRepo.js";
+import { ensureDefaultOrgMembership, resolveAuthzForUser } from "../repositories/authzRepo.js";
+import { seedRbac } from "../db/seedRbac.js";
+
+const router = Router();
+
+router.post("/session", async (req, res) => {
+  const { idToken } = req.body || {};
+  if (!idToken) {
+    return res.status(400).json({ error: "idToken required" });
+  }
+
+  try {
+    const identity = await verifyIdentityToken(idToken);
+    const user = await upsertUserFromIdentity(identity);
+
+    await seedRbac();
+    const membership = await ensureDefaultOrgMembership({ userId: user.id });
+    const authz = await resolveAuthzForUser({ userId: user.id, orgId: membership.orgId });
+
+    const session = await createSession({
+      userId: user.id,
+      roles: authz.roles,
+      permissions: authz.permissions,
+      activeOrgId: authz.activeOrgId
+    });
+
+    res.cookie("apex_session", session.sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/"
+    });
+
+    return res.status(200).json({
+      user: { id: user.id, email: user.email, name: user.name },
+      memberships: [{ orgId: authz.activeOrgId || membership.orgId, roles: authz.roles }],
+      permissions: authz.permissions,
+      session: { expiresAt: session.expiresAt }
+    });
+  } catch {
+    return res.status(401).json({ error: "invalid_identity_token" });
+  }
+});
+
+router.post("/logout", async (req, res) => {
+  await destroySession(req.cookies?.apex_session);
+  res.clearCookie("apex_session");
+  res.status(204).send();
+});
+
+router.get("/me", (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "unauthorized" });
+
+  res.status(200).json({
+    user: { id: req.user.id, email: req.user.email, name: req.user.name },
+    activeOrgId: req.user.activeOrgId || "org_demo",
+    roles: req.user.roles || [],
+    permissions: req.user.permissions || []
+  });
+});
+
+export default router;
