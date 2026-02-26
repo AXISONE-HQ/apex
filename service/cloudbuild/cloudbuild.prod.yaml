@@ -2,9 +2,11 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
+      - -f
+      - service/Dockerfile
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/apex-prod/apex-api:$SHORT_SHA
-      - .
+      - service
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
