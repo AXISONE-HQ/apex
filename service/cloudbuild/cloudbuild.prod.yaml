@@ -26,3 +26,5 @@ steps:
       - --allow-unauthenticated
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/apex-prod/apex-api:$SHORT_SHA
+options:
+  logging: CLOUD_LOGGING_ONLY
