@@ -1,6 +1,9 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
+import teamsRoutes from "./routes/domain/teams.js";
+import playersRoutes from "./routes/domain/players.js";
+import matchesRoutes from "./routes/domain/matches.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
@@ -46,6 +49,9 @@ app.use(async (req, _res, next) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/teams", teamsRoutes);
+app.use("/players", playersRoutes);
+app.use("/matches", matchesRoutes);
 
 app.get(
   "/secure/teams",

@@ -1,0 +1,28 @@
+{
+  "displayName": "apex-prod-sql CPU high",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Cloud SQL CPU utilization > 0.8",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloudsql_database\" AND resource.label.\"database_id\"=\"apex-v1-488611:apex-prod-sql\" AND metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.8,
+        "duration": "900s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "enabled": true,
+  "notificationChannels": [],
+  "documentation": {
+    "content": "Investigate slow queries and scale strategy.",
+    "mimeType": "text/markdown"
+  }
+}
