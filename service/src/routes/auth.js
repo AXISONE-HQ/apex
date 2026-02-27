@@ -4,8 +4,15 @@ import { upsertUserFromIdentity } from "../repositories/usersRepo.js";
 import { createSession, destroySession } from "../repositories/sessionsRepo.js";
 import { ensureDefaultOrgMembership, resolveAuthzForUser } from "../repositories/authzRepo.js";
 import { seedRbac } from "../db/seedRbac.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
+
+const authMutationsLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => req.ip || "unknown",
+});
 
 router.options("/session", (req, res) => {
   const origin = req.headers.origin;
@@ -25,7 +32,7 @@ router.options("/session", (req, res) => {
   return res.sendStatus(204);
 });
 
-router.post("/session", async (req, res) => {
+router.post("/session", authMutationsLimiter, async (req, res) => {
   const { idToken } = req.body || {};
   if (!idToken) {
     return res.status(400).json({ error: "idToken required" });
@@ -69,7 +76,7 @@ router.post("/session", async (req, res) => {
   }
 });
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authMutationsLimiter, async (req, res) => {
   await destroySession(req.cookies?.apex_session);
   res.clearCookie("apex_session");
   res.status(204).send();

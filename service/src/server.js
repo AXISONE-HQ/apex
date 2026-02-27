@@ -114,19 +114,13 @@ app.use(async (req, _res, next) => {
   next();
 });
 
-const authLimiter = createRateLimiter({
-  windowMs: 60_000,
-  max: 60,
-  keyFn: (req) => req.ip || "unknown",
-});
-
 const aiLimiter = createRateLimiter({
   windowMs: 60_000,
   max: 30,
   keyFn: (req) => req.user?.id || req.ip || "unknown",
 });
 
-app.use("/auth", authLimiter, authRoutes);
+app.use("/auth", authRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);

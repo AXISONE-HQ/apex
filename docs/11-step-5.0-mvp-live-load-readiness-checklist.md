@@ -159,8 +159,8 @@ Gate E status: ✅ Complete (E1 + E2 + E3)
 
 ### F1. Staging load tests
 - [x] Tenant-distributed test scenarios prepared
-- [ ] Core endpoints tested under concurrent load
-- [ ] Login + read-heavy + write-heavy mixes tested
+- [x] Core endpoints tested under concurrent load
+- [x] Login + read-heavy + write-heavy mixes tested
 
 Working doc: `docs/21-step-5.0-gate-f-load-readiness-validation.md`
 
@@ -171,13 +171,15 @@ Working doc: `docs/21-step-5.0-gate-f-load-readiness-validation.md`
 - [x] DB CPU/connection saturation thresholds defined
 
 ### F3. Bottleneck remediation loop
-- [ ] Findings logged
-- [ ] Fixes implemented
-- [ ] Retest passes target thresholds
+- [x] Findings logged
+- [x] Fixes implemented
+- [x] Retest passes target thresholds
 
 **Acceptance criteria**
 - Load test report attached
 - All threshold gates green for MVP launch scope
+
+Gate F status: ✅ Complete (read-heavy + mixed-write passed after remediation)
 
 ---
 

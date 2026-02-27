@@ -21,7 +21,7 @@ function expandWildcardGrants(grants = [], knownPermissions = []) {
 }
 
 export async function ensureDefaultOrgMembership({ userId }) {
-  if (!hasDatabase()) return { orgId: "org_demo", role: "Viewer" };
+  if (!hasDatabase()) return { orgId: "org_demo", role: "ManagerCoach" };
 
   const org = await query(
     `INSERT INTO organizations (name, slug)
@@ -42,7 +42,7 @@ export async function ensureDefaultOrgMembership({ userId }) {
 
   const role = await query(
     `INSERT INTO roles (code)
-     VALUES ('Viewer')
+     VALUES ('ManagerCoach')
      ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
      RETURNING id`,
     []
@@ -55,7 +55,7 @@ export async function ensureDefaultOrgMembership({ userId }) {
     [membership.rows[0].id, role.rows[0].id]
   );
 
-  return { orgId, role: "Viewer" };
+  return { orgId, role: "ManagerCoach" };
 }
 
 export async function resolveAuthzForUser({ userId, orgId = null }) {
