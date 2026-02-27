@@ -19,9 +19,11 @@ Launch an MVP that is fully cloud-hosted (no localhost runtime dependency) and e
 ## Gate A — Scope & Architecture Freeze
 
 ### A1. MVP scope frozen
-- [ ] Must-have flows documented (auth, core club/team/player, schedule/events, core dashboard)
-- [ ] Non-MVP features explicitly out-of-scope
-- [ ] Single source doc linked from this checklist
+- [x] Must-have flows documented (auth, core club/team/player, schedule/events, core dashboard)
+- [x] Non-MVP features explicitly out-of-scope
+- [x] Single source doc linked from this checklist
+
+Linked doc: `docs/13-step-5.0-gate-a-scope-and-architecture-freeze.md`
 
 **Acceptance criteria**
 - MVP scope doc signed off by Fred
