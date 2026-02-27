@@ -2,13 +2,18 @@ import { hasDatabase, query } from "../db/client.js";
 
 const players = [];
 
-export async function listPlayersByOrg(orgId) {
-  if (!hasDatabase()) return players.filter((p) => p.orgId === orgId);
+export async function listPlayersByOrg(orgId, { limit = 20, offset = 0 } = {}) {
+  if (!hasDatabase()) {
+    return players
+      .filter((p) => p.orgId === orgId)
+      .slice(offset, offset + limit);
+  }
 
   const result = await query(
     `SELECT id, org_id, team_id, first_name, last_name, email, status, created_at, updated_at
-     FROM players WHERE org_id = $1 ORDER BY created_at DESC`,
-    [orgId]
+     FROM players WHERE org_id = $1 ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [orgId, limit, offset]
   );
   return result.rows;
 }

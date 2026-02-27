@@ -94,9 +94,9 @@ Gate C status: ✅ Complete (Google popup + email/password + backend sessions va
 ## Gate D — Backend/API Scale Baseline
 
 ### D1. API contract hardening
-- [ ] Pagination on all list endpoints
-- [ ] Input validation on critical endpoints
-- [ ] Consistent error envelope + status codes
+- [x] Pagination on all list endpoints
+- [x] Input validation on critical endpoints
+- [x] Consistent error envelope + status codes
 
 Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
 

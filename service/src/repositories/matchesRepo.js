@@ -2,13 +2,18 @@ import { hasDatabase, query } from "../db/client.js";
 
 const matches = [];
 
-export async function listMatchesByOrg(orgId) {
-  if (!hasDatabase()) return matches.filter((m) => m.orgId === orgId);
+export async function listMatchesByOrg(orgId, { limit = 20, offset = 0 } = {}) {
+  if (!hasDatabase()) {
+    return matches
+      .filter((m) => m.orgId === orgId)
+      .slice(offset, offset + limit);
+  }
 
   const result = await query(
     `SELECT id, org_id, home_team_id, away_team_id, starts_at, status, created_at, updated_at
-     FROM matches WHERE org_id = $1 ORDER BY created_at DESC`,
-    [orgId]
+     FROM matches WHERE org_id = $1 ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [orgId, limit, offset]
   );
   return result.rows;
 }

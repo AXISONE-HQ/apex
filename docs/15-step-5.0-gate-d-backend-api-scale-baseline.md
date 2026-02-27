@@ -2,7 +2,7 @@
 
 ## Status
 - **Gate:** D (Backend/API Scale Baseline)
-- **State:** 🚧 In progress
+- **State:** 🚧 In progress (D1 complete)
 - **Date:** 2026-02-27
 - **Owner:** Fred + Axi
 
@@ -38,18 +38,18 @@ Harden API and data access patterns so MVP can safely scale toward:
 
 ## Immediate execution plan (next)
 
-1. **Endpoint audit**
-   - Enumerate all list endpoints and check for unbounded responses.
+1. ✅ **Endpoint audit**
+   - Enumerated list endpoints and removed unbounded responses.
 
-2. **Pagination implementation**
-   - Add `limit` + `offset` (or cursor) in repository + route layers.
-   - Apply safe defaults and max caps.
+2. ✅ **Pagination implementation**
+   - Added `limit` + `offset` in repository + route layers.
+   - Applied safe defaults and max cap (`limit <= 100`).
 
-3. **Validation pass**
-   - Add minimal schema checks for create/update payloads (teams/players/matches).
+3. ✅ **Validation pass**
+   - Added minimal payload checks for create/update routes (teams/players/matches).
 
-4. **Error normalization**
-   - Consistent JSON error shape for 4xx/5xx paths.
+4. ✅ **Error normalization**
+   - Standardized domain 400/404 responses with structured JSON error envelope.
 
 5. **Index + query review**
    - Extract top queries and map required indexes.
