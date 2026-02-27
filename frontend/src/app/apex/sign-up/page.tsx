@@ -1,6 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { API_BASE_URL, auth } from "@/lib/firebaseClient";
+
+async function createBackendSession(idToken: string) {
+  const res = await fetch(`${API_BASE_URL}/auth/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ idToken })
+  });
+  if (!res.ok) throw new Error("session_failed");
+}
 
 export default function SignUpPage() {
   const [firstName, setFirstName] = useState("");
@@ -8,7 +20,24 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [clubName, setClubName] = useState("");
-  const [created, setCreated] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignup() {
+    try {
+      setLoading(true);
+      setError("");
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+      const idToken = await cred.user.getIdToken();
+      await createBackendSession(idToken);
+      window.location.href = "/apex";
+    } catch {
+      setError("Sign-up failed. Check email/password rules and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f5fb] px-6 py-10">
@@ -27,19 +56,13 @@ export default function SignUpPage() {
           <input className="w-full rounded-xl border border-white/60 bg-white/55 px-3 py-2 text-sm" placeholder="Club name" value={clubName} onChange={(e) => setClubName(e.target.value)} />
         </div>
 
-        <button
-          className="mt-4 w-full rounded-xl border border-white/40 bg-[#FF5264]/95 px-4 py-2.5 text-sm font-medium text-white shadow-[0_8px_22px_rgba(255,82,100,0.45)] disabled:opacity-50"
-          disabled={!firstName || !lastName || !email || !password || !clubName}
-          onClick={() => setCreated(true)}
-        >
+        <button className="mt-4 w-full rounded-xl border border-white/40 bg-[#FF5264]/95 px-4 py-2.5 text-sm font-medium text-white shadow-[0_8px_22px_rgba(255,82,100,0.45)] disabled:opacity-50" disabled={loading || !firstName || !lastName || !email || !password || !clubName} onClick={handleSignup}>
           Create account
         </button>
 
-        {created ? <div className="mt-3 text-sm text-emerald-600">Account created (demo).</div> : null}
+        {error ? <div className="mt-3 text-sm text-rose-600">{error}</div> : null}
 
-        <a href="/apex/login" className="mt-4 inline-block text-xs text-black/70 underline underline-offset-2">
-          Back to login
-        </a>
+        <a href="/apex/login" className="mt-4 inline-block text-xs text-black/70 underline underline-offset-2">Back to login</a>
       </div>
     </div>
   );

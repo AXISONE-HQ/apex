@@ -28,10 +28,15 @@ router.post("/session", async (req, res) => {
       activeOrgId: authz.activeOrgId
     });
 
+    const cookieSameSite = process.env.AUTH_COOKIE_SAMESITE || "none";
+    const cookieSecure = process.env.AUTH_COOKIE_SECURE
+      ? process.env.AUTH_COOKIE_SECURE === "true"
+      : process.env.NODE_ENV !== "development";
+
     res.cookie("apex_session", session.sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       path: "/"
     });
 

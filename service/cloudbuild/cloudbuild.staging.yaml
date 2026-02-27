@@ -28,7 +28,7 @@ steps:
       - --set-secrets
       - DATABASE_URL=apex-staging-database-url:latest,BOOTSTRAP_TOKEN=apex-staging-bootstrap-token:latest
       - --set-env-vars
-      - NODE_ENV=staging
+      - NODE_ENV=staging,CORS_ALLOWED_ORIGINS=https://apex-staging-web.web.app,AUTH_COOKIE_SAMESITE=none,AUTH_COOKIE_SECURE=true
       - --allow-unauthenticated
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-api:$SHORT_SHA
