@@ -101,9 +101,9 @@ Gate C status: ✅ Complete (Google popup + email/password + backend sessions va
 Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
 
 ### D2. Database performance baseline
-- [ ] Tenant-aware indexing strategy documented
-- [ ] Indexes created for high-growth entities (players, teams, events, memberships, sessions)
-- [ ] Query plans reviewed for top endpoints
+- [x] Tenant-aware indexing strategy documented
+- [x] Indexes created for high-growth entities (players, teams, events, memberships, sessions)
+- [x] Query plans reviewed for top endpoints
 
 ### D3. Stateful logic removed from instances
 - [ ] API instances remain stateless
