@@ -54,7 +54,7 @@ Key docs to read first:
 
 Current truth:
 - Step 5.0 is complete.
-- Next work should start as Step 6.x (production operations + expansion), unless instructed otherwise.
+- Step 6.0 has started (production ops + expansion planning docs created).
 
 Your first action:
 - Confirm current state from docs above,
