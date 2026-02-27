@@ -131,8 +131,10 @@ Gate D status: ✅ Complete (D1 + D2 + D3 + D4)
 - [ ] Request latency dashboards
 - [ ] Error-rate dashboards
 - [ ] DB health/saturation metrics
-- [ ] Auth failure metrics
-- [ ] OpenAI/API failure metrics
+- [x] Auth failure metrics
+- [x] OpenAI/API failure metrics
+
+Working doc: `docs/19-step-5.0-gate-e-observability-protection-slo.md`
 
 ### E2. Protection controls
 - [ ] Rate limiting for auth endpoints

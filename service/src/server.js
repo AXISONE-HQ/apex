@@ -58,6 +58,24 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(cookieParser());
 
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on("finish", () => {
+    const latencyMs = Date.now() - started;
+    const entry = {
+      type: "request_log",
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      latencyMs,
+      hasSession: Boolean(req.cookies?.apex_session),
+      userId: req.user?.id || null,
+    };
+    console.log(JSON.stringify(entry));
+  });
+  next();
+});
+
 app.use(async (req, _res, next) => {
   const sid = req.cookies?.apex_session;
   if (sid) {
