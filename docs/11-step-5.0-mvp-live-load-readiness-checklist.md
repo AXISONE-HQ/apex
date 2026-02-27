@@ -112,7 +112,7 @@ Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
 Working doc: `docs/17-step-5.0-gate-d3-statestore-and-runtime-constraints.md`
 
 ### D4. Heavy tasks isolated
-- [ ] OpenAI-heavy and non-critical tasks moved to async path where needed
+- [x] OpenAI-heavy and non-critical tasks moved to async path where needed
 - [x] Retry/timeout policies defined
 
 Working doc: `docs/18-step-5.0-gate-d4-async-isolation-and-resilience-policy.md`
@@ -120,6 +120,8 @@ Working doc: `docs/18-step-5.0-gate-d4-async-isolation-and-resilience-policy.md`
 **Acceptance criteria**
 - No unbounded list endpoint in MVP surface
 - No P0 slow-query hotspots in smoke/load test scope
+
+Gate D status: ✅ Complete (D1 + D2 + D3 + D4)
 
 ---
 

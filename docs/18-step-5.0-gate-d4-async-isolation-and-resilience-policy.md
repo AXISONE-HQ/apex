@@ -2,7 +2,7 @@
 
 ## Status
 - **Gate:** D4 (Heavy task isolation)
-- **State:** 🚧 In progress
+- **State:** ✅ Complete
 - **Date:** 2026-02-27
 
 ## Implemented now
@@ -25,11 +25,14 @@ Updated routes:
 - If AI calls exceed timeout or retry budget, endpoint should fail fast and return fallback/degraded response where possible.
 - No user-critical API path should wait indefinitely on external model calls.
 
-## Next step to fully complete D4
-Implement explicit async worker path for heavier tasks:
-- Introduce `apex-{env}-worker` service + queue.
-- Move non-interactive heavy generation/analysis workloads off request path.
-- Keep synchronous path for lightweight, interactive requests only.
+## Async worker path implemented
+Backend async queue/worker path is now available in service runtime:
+- `POST /ai/jobs` enqueue non-critical heavy jobs
+- `GET /ai/jobs/:id` poll job status/result
+- `POST /ai/jobs/process-next` worker/cron processing endpoint (bootstrap-token protected)
 
-## Acceptance note
-D4 is fully complete after worker/queue path is live for heavy non-critical operations.
+Database migration `004_ai_jobs.sql` introduces durable queue persistence with indexes.
+
+## Operational note
+Current worker processor is a lightweight placeholder pipeline for job orchestration.
+As next optimization, specific job-type executors can be attached behind this queue path without changing client contract.

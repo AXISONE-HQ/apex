@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import teamsRoutes from "./routes/domain/teams.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
+import aiJobsRoutes from "./routes/aiJobs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
@@ -98,6 +99,7 @@ app.use("/auth", authRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/ai", aiJobsRoutes);
 
 app.get(
   "/secure/teams",
