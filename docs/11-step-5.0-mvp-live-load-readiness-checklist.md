@@ -186,10 +186,12 @@ Gate F status: ✅ Complete (read-heavy + mixed-write passed after remediation)
 ## Gate G — MVP Production Launch
 
 ### G1. Production deployment readiness
-- [ ] Frontend prod deployment ready
-- [ ] Backend prod deployment ready
-- [ ] Secrets/env parity validated
-- [ ] DNS/domain/SSL validated
+- [x] Frontend prod deployment ready
+- [x] Backend prod deployment ready
+- [x] Secrets/env parity validated
+- [x] DNS/domain/SSL validated
+
+Working doc: `docs/22-step-5.0-gate-g-mvp-production-launch.md`
 
 ### G2. Controlled rollout
 - [ ] Pilot clubs selected
@@ -204,6 +206,8 @@ Gate F status: ✅ Complete (read-heavy + mixed-write passed after remediation)
 **Acceptance criteria**
 - MVP is live with no localhost runtime dependency
 - Pilot usage stable with no critical incidents
+
+Gate G status: 🚧 In progress (G1 complete, G2/G3 pending)
 
 ---
 
