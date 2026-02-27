@@ -142,12 +142,16 @@ Working doc: `docs/19-step-5.0-gate-e-observability-protection-slo.md`
 - [x] Basic abuse protection strategy documented
 
 ### E3. SLO baseline
-- [ ] SLOs defined for login, roster load, schedule load, save/update flows
-- [ ] Alert thresholds documented
+- [x] SLOs defined for login, roster load, schedule load, save/update flows
+- [x] Alert thresholds documented
+
+Working doc: `docs/20-step-5.0-gate-e3-slo-and-alert-thresholds.md`
 
 **Acceptance criteria**
 - Alerts fire in test and route correctly
 - SLO dashboard is available before go-live
+
+Gate E status: ✅ Complete (E1 + E2 + E3)
 
 ---
 

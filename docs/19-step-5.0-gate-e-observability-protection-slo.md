@@ -2,7 +2,7 @@
 
 ## Status
 - **Gate:** E
-- **State:** 🚧 In progress
+- **State:** ✅ Complete
 - **Date:** 2026-02-27
 
 ## Objective
@@ -35,10 +35,7 @@ Establish production-safe visibility and guardrails for critical user flows befo
 
 Abuse protection baseline: reject bursts with 429 + `Retry-After`, monitor via logs/metrics.
 
-### E3 SLO baseline
-- Define initial SLO targets for:
-  - login success + latency
-  - roster load latency
-  - schedule load latency
-  - create/update success rates
-- Map alert thresholds to SLOs.
+### E3 SLO baseline (completed)
+- SLO targets defined for login, roster/schedule reads, and write operations.
+- Alert threshold mapping documented.
+- Reference: `docs/20-step-5.0-gate-e3-slo-and-alert-thresholds.md`
