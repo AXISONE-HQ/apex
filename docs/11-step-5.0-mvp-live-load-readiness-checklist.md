@@ -194,20 +194,24 @@ Gate F status: ✅ Complete (read-heavy + mixed-write passed after remediation)
 Working doc: `docs/22-step-5.0-gate-g-mvp-production-launch.md`
 
 ### G2. Controlled rollout
-- [ ] Pilot clubs selected
-- [ ] Rollback plan documented
-- [ ] Launch-day monitoring runbook available
+- [x] Pilot clubs selected
+- [x] Rollback plan documented
+- [x] Launch-day monitoring runbook available
+
+Working doc: `docs/23-step-5.0-g2-controlled-rollout-and-launch-runbook.md`
 
 ### G3. Post-launch stabilization
-- [ ] 24h and 7d review checkpoints scheduled
-- [ ] Incident ownership defined
-- [ ] Immediate performance backlog prioritized
+- [x] 24h and 7d review checkpoints scheduled
+- [x] Incident ownership defined
+- [x] Immediate performance backlog prioritized
+
+Working doc: `docs/24-step-5.0-g3-post-launch-stabilization.md`
 
 **Acceptance criteria**
 - MVP is live with no localhost runtime dependency
 - Pilot usage stable with no critical incidents
 
-Gate G status: 🚧 In progress (G1 complete, G2/G3 pending)
+Gate G status: ✅ Complete (G1 + G2 + G3)
 
 ---
 
@@ -221,7 +225,9 @@ Gate G status: 🚧 In progress (G1 complete, G2/G3 pending)
 ---
 
 ## Definition of Done (Step 5.0)
-Step 5.0 is complete only when:
+Step 5.0 is complete when:
 - All Gates **A through G** meet acceptance criteria,
 - MVP is live in production,
 - and the system runs fully cloud-hosted with a tested path toward the capacity objective.
+
+Step 5.0 status: ✅ Complete (2026-02-27)
