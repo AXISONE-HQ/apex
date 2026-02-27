@@ -128,9 +128,9 @@ Gate D status: ✅ Complete (D1 + D2 + D3 + D4)
 ## Gate E — Observability, Protection, and SLOs
 
 ### E1. Observability
-- [ ] Request latency dashboards
-- [ ] Error-rate dashboards
-- [ ] DB health/saturation metrics
+- [x] Request latency dashboards
+- [x] Error-rate dashboards
+- [x] DB health/saturation metrics
 - [x] Auth failure metrics
 - [x] OpenAI/API failure metrics
 

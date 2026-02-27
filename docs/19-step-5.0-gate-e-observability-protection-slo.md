@@ -10,26 +10,22 @@ Establish production-safe visibility and guardrails for critical user flows befo
 
 ## Progress started
 
-### E1 Observability (started)
+### E1 Observability (completed baseline)
 1. Added structured request logging in backend API (`type=request_log`) including:
    - method, path, status, latencyMs, hasSession, userId
 2. Created logs-based metrics in GCP:
    - `apex_staging_auth_failures`
    - `apex_staging_ai_failures`
+3. Created staging observability dashboard:
+   - Dashboard: `Apex Staging Observability`
+   - Includes panels for request rate, 5xx rate, p95 latency, Cloud SQL CPU, auth failures, AI failures
+   - Dashboard id: `289a8154-f160-4127-ac0f-44abf3666e12`
 
 ### Existing alert baseline detected
 - Uptime check alert for staging API already exists.
 - Prod alerts already exist for uptime/latency/5xx/SQL CPU.
 
 ## Next tasks to complete Gate E
-
-### E1 Observability
-- Create staging dashboard for:
-  - API latency
-  - API error rate
-  - auth failures
-  - AI failures
-- Add DB health panel for staging SQL.
 
 ### E2 Protection controls (implemented baseline)
 - Added rate limiter middleware in backend service.
