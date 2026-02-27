@@ -30,6 +30,30 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const originAllowed = !origin || !allowedOrigins.length || allowedOrigins.includes(origin);
+
+  if (!originAllowed) {
+    return res.status(403).json({ error: "cors_origin_not_allowed" });
+  }
+
+  if (origin) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
+
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
 app.use(express.json());
 app.use(cookieParser());
 

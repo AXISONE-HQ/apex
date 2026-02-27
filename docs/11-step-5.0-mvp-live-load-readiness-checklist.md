@@ -56,7 +56,7 @@ Working doc: `docs/14-step-5.0-gate-b-frontend-cloud-cutover.md`
 ### B2. Localhost dependency removed
 - [x] No runtime use of `127.0.0.1:18789`
 - [x] No hardcoded localhost in frontend config
-- [ ] No hardcoded localhost in backend CORS/callback config
+- [x] No hardcoded localhost in backend CORS/callback config
 
 **Acceptance criteria**
 - Full staging UX works with local services off
@@ -69,23 +69,25 @@ Gate B status: ✅ Functionally complete (frontend cloud cutover done on Firebas
 ## Gate C — Auth & Session Reliability
 
 ### C1. Auth model finalized
-- [ ] Firebase Auth strategy confirmed (Google + optional email/password)
-- [ ] Backend token verification flow documented
+- [x] Firebase Auth strategy confirmed (Google + optional email/password)
+- [x] Backend token verification flow documented
 
 ### C2. OAuth and callback correctness
-- [ ] Authorized domains configured
-- [ ] Authorized JS origins configured
-- [ ] Redirect URIs configured with exact match
-- [ ] Canonical staging domain chosen and documented
+- [x] Authorized domains configured
+- [x] Authorized JS origins configured
+- [x] Redirect URIs configured with exact match
+- [x] Canonical staging domain chosen and documented
 
 ### C3. Session/cookie behavior validated
-- [ ] `/auth/session` success path validated
-- [ ] `/auth/me` validated from frontend
-- [ ] Logout/session invalidation validated
+- [x] `/auth/session` success path validated
+- [x] `/auth/me` validated from frontend
+- [x] Logout/session invalidation validated
 
 **Acceptance criteria**
 - 20/20 consecutive login attempts succeed in staging
 - No intermittent callback/redirect mismatch
+
+Gate C status: ✅ Complete (Google popup + email/password + backend sessions validated)
 
 ---
 
@@ -95,6 +97,8 @@ Gate B status: ✅ Functionally complete (frontend cloud cutover done on Firebas
 - [ ] Pagination on all list endpoints
 - [ ] Input validation on critical endpoints
 - [ ] Consistent error envelope + status codes
+
+Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
 
 ### D2. Database performance baseline
 - [ ] Tenant-aware indexing strategy documented

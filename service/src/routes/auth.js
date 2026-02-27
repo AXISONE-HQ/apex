@@ -7,6 +7,24 @@ import { seedRbac } from "../db/seedRbac.js";
 
 const router = Router();
 
+router.options("/session", (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (origin && (!allowedOrigins.length || allowedOrigins.includes(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
+
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  return res.sendStatus(204);
+});
+
 router.post("/session", async (req, res) => {
   const { idToken } = req.body || {};
   if (!idToken) {

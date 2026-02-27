@@ -17,5 +17,5 @@ export async function verifyIdentityToken(idToken) {
   }
 
   ensureFirebase();
-  return admin.auth().verifyIdToken(idToken, true);
+  return admin.auth().verifyIdToken(idToken);
 }
