@@ -47,20 +47,22 @@ Gate A status: ✅ Complete (signed off 2026-02-27)
 ## Gate B — Frontend Fully Off Localhost
 
 ### B1. Frontend deployed to cloud staging
-- [ ] Staging frontend URL is live
-- [ ] Frontend env vars defined in cloud
-- [ ] API base URL points to cloud API only
+- [x] Staging frontend URL is live
+- [x] Frontend env vars defined in cloud
+- [x] API base URL points to cloud API only
 
 Working doc: `docs/14-step-5.0-gate-b-frontend-cloud-cutover.md`
 
 ### B2. Localhost dependency removed
-- [ ] No runtime use of `127.0.0.1:18789`
-- [ ] No hardcoded localhost in frontend config
+- [x] No runtime use of `127.0.0.1:18789`
+- [x] No hardcoded localhost in frontend config
 - [ ] No hardcoded localhost in backend CORS/callback config
 
 **Acceptance criteria**
 - Full staging UX works with local services off
 - Grep/check confirms no active localhost runtime refs in app config
+
+Gate B status: ✅ Functionally complete (frontend cloud cutover done on Firebase Hosting).
 
 ---
 

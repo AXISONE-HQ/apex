@@ -1,0 +1,11 @@
+{
+  "hosting": [
+    {
+      "target": "staging",
+      "source": "frontend",
+      "frameworksBackend": {
+        "region": "us-central1"
+      }
+    }
+  ]
+}
