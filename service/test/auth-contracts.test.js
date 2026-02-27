@@ -72,3 +72,109 @@ test("GET scoped org route returns 200 when org scope matches", async () => {
   });
   assert.equal(res.status, 200);
 });
+
+test("POST /teams creates team with permission", async () => {
+  const res = await fetch(`${baseUrl}/teams`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u5", roles: ["ManagerCoach"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ name: "Sharks" })
+  });
+  assert.equal(res.status, 201);
+});
+
+test("POST /players denied without create permission", async () => {
+  const res = await fetch(`${baseUrl}/players`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u6", roles: ["Viewer"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ firstName: "A", lastName: "B" })
+  });
+  assert.equal(res.status, 403);
+});
+
+test("PATCH /teams/:id updates team", async () => {
+  const create = await fetch(`${baseUrl}/teams`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ name: "Lions" })
+  });
+  const created = await create.json();
+
+  const patch = await fetch(`${baseUrl}/teams/${created.id}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ name: "Lions FC" })
+  });
+
+  assert.equal(patch.status, 200);
+});
+
+test("DELETE /players/:id requires deactivate permission", async () => {
+  const create = await fetch(`${baseUrl}/players`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u8", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ firstName: "Del", lastName: "Test" })
+  });
+  const created = await create.json();
+
+  const del = await fetch(`${baseUrl}/players/${created.id}`, {
+    method: "DELETE",
+    headers: {
+      "x-user": JSON.stringify({ id: "u9", roles: ["Viewer"], activeOrgId: "org_demo" })
+    }
+  });
+
+  assert.equal(del.status, 403);
+});
+
+test("POST /matches/:id/result submits match result", async () => {
+  const makeTeam = async (name) => {
+    const res = await fetch(`${baseUrl}/teams`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      },
+      body: JSON.stringify({ name })
+    });
+    return res.json();
+  };
+
+  const t1 = await makeTeam("A");
+  const t2 = await makeTeam("B");
+
+  const matchRes = await fetch(`${baseUrl}/matches`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ homeTeamId: t1.id, awayTeamId: t2.id })
+  });
+  const match = await matchRes.json();
+
+  const submit = await fetch(`${baseUrl}/matches/${match.id}/result`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+    },
+    body: JSON.stringify({ homeScore: 2, awayScore: 1 })
+  });
+
+  assert.equal(submit.status, 201);
+});

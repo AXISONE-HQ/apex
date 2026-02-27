@@ -1,0 +1,20 @@
+{
+  "displayName": "apex-staging-api-auth-me-uptime",
+  "timeout": "10s",
+  "period": "60s",
+  "httpCheck": {
+    "path": "/auth/me",
+    "port": 443,
+    "useSsl": true,
+    "validateSsl": true,
+    "requestMethod": "GET"
+  },
+  "monitoredResource": {
+    "type": "uptime_url",
+    "labels": {
+      "project_id": "apex-v1-488611",
+      "host": "apex-staging-api-g6dsonn6nq-uc.a.run.app"
+    }
+  },
+  "selectedRegions": ["USA"]
+}

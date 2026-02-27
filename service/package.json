@@ -6,7 +6,8 @@
     "start": "node src/server.js",
     "test": "NODE_ENV=test node --test",
     "migrate": "node src/db/migrate.js",
-    "bootstrap-db": "node src/db/bootstrap.js"
+    "bootstrap-db": "node src/db/bootstrap.js",
+    "seed-domain-demo": "node src/db/seedDomainDemo.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

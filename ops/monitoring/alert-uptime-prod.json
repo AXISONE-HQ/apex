@@ -1,0 +1,27 @@
+{
+  "displayName": "apex-prod-api uptime check failed",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "prod /auth/me uptime failing",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND metric.label.\"check_id\"=\"apex-prod-api-auth-me-uptime-CG0orcPkxRg\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER"
+          }
+        ],
+        "comparison": "COMPARISON_LT",
+        "thresholdValue": 1,
+        "duration": "120s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "enabled": true,
+  "notificationChannels": [
+    "projects/apex-v1-488611/notificationChannels/14092469093517279805",
+    "projects/apex-v1-488611/notificationChannels/5054365008950393738"
+  ]
+}

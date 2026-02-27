@@ -1,0 +1,31 @@
+{
+  "displayName": "apex-test-alert-delivery",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "prod request rate > 0 (test)",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.label.\"service_name\"=\"apex-prod-api\" AND metric.type=\"run.googleapis.com/request_count\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "60s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "enabled": true,
+  "notificationChannels": [
+    "projects/apex-v1-488611/notificationChannels/14092469093517279805"
+  ],
+  "documentation": {
+    "content": "Temporary alert-delivery test policy.",
+    "mimeType": "text/markdown"
+  }
+}
