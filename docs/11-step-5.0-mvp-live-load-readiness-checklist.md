@@ -51,6 +51,8 @@ Gate A status: ✅ Complete (signed off 2026-02-27)
 - [ ] Frontend env vars defined in cloud
 - [ ] API base URL points to cloud API only
 
+Working doc: `docs/14-step-5.0-gate-b-frontend-cloud-cutover.md`
+
 ### B2. Localhost dependency removed
 - [ ] No runtime use of `127.0.0.1:18789`
 - [ ] No hardcoded localhost in frontend config
