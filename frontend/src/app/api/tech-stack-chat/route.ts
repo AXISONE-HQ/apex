@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAIChatCompletion } from "@/lib/openaiServer";
 
 type IncomingMsg = { role: "user" | "assistant"; text: string };
 
@@ -48,13 +49,11 @@ export async function POST(req: Request) {
 
     const history = messages.slice(-12).map((m) => ({ role: m.role, content: m.text }));
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const data = await openAIChatCompletion({
+      apiKey,
+      timeoutMs: 12000,
+      maxRetries: 2,
+      body: {
         model: "gpt-4o-mini",
         temperature: 0.4,
         response_format: {
@@ -89,15 +88,9 @@ export async function POST(req: Request) {
           { role: "system", content: `Project context:\n${JSON.stringify(context, null, 2)}` },
           ...history.map((m) => ({ role: m.role, content: m.content })),
         ],
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return NextResponse.json({ reply: `Model request failed: ${text}` }, { status: 200 });
-    }
-
-    const data = await response.json();
     const content: string = data?.choices?.[0]?.message?.content?.trim() || "{}";
 
     try {

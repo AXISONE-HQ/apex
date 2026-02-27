@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAIChatCompletion } from "@/lib/openaiServer";
 
 export async function POST(req: Request) {
   try {
@@ -28,13 +29,11 @@ Return exactly:
 Context JSON:
 ${JSON.stringify(body ?? {}, null, 2)}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const data = await openAIChatCompletion({
+      apiKey,
+      timeoutMs: 10000,
+      maxRetries: 2,
+      body: {
         model: "gpt-4o-mini",
         temperature: 0.35,
         response_format: {
@@ -61,17 +60,11 @@ ${JSON.stringify(body ?? {}, null, 2)}`;
           { role: "system", content: "You are a head coach performance assistant. Keep output practical and concise." },
           { role: "user", content: prompt },
         ],
-      }),
+      },
     });
 
-    if (!response.ok) {
-      return NextResponse.json({ plan: fallback, source: "fallback" });
-    }
-
-    const data = await response.json();
     const content = data?.choices?.[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(content);
-
     return NextResponse.json({ plan: parsed, source: "ai" });
   } catch {
     return NextResponse.json({

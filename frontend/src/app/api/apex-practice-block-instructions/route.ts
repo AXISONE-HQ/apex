@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAIChatCompletion } from "@/lib/openaiServer";
 
 export async function POST(req: Request) {
   try {
@@ -31,27 +32,20 @@ Return concise markdown with sections:
 4) Common mistakes + fixes
 5) Success criteria`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const data = await openAIChatCompletion({
+      apiKey,
+      timeoutMs: 10000,
+      maxRetries: 2,
+      body: {
         model: "gpt-4o-mini",
         temperature: 0.4,
         messages: [
           { role: "system", content: "You are an elite youth coach. Be actionable and specific." },
           { role: "user", content: prompt },
         ],
-      }),
+      },
     });
 
-    if (!response.ok) {
-      return NextResponse.json({ error: await response.text() }, { status: 500 });
-    }
-
-    const data = await response.json();
     const instructions = data?.choices?.[0]?.message?.content?.trim() || "No instructions returned.";
     return NextResponse.json({ instructions });
   } catch (e) {

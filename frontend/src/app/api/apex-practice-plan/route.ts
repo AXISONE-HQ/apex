@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAIChatCompletion } from "@/lib/openaiServer";
 
 type Block = {
   title: string;
@@ -45,13 +46,11 @@ All outcomes must be objectively measurable (counts, percentages, times, or scor
 Use sport-specific terminology for ${sport}.
 Return JSON only with fields: title, description, outcome, minutes.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const data = await openAIChatCompletion({
+      apiKey,
+      timeoutMs: 15000,
+      maxRetries: 2,
+      body: {
         model: "gpt-4o-mini",
         temperature: 0.5,
         response_format: {
@@ -91,15 +90,9 @@ Return JSON only with fields: title, description, outcome, minutes.`;
           },
           { role: "user", content: prompt },
         ],
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return NextResponse.json({ error: text || "Model request failed" }, { status: 500 });
-    }
-
-    const data = await response.json();
     const content: string = data?.choices?.[0]?.message?.content ?? "{}";
 
     const parsed = JSON.parse(content) as { blocks?: Block[] };

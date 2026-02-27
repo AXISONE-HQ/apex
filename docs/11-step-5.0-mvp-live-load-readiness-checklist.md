@@ -113,7 +113,9 @@ Working doc: `docs/17-step-5.0-gate-d3-statestore-and-runtime-constraints.md`
 
 ### D4. Heavy tasks isolated
 - [ ] OpenAI-heavy and non-critical tasks moved to async path where needed
-- [ ] Retry/timeout policies defined
+- [x] Retry/timeout policies defined
+
+Working doc: `docs/18-step-5.0-gate-d4-async-isolation-and-resilience-policy.md`
 
 **Acceptance criteria**
 - No unbounded list endpoint in MVP surface

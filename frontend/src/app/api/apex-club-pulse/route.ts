@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openAIChatCompletion } from "@/lib/openaiServer";
 
 export async function POST(req: Request) {
   try {
@@ -31,13 +32,11 @@ export async function POST(req: Request) {
 Given this JSON metrics snapshot, return a concise pulse report.
 ${JSON.stringify(body ?? {}, null, 2)}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const data = await openAIChatCompletion({
+      apiKey,
+      timeoutMs: 12000,
+      maxRetries: 2,
+      body: {
         model: "gpt-4o-mini",
         temperature: 0.3,
         response_format: {
@@ -61,18 +60,11 @@ ${JSON.stringify(body ?? {}, null, 2)}`;
           { role: "system", content: "Be concrete, practical, and concise." },
           { role: "user", content: prompt },
         ],
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || "Model request failed");
-    }
-
-    const data = await response.json();
     const content: string = data?.choices?.[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(content);
-
     return NextResponse.json({ pulse: parsed, source: "ai" }, { status: 200 });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unexpected error" }, { status: 500 });
