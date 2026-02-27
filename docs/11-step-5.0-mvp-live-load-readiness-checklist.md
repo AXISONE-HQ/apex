@@ -158,15 +158,17 @@ Gate E status: ✅ Complete (E1 + E2 + E3)
 ## Gate F — Load Readiness Validation
 
 ### F1. Staging load tests
-- [ ] Tenant-distributed test scenarios prepared
+- [x] Tenant-distributed test scenarios prepared
 - [ ] Core endpoints tested under concurrent load
 - [ ] Login + read-heavy + write-heavy mixes tested
 
+Working doc: `docs/21-step-5.0-gate-f-load-readiness-validation.md`
+
 ### F2. Capacity thresholds
-- [ ] Throughput target defined
-- [ ] p95/p99 latency thresholds defined
-- [ ] Error-rate threshold defined
-- [ ] DB CPU/connection saturation thresholds defined
+- [x] Throughput target defined
+- [x] p95/p99 latency thresholds defined
+- [x] Error-rate threshold defined
+- [x] DB CPU/connection saturation thresholds defined
 
 ### F3. Bottleneck remediation loop
 - [ ] Findings logged
