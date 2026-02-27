@@ -78,15 +78,19 @@ app.use(async (req, _res, next) => {
     }
   }
 
-  // Temporary testing override header.
-  const userHeader = req.header("x-user");
-  if (userHeader) {
-    try {
-      req.user = JSON.parse(userHeader);
-    } catch {
-      req.user = { id: "usr_invalid", roles: [] };
+  // Temporary testing override header (dev/test only).
+  const allowHeaderAuth = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+  if (allowHeaderAuth) {
+    const userHeader = req.header("x-user");
+    if (userHeader) {
+      try {
+        req.user = JSON.parse(userHeader);
+      } catch {
+        req.user = { id: "usr_invalid", roles: [] };
+      }
     }
   }
+
   next();
 });
 
@@ -125,6 +129,10 @@ app.post("/admin/bootstrap-db", async (req, res) => {
 });
 
 app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+
+if (["staging", "production"].includes(process.env.NODE_ENV || "") && !process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required in staging/production");
+}
 
 if (process.env.NODE_ENV !== "test") {
   const port = process.env.PORT || 8080;

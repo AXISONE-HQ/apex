@@ -106,8 +106,10 @@ Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
 - [x] Query plans reviewed for top endpoints
 
 ### D3. Stateful logic removed from instances
-- [ ] API instances remain stateless
-- [ ] Sessions/state persisted in managed stores only
+- [x] API instances remain stateless
+- [x] Sessions/state persisted in managed stores only
+
+Working doc: `docs/17-step-5.0-gate-d3-statestore-and-runtime-constraints.md`
 
 ### D4. Heavy tasks isolated
 - [ ] OpenAI-heavy and non-critical tasks moved to async path where needed
