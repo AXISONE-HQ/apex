@@ -137,9 +137,9 @@ Gate D status: ✅ Complete (D1 + D2 + D3 + D4)
 Working doc: `docs/19-step-5.0-gate-e-observability-protection-slo.md`
 
 ### E2. Protection controls
-- [ ] Rate limiting for auth endpoints
-- [ ] Rate limiting/budget controls for AI endpoints
-- [ ] Basic abuse protection strategy documented
+- [x] Rate limiting for auth endpoints
+- [x] Rate limiting/budget controls for AI endpoints
+- [x] Basic abuse protection strategy documented
 
 ### E3. SLO baseline
 - [ ] SLOs defined for login, roster load, schedule load, save/update flows

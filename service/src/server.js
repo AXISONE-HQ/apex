@@ -12,6 +12,7 @@ import { getSession } from "./repositories/sessionsRepo.js";
 import { getUserById } from "./repositories/usersRepo.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedRbac } from "./db/seedRbac.js";
+import { createRateLimiter } from "./middleware/rateLimit.js";
 
 const app = express();
 
@@ -113,11 +114,23 @@ app.use(async (req, _res, next) => {
   next();
 });
 
-app.use("/auth", authRoutes);
+const authLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 60,
+  keyFn: (req) => req.ip || "unknown",
+});
+
+const aiLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => req.user?.id || req.ip || "unknown",
+});
+
+app.use("/auth", authLimiter, authRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
-app.use("/ai", aiJobsRoutes);
+app.use("/ai", aiLimiter, aiJobsRoutes);
 
 app.get(
   "/secure/teams",

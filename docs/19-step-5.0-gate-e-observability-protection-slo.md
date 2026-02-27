@@ -31,9 +31,13 @@ Establish production-safe visibility and guardrails for critical user flows befo
   - AI failures
 - Add DB health panel for staging SQL.
 
-### E2 Protection controls
-- Add basic rate limits on auth endpoints (`/auth/session`, `/auth/logout`, `/auth/me`).
-- Add AI endpoint budget controls (request limits + timeout caps already in place).
+### E2 Protection controls (implemented baseline)
+- Added rate limiter middleware in backend service.
+- Applied on auth routes (`/auth/*`): 60 requests/minute per IP.
+- Applied on AI routes (`/ai/*`): 30 requests/minute per user/IP.
+- Combined with existing AI timeout/retry caps from Gate D4 for budget control.
+
+Abuse protection baseline: reject bursts with 429 + `Retry-After`, monitor via logs/metrics.
 
 ### E3 SLO baseline
 - Define initial SLO targets for:
