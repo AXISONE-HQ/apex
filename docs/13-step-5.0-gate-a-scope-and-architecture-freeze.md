@@ -2,7 +2,7 @@
 
 ## Status
 - **Gate:** A (Scope & Architecture Freeze)
-- **State:** 🚧 Draft for sign-off
+- **State:** ✅ Signed off
 - **Date:** 2026-02-27
 - **Owner:** Fred + Axi
 
@@ -52,7 +52,8 @@ Freeze what MVP includes/excludes and lock service boundaries so execution can p
 
 ## Frontend service
 - **Role:** web app UI for directors/coaches/players/parents
-- **Runtime target:** cloud-hosted web app (provider/path to confirm)
+- **Runtime target:** **Firebase Hosting (Option B)**
+- **Decision driver:** lowest operations overhead is the top priority (with cost, speed, and control still important)
 - **Current note:** local `127.0.0.1:18789` is mainly frontend and must be replaced
 
 ## Backend API service
@@ -73,10 +74,10 @@ Freeze what MVP includes/excludes and lock service boundaries so execution can p
 
 ---
 
-## Decisions Needed from Fred (Sign-off)
-1. Confirm frontend runtime target and canonical frontend repo/path
-2. Confirm whether email/password is enabled in MVP Day-1 (via Firebase)
-3. Confirm minimum dashboard widgets required for MVP launch
+## Sign-off Decisions (Confirmed)
+1. Frontend runtime target: **Firebase Hosting (Option B)**
+2. Email/password in MVP Day-1: **Yes (required)**
+3. Dashboard scope for MVP: **Use current local frontend scope as baseline**
 
 ---
 

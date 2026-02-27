@@ -30,13 +30,17 @@ Linked doc: `docs/13-step-5.0-gate-a-scope-and-architecture-freeze.md`
 - No unresolved “maybe for MVP” items
 
 ### A2. Service boundaries frozen
-- [ ] Frontend service selected and documented
-- [ ] Backend API service boundary documented
-- [ ] Async worker/service boundary documented for heavy tasks
-- [ ] OpenAI integration path documented (sync vs async)
+- [x] Frontend service selected and documented
+- [x] Backend API service boundary documented
+- [x] Async worker/service boundary documented for heavy tasks
+- [x] OpenAI integration path documented (sync vs async)
+
+Linked doc: `docs/13-step-5.0-gate-a-scope-and-architecture-freeze.md`
 
 **Acceptance criteria**
 - Architecture diagram + service responsibility list committed
+
+Gate A status: ✅ Complete (signed off 2026-02-27)
 
 ---
 
