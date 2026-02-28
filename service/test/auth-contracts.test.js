@@ -37,6 +37,21 @@ test("GET /auth/me returns 401 without session", async () => {
   assert.equal(res.status, 401);
 });
 
+test("GET /healthz returns 200", async () => {
+  const res = await fetch(`${baseUrl}/healthz`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "ok");
+});
+
+test("GET /readyz returns 200", async () => {
+  const res = await fetch(`${baseUrl}/readyz`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "ready");
+  assert.equal(body.checks.database.ok, true);
+});
+
 test("GET /secure/teams returns 403 when role lacks permission", async () => {
   const res = await fetch(`${baseUrl}/secure/teams`, {
     headers: {

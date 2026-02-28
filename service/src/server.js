@@ -13,6 +13,7 @@ import { getUserById } from "./repositories/usersRepo.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedRbac } from "./db/seedRbac.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
+import { hasDatabase, query } from "./db/client.js";
 
 const app = express();
 
@@ -155,7 +156,42 @@ app.post("/admin/bootstrap-db", async (req, res) => {
   }
 });
 
-app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "apex-v1-service",
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get("/readyz", async (_req, res) => {
+  if (!hasDatabase()) {
+    return res.status(200).json({
+      status: "ready",
+      checks: {
+        database: { ok: true, mode: "memory" }
+      }
+    });
+  }
+
+  try {
+    await query("select 1");
+    return res.status(200).json({
+      status: "ready",
+      checks: {
+        database: { ok: true, mode: "postgres" }
+      }
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: "not_ready",
+      checks: {
+        database: { ok: false, mode: "postgres", error: "query_failed" }
+      },
+      message: err.message
+    });
+  }
+});
 
 if (["staging", "production"].includes(process.env.NODE_ENV || "") && !process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required in staging/production");
