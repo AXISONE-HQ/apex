@@ -1,22 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-
-declare global {
-  interface Window {
-    hbspt?: {
-      forms: {
-        create: (config: {
-          region: string;
-          portalId: string;
-          formId: string;
-          target: string;
-          onFormReady?: () => void;
-        }) => void;
-      };
-    };
-  }
-}
+import { useMemo } from "react";
 
 const heroMetrics = [
   { label: "Clubs onboarded", value: "24" },
@@ -43,25 +27,6 @@ const featureColumns = [
   {
     title: "Parent & player trust",
     body: "Transparent communication, tryout updates, and performance snapshots that show progress without blowing up staff workload.",
-  },
-];
-
-const steps = [
-  {
-    title: "Share how your club works",
-    copy: "We collect your programs, season cadence, and the messy tools you rely on now.",
-  },
-  {
-    title: "Configure Apex for your model",
-    copy: "We adapt templates for roles, org structure, payments, and development pathways.",
-  },
-  {
-    title: "Launch with a pilot group",
-    copy: "Onboard a squad, coach pod, or academy program with live support and observability.",
-  },
-  {
-    title: "Scale across the club",
-    copy: "Roll forward with a playbook for ops, coaching standards, and data you can defend.",
   },
 ];
 
@@ -93,63 +58,9 @@ const faqs = [
   },
 ];
 
+const HUBSPOT_URL = "https://5o7o90.share-na3.hsforms.com/2AC2SSVehRQiYqLBMdliFGA";
+
 export default function ApexLandingPage() {
-  const formRef = useRef<HTMLDivElement | null>(null);
-  const [formMounted, setFormMounted] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [waitlistModalOpen, setWaitlistModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!formRef.current || formMounted) return;
-
-    const scriptId = "hs-forms-script";
-
-    const createForm = () => {
-      if (!window.hbspt || !formRef.current) {
-        setFormError("Form could not load. Please open the HubSpot link in a new tab.");
-        return;
-      }
-
-      try {
-        window.hbspt.forms.create({
-          region: "na3",
-          portalId: "5o7o90",
-          formId: "2AC2SSVehRQiYqLBMdliFGA",
-          target: "#hubspot-waitlist-form",
-          onFormReady: () => setFormMounted(true),
-        });
-      } catch (err) {
-        console.error("HubSpot form error", err);
-        setFormError("Form could not load. Please open the HubSpot link in a new tab.");
-      }
-    };
-
-    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
-
-    if (existingScript && window.hbspt) {
-      createForm();
-      return;
-    }
-
-    if (existingScript && !window.hbspt) {
-      existingScript.addEventListener("load", createForm);
-      return () => existingScript.removeEventListener("load", createForm);
-    }
-
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.src = "https://js.hsforms.net/forms/embed/v2.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.onload = createForm;
-    script.onerror = () => setFormError("Could not load HubSpot. Use the fallback link below.");
-    document.body.appendChild(script);
-
-    return () => {
-      script.removeEventListener("load", createForm);
-    };
-  }, [formMounted]);
-
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
@@ -186,13 +97,14 @@ export default function ApexLandingPage() {
                 Apex standardizes coaching quality, automates operations, and gives families the transparency they expect. We’re inviting the next cohort of clubs onto the platform.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setWaitlistModalOpen(true)}
+                <a
+                  href={HUBSPOT_URL}
+                  target="_blank"
+                  rel="noreferrer"
                   className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black shadow-[0_20px_45px_rgba(255,255,255,0.18)]"
                 >
                   Join the waitlist
-                </button>
+                </a>
                 <a
                   href="/apex/login"
                   className="rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white/80 hover:border-white/60"
@@ -216,7 +128,6 @@ export default function ApexLandingPage() {
                 “Apex flagged U15 attendance for the third straight week. It automatically suggested a tactical mini-session and sent calendar nudges to parents.”
               </div>
             </div>
-
           </div>
         </section>
 
@@ -271,18 +182,19 @@ export default function ApexLandingPage() {
                 <li>✔️ Direct input on roadmap + pricing</li>
               </ul>
               <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setWaitlistModalOpen(true)}
+                <a
+                  href={HUBSPOT_URL}
+                  target="_blank"
+                  rel="noreferrer"
                   className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black shadow-[0_15px_35px_rgba(255,255,255,0.2)]"
                 >
                   Open waitlist form
-                </button>
+                </a>
                 <a
-                  href="https://5o7o90.share-na3.hsforms.com/2AC2SSVehRQiYqLBMdliFGA"
-                  className="rounded-full border border-white/30 px-6 py-2.5 text-sm font-semibold text-white/80 hover:border-white/60"
+                  href={HUBSPOT_URL}
                   target="_blank"
                   rel="noreferrer"
+                  className="rounded-full border border-white/30 px-6 py-2.5 text-sm font-semibold text-white/80 hover:border-white/60"
                 >
                   Open in HubSpot
                 </a>
@@ -292,21 +204,60 @@ export default function ApexLandingPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div
-                id="hubspot-waitlist-form"
-                ref={formRef}
-                className="min-h-[320px]"
-                aria-live="polite"
-              />
-              {!formMounted && !formError ? (
-                <div className="mt-4 text-sm text-white/60">
-                  Loading form… if this takes more than a few seconds, open the HubSpot link above.
-                </div>
-              ) : null}
-              {formError ? (
-                <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100">
-                  {formError}
-                </div>
-              ) : null}
-            </div>{
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+              <p className="text-base font-semibold text-white">How the waitlist works</p>
+              <ul className="mt-4 list-disc space-y-2 pl-4">
+                <li>Fill out the HubSpot form (club info + goals).</li>
+                <li>We schedule a short onboarding planning call.</li>
+                <li>You join the next cohort once your data is ready.</li>
+              </ul>
+              <p className="mt-4">
+                Have questions? Email <a className="underline" href="mailto:hello@axisone.ca">hello@axisone.ca</a> and we’ll help.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="process" className="mx-auto max-w-6xl space-y-6 px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#c7b6ff]">How onboarding works</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {featureColumns.map((step) => (
+              <div key={step.title} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <h3 className="text-lg font-semibold text-white">{step.title}</h3>
+                <p className="mt-2 text-sm text-white/70">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="testimonials" className="mx-auto max-w-6xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#c7b6ff]">What clubs say</p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {testimonials.map((quote) => (
+              <blockquote key={quote.author} className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/80">
+                “{quote.quote}”
+                <footer className="mt-3 text-xs text-white/60">— {quote.author}</footer>
+              </blockquote>
+            ))}
+          </div>
+        </section>
+
+        <section id="faq" className="mx-auto max-w-6xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#c7b6ff]">FAQ</p>
+          <div className="mt-6 space-y-4">
+            {faqs.map((faq) => (
+              <div key={faq.q} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <h3 className="text-base font-semibold text-white">{faq.q}</h3>
+                <p className="mt-2 text-sm text-white/70">{faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-white/10 bg-black/40 py-6 text-center text-xs text-white/45">
+        © {year} Apex. Built on OpenClaw.
+      </footer>
+    </div>
+  );
+}
