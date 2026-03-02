@@ -3,6 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hasDatabase, query } from "./client.js";
 
+// NOTE: Node's built-in test runner executes test files concurrently in a single
+// process. Many tests call runMigrations() in before() hooks; we single-flight
+// migrations per-process to avoid DDL races (e.g., CREATE EXTENSION).
 let migrationsPromise = null;
 
 const __filename = fileURLToPath(import.meta.url);
