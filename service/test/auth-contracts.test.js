@@ -8,7 +8,21 @@ import app from "../src/server.js";
 let server;
 let baseUrl;
 
+const DB_ENABLED = Boolean(process.env.DATABASE_URL);
+const TEST_ORG_ID = DB_ENABLED ? "00000000-0000-0000-0000-000000000001" : "org_demo";
+
 test.before(async () => {
+  if (DB_ENABLED) {
+    const { query } = await import("../src/db/client.js");
+    const { runMigrations } = await import("../src/db/migrate.js");
+
+    await runMigrations();
+    await query(
+      "INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING",
+      [TEST_ORG_ID, "Test Org", "test-org"]
+    );
+  }
+
   server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address();
@@ -93,7 +107,7 @@ test("POST /teams creates team with permission", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u5", roles: ["ManagerCoach"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u5", roles: ["ManagerCoach"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ name: "Sharks" })
   });
@@ -105,7 +119,7 @@ test("POST /players denied without create permission", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u6", roles: ["Viewer"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u6", roles: ["Viewer"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ firstName: "A", lastName: "B" })
   });
@@ -117,7 +131,7 @@ test("PATCH /teams/:id updates team", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ name: "Lions" })
   });
@@ -127,7 +141,7 @@ test("PATCH /teams/:id updates team", async () => {
     method: "PATCH",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u7", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ name: "Lions FC" })
   });
@@ -140,7 +154,7 @@ test("DELETE /players/:id requires deactivate permission", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u8", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u8", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ firstName: "Del", lastName: "Test" })
   });
@@ -149,7 +163,7 @@ test("DELETE /players/:id requires deactivate permission", async () => {
   const del = await fetch(`${baseUrl}/players/${created.id}`, {
     method: "DELETE",
     headers: {
-      "x-user": JSON.stringify({ id: "u9", roles: ["Viewer"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u9", roles: ["Viewer"], activeOrgId: TEST_ORG_ID })
     }
   });
 
@@ -162,7 +176,7 @@ test("POST /matches/:id/result submits match result", async () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+        "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
       },
       body: JSON.stringify({ name })
     });
@@ -176,7 +190,7 @@ test("POST /matches/:id/result submits match result", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ homeTeamId: t1.id, awayTeamId: t2.id })
   });
@@ -186,7 +200,7 @@ test("POST /matches/:id/result submits match result", async () => {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: "org_demo" })
+      "x-user": JSON.stringify({ id: "u10", roles: ["OrgAdmin"], activeOrgId: TEST_ORG_ID })
     },
     body: JSON.stringify({ homeScore: 2, awayScore: 1 })
   });
