@@ -1,5 +1,6 @@
 export const rolePermissions = {
   SuperAdmin: ["*"],
+  AxisOneAdmin: ["admin.page.view", "admin.page.clubs.view", "admin.clubs.create"],
   OrgAdmin: [
     "dashboard.*",
     "teams.*",
@@ -8,6 +9,8 @@ export const rolePermissions = {
     "analytics.*",
     "billing.*",
     "admin.page.view",
+    "admin.page.clubs.view",
+    "admin.clubs.create",
     "admin.function.user.invite",
     "admin.function.user.disable",
     "admin.function.role.assign",
