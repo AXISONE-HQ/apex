@@ -24,8 +24,11 @@ if (!process.env.DATABASE_URL) {
     await runMigrations();
 
     // Minimal fixtures
-    await query("INSERT INTO organizations (id, name, slug, country) VALUES ($1,$2,$3,$4)", [orgId, "Org", `org-${orgId.slice(0, 8)}`, "CA"]);
-    await query("INSERT INTO users (id, email, name) VALUES ($1,$2,$3)", [userId, `u-${userId.slice(0, 8)}@e.com`, "User"]);
+    await query("INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3)", [orgId, "Org", `org-${orgId.slice(0, 8)}`]);
+    await query(
+      "INSERT INTO users (id, external_uid, email, name) VALUES ($1,$2,$3,$4)",
+      [userId, `ext_${userId.slice(0, 8)}`, `u-${userId.slice(0, 8)}@e.com`, "User"]
+    );
     await query("INSERT INTO teams (id, org_id, name) VALUES ($1,$2,$3)", [teamId, orgId, "Team"]);
     await query(
       "INSERT INTO players (id, org_id, team_id, first_name, last_name, email) VALUES ($1,$2,$3,$4,$5,$6)",
