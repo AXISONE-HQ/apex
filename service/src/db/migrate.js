@@ -3,32 +3,31 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hasDatabase, query } from "./client.js";
 
+let migrationsPromise = null;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export async function runMigrations() {
   if (!hasDatabase()) return { applied: false, reason: "DATABASE_URL not set" };
 
-  const migrationsDir = path.resolve(__dirname, "../../sql/migrations");
-  const files = (await fs.readdir(migrationsDir))
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
+  if (!migrationsPromise) {
+    migrationsPromise = (async () => {
+      const migrationsDir = path.resolve(__dirname, "../../sql/migrations");
+      const files = (await fs.readdir(migrationsDir))
+        .filter((f) => f.endsWith(".sql"))
+        .sort();
 
-  for (const file of files) {
-    const sql = await fs.readFile(path.join(migrationsDir, file), "utf8");
-    try {
-      await query(sql);
-    } catch (err) {
-      // In CI/parallel test startup, extensions can race; treat "already exists" as non-fatal.
-      const msg = String(err?.message || "");
-      if (err?.code === "23505" && msg.includes("pg_extension_name_index")) {
-        continue;
+      for (const file of files) {
+        const sql = await fs.readFile(path.join(migrationsDir, file), "utf8");
+        await query(sql);
       }
-      throw err;
-    }
+
+      return { applied: true, files };
+    })();
   }
 
-  return { applied: true, files };
+  return migrationsPromise;
 }
 
 if (process.argv[1] === __filename) {
