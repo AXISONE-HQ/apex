@@ -6,6 +6,12 @@ import { hasDatabase, query } from "./client.js";
 // NOTE: Node's built-in test runner executes test files concurrently in a single
 // process. Many tests call runMigrations() in before() hooks; we single-flight
 // migrations per-process to avoid DDL races (e.g., CREATE EXTENSION).
+const MIGRATIONS_INSTANCE_ID = Math.random().toString(36).slice(2, 10);
+if (process.env.DEBUG_MIGRATIONS === "1") {
+  // eslint-disable-next-line no-console
+  console.log(`[migrations] instance=${MIGRATIONS_INSTANCE_ID} url=${import.meta.url}`);
+}
+
 let migrationsPromise = null;
 
 const __filename = fileURLToPath(import.meta.url);
