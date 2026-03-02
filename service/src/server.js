@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import teamsRoutes from "./routes/domain/teams.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
+import eventsRoutes from "./routes/domain/events.js";
 import aiJobsRoutes from "./routes/aiJobs.js";
 import adminClubsRoutes from "./routes/admin/clubs.js";
 import { requireSession } from "./middleware/requireSession.js";
@@ -134,6 +135,7 @@ app.use("/auth", authRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/events", eventsRoutes);
 app.use("/ai", aiLimiter, aiJobsRoutes);
 app.use("/admin/clubs", adminClubsRoutes);
 

@@ -17,6 +17,10 @@ export const rolePermissions = {
   ManagerCoach: [
     "dashboard.*",
     "teams.page.view",
+    "events.view",
+    "events.create",
+    "events.update",
+    "events.delete",
     "teams.card.roster.view",
     "teams.card.settings.view",
     "teams.function.create",
@@ -41,6 +45,7 @@ export const rolePermissions = {
   Player: [
     "dashboard.page.view",
     "teams.page.view",
+    "events.view",
     "teams.card.roster.view",
     "players.page.view",
     "players.card.profile.view",
@@ -53,6 +58,7 @@ export const rolePermissions = {
   Viewer: [
     "dashboard.page.view",
     "dashboard.card.kpi.view",
+    "events.view",
     "teams.page.view",
     "teams.card.roster.view",
     "players.page.view",
