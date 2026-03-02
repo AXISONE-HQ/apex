@@ -2,7 +2,8 @@ import { Router } from "express";
 import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
 import { badRequest, parsePagination, notFound } from "./_helpers.js";
-import { createEvent, deleteEvent, listEvents, updateEvent } from "../../repositories/eventsRepo.js";
+import { createEvent, deleteEvent, getEventById, listEvents, updateEvent } from "../../repositories/eventsRepo.js";
+import { listAttendanceByEvent, upsertAttendance } from "../../repositories/eventAttendanceRepo.js";
 
 const router = Router();
 
@@ -106,5 +107,63 @@ router.delete("/:id", requireSession, requirePermission("events.delete"), async 
   if (!ok) return notFound(res, "Event not found");
   res.status(204).send();
 });
+
+router.get("/:id/attendance", requireSession, requirePermission("events.attendance.view"), async (req, res) => {
+  const orgId = req.user?.activeOrgId;
+  if (!orgId) return res.status(400).json({ error: { code: "bad_request", message: "active org required" } });
+
+  const event = await getEventById({ id: req.params.id, orgId });
+  if (!event) return notFound(res, "Event not found");
+
+  const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+  const teamScopes = (req.user?.teamScopes || []).map(String);
+  const eventTeamId = String(event.team_id ?? event.teamId);
+
+  if (!bypass && teamScopes.length && !teamScopes.includes(eventTeamId)) {
+    return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
+  }
+
+  const items = await listAttendanceByEvent({ eventId: req.params.id });
+  res.status(200).json({ items });
+});
+
+router.put(
+  "/:id/attendance/:playerId",
+  requireSession,
+  requirePermission("events.attendance.update"),
+  async (req, res) => {
+    const orgId = req.user?.activeOrgId;
+    if (!orgId) return res.status(400).json({ error: { code: "bad_request", message: "active org required" } });
+
+    const event = await getEventById({ id: req.params.id, orgId });
+    if (!event) return notFound(res, "Event not found");
+
+    const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+    const teamScopes = (req.user?.teamScopes || []).map(String);
+    const eventTeamId = String(event.team_id ?? event.teamId);
+
+    if (!bypass && teamScopes.length && !teamScopes.includes(eventTeamId)) {
+      return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
+    }
+
+    const status = String(req.body?.status || "").trim();
+    const note = req.body?.note ? String(req.body.note).trim() : null;
+
+    if (!status) return badRequest(res, "status is required");
+    if (!["yes", "no", "maybe", "unknown"].includes(status)) {
+      return badRequest(res, "status must be one of yes|no|maybe|unknown");
+    }
+
+    const row = await upsertAttendance({
+      eventId: req.params.id,
+      playerId: req.params.playerId,
+      status,
+      note,
+      updatedBy: req.user?.id || null
+    });
+
+    res.status(200).json(row);
+  }
+);
 
 export default router;

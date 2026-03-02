@@ -27,6 +27,8 @@ export const permissionCatalog = [
   "events.create",
   "events.update",
   "events.delete",
+  "events.attendance.view",
+  "events.attendance.update",
   "analytics.page.view",
   "analytics.card.team.view",
   "analytics.card.player.view",
