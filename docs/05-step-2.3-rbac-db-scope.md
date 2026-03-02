@@ -1,69 +1,52 @@
-# Apex v1 — Step 2.3: DB RBAC Resolution + Scoped Authorization
+# Apex v1 — Step 2.3: DB RBAC Resolution + Scoped Authorization (updated)
 
 ## Status
 - **Step:** 2.3 Real RBAC resolution from DB + scope-aware checks
-- **State:** ✅ Completed
-- **Date:** 2026-02-26
+- **State:** 🚧 In progress (partial code + staging migrations done)
+- **Date:** 2026-03-02
 
-## What was implemented
+## Scope & Objectives
+1. Persist role/permission assignments in Postgres (Cloud SQL) and resolve scopes from DB.
+2. Enrich sessions with org/team/player scopes so platform, club admins, coaches, and parents are constrained correctly.
+3. Provide tooling (CLI + seeds) to grant roles or scoped access without raw SQL.
+4. Update the API/middleware/tests to enforce scopes end-to-end.
 
-1. **Permission catalog module**
-   - `service/src/config/permissions.js`
-   - Central list of permission IDs used by RBAC/seed logic
+## Work completed
+1. **Cloud SQL migration & seeds applied to staging**
+   - Added migration `005_rbac_scopes.sql` (team_memberships, player_guardians, session scope columns).
+   - Ran `npm run migrate`, `seedRbac`, `seedDomainDemo`, and new `seedScopedDemo` against `apex-staging-sql` using the `apex-db-ops` service account.
+   - Demo users created: AxisOne admin, club admin, two scoped coaches, scoped parent.
 
-2. **RBAC seeding for DB**
-   - `service/src/db/seedRbac.js`
-   - Seeds `permissions`, `roles`, and explicit `role_permissions`
-   - Compatible with wildcard role grants (wildcards expanded at resolution time)
+2. **Session/auth pipeline upgrades**
+   - Sessions now store `org_scopes`, `team_scopes`, `player_scopes`, and `platform_admin` flags.
+   - `req.user` carries the validated scope context; platform admins bypass org restrictions, others are limited to their scopes.
 
-3. **DB-backed authz resolution repository**
-   - `service/src/repositories/authzRepo.js`
-   - Added:
-     - `ensureDefaultOrgMembership({ userId })`
-     - `resolveAuthzForUser({ userId, orgId })`
-   - Resolves effective roles/permissions and org scopes from DB
+3. **Scope-aware routes & repositories**
+   - Teams/Players/Matches endpoints filter by org/team/player scopes; match creation/result submission checks both teams.
+   - Helper `buildAccessContext` centralizes scope logic for routes.
 
-4. **Session/login flow upgraded**
-   - `service/src/routes/auth.js`
-   - During login (`/auth/session`):
-     - verifies identity
-     - upserts user
-     - seeds RBAC (when DB enabled)
-     - ensures org membership
-     - resolves effective roles/permissions from DB
-     - creates session from resolved authz data
+4. **CLI + seeds for scoped assignments**
+   - `src/db/seedScopedDemo.js` seeds sample scoped users/roles.
+   - New CLI: `node src/admin/assignRole.js --email <user> --role <RoleCode> --org <orgId> [--team <teamId>] [--player <playerId> --guardian]` to grant roles + team/player scopes.
 
-5. **Scope-aware authorization engine**
-   - `service/src/authz/engine.js`
-   - `can()` now evaluates:
-     - permission grants
-     - scope (`platform|organization|team|self`)
-     - user scope context (`orgScopes`, `teamScopes`)
+## Work remaining
+1. **Scoped test harness (Step 2.4 follow-up)**
+   - Adjust `/auth/session` tests to run against seeded DB or stub sessions.
+   - Re-run `npm test` until green.
 
-6. **Scope-aware middleware contract implemented**
-   - `service/src/middleware/requirePermission.js`
-   - Supports `requirePermission(permission, scopeResolver)`
+2. **Role-assignment automation polish**
+   - Wrap CLI usage into README + (optional) npm script.
+   - Add guardrails/reporting for invalid team/player IDs.
 
-7. **Scoped route example added**
-   - `GET /secure/org/:orgId/teams`
-   - Enforces `teams.page.view` + matching org scope
+3. **Docs & domain rollout plan**
+   - Document axisone.ca / app.axisone.ca / axi.axisone.ca hosting & DNS plan.
+   - Capture how to run migrations/seeds safely (service-account + proxy steps).
 
-8. **Tests expanded**
-   - `service/test/auth-contracts.test.js`
-   - Added scoped authorization tests:
-     - deny on org-scope mismatch
-     - allow on org-scope match
+4. **Frontend work (next up)**
+   - New “Clubs directory” page (table with club name, state/province, country, pulse score + drill-in).
 
-## Validation
-- `npm test` run successfully
-- Result: **6/6 tests passing**
-
-## Next step
-**Step 2.4: Cloud SQL integration + first staging runtime deployment**
-
-Planned deliverables:
-1. Provision Cloud SQL Postgres (staging)
-2. Wire `DATABASE_URL` via Secret Manager
-3. Run migration + RBAC seed against staging DB
-4. Deploy service to Cloud Run staging with DB connectivity
-5. Validate `/healthz`, `/auth/session`, and scoped endpoint in staging
+## Next actions (pending new GPT-5.3 session)
+1. Finish scoped test harness updates.
+2. Document assignRole CLI + staging migration steps in README/ops runbooks.
+3. Draft domain/hosting rollout guide for axisone.ca/app/axi.
+4. Kick off Clubs directory feature locally.

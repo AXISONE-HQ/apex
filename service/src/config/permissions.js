@@ -32,6 +32,7 @@ export const permissionCatalog = [
   "billing.function.invoice.download",
   "billing.function.plan.update",
   "admin.page.view",
+  "admin.page.clubs.view",
   "admin.function.user.invite",
   "admin.function.user.disable",
   "admin.function.role.assign",

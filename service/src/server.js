@@ -6,6 +6,7 @@ import teamsRoutes from "./routes/domain/teams.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
 import aiJobsRoutes from "./routes/aiJobs.js";
+import adminClubsRoutes from "./routes/admin/clubs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
@@ -85,15 +86,23 @@ app.use(async (req, _res, next) => {
     if (session) {
       const user = await getUserById(session.userId);
       if (user) {
+        const platformAdmin = !!session.platformAdmin;
+        const orgScopes = (session.orgScopes && session.orgScopes.length ? session.orgScopes : []).map(String);
+        const validOrgId = session.activeOrgId && (platformAdmin || orgScopes.includes(String(session.activeOrgId)))
+          ? session.activeOrgId
+          : orgScopes[0] || null;
+
         req.user = {
           id: user.id,
           email: user.email,
           name: user.name,
           roles: session.roles,
           permissions: session.permissions,
-          activeOrgId: session.activeOrgId,
-          orgScopes: session.activeOrgId ? [session.activeOrgId] : [],
-          teamScopes: []
+          activeOrgId: validOrgId,
+          orgScopes,
+          teamScopes: session.teamScopes || [],
+          playerScopes: session.playerScopes || [],
+          platformAdmin
         };
       }
     }
@@ -126,6 +135,7 @@ app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
 app.use("/ai", aiLimiter, aiJobsRoutes);
+app.use("/admin/clubs", adminClubsRoutes);
 
 app.get(
   "/secure/teams",
