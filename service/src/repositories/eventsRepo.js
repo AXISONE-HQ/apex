@@ -34,6 +34,21 @@ export async function listEvents({ orgId, teamId, from = null, to = null, limit 
   return result.rows;
 }
 
+export async function getEventById({ id, orgId }) {
+  if (!hasDatabase()) {
+    return demoEvents.find((e) => e.id === id && e.orgId === orgId) || null;
+  }
+
+  const result = await query(
+    `SELECT id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at
+     FROM events
+     WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+
+  return result.rows[0] || null;
+}
+
 export async function createEvent({ orgId, teamId, type, startsAt, endsAt = null, location = null, notes = null, createdBy = null }) {
   if (!hasDatabase()) {
     const event = {

@@ -21,6 +21,8 @@ export const rolePermissions = {
     "events.create",
     "events.update",
     "events.delete",
+    "events.attendance.view",
+    "events.attendance.update",
     "teams.card.roster.view",
     "teams.card.settings.view",
     "teams.function.create",
