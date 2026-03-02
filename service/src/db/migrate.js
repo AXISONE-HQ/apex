@@ -8,8 +8,9 @@ import { hasDatabase, query } from "./client.js";
 // migrations per-process to avoid DDL races (e.g., CREATE EXTENSION).
 const MIGRATIONS_INSTANCE_ID = Math.random().toString(36).slice(2, 10);
 if (process.env.DEBUG_MIGRATIONS === "1") {
+  // stderr so it shows even if stdout is buffered / TAP-interleaved
   // eslint-disable-next-line no-console
-  console.log(`[migrations] instance=${MIGRATIONS_INSTANCE_ID} url=${import.meta.url}`);
+  console.error(`[migrations-debug] instance=${MIGRATIONS_INSTANCE_ID} url=${import.meta.url}`);
 }
 
 let migrationsPromise = null;
