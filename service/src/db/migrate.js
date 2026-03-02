@@ -16,7 +16,16 @@ export async function runMigrations() {
 
   for (const file of files) {
     const sql = await fs.readFile(path.join(migrationsDir, file), "utf8");
-    await query(sql);
+    try {
+      await query(sql);
+    } catch (err) {
+      // In CI/parallel test startup, extensions can race; treat "already exists" as non-fatal.
+      const msg = String(err?.message || "");
+      if (err?.code === "23505" && msg.includes("pg_extension_name_index")) {
+        continue;
+      }
+      throw err;
+    }
   }
 
   return { applied: true, files };
