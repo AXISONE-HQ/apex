@@ -25,7 +25,7 @@ Clubs can’t adopt Apex without basic structure: org profiles, teams, rosters, 
   - Add players from **previous tryouts** (if/when tryouts exist)
 - Parent ↔ player linking
 - Team dashboard (MVP):
-  - Team health (pulse/AI score placeholder if needed)
+  - Team health (**AI-generated pulse**) based on available signals (attendance, game results/score margin, player progression/evaluations when present)
   - Roster snapshot
   - Upcoming events snapshot
 - Invitations/onboarding flows (MVP)
@@ -46,7 +46,7 @@ Clubs can’t adopt Apex without basic structure: org profiles, teams, rosters, 
 - [ ] Coach can manage roster for assigned team(s)
 - [ ] Coach/Director can add players to a team from a **club player list** (no re-entry)
 - [ ] Coach/Director can add players from **previous tryouts** (if/when tryouts data exists)
-- [ ] Team dashboard exists and shows: team pulse/health, roster count, upcoming events
+- [ ] Team dashboard exists and shows: **AI-generated** team pulse/health (with top contributing signals), roster count, upcoming events
 - [ ] Parent can see linked player(s)
 - [ ] All operations are org/team scoped; no cross-tenant reads
 - [ ] DB-backed persistence (no demo-only)
