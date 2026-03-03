@@ -46,7 +46,7 @@ if (!process.env.DATABASE_URL) {
 
     // Cleanup (delete children before parents)
     await query("DELETE FROM match_results");
-    await query("DELETE FROM matches");
+    await query("DELETE FROM matches WHERE home_team_id = $1 OR away_team_id = $1", [teamId]);
     await query("DELETE FROM event_attendance");
     await query("DELETE FROM events");
     await query("DELETE FROM players");
