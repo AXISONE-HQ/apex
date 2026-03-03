@@ -1,11 +1,14 @@
 -- Apex v1 auth core schema
 DO $$
 BEGIN
+  -- In CI, concurrent migration runners can still hit extension catalog races.
+  -- Check existence and guard with a narrow exception handler.
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
     CREATE EXTENSION pgcrypto;
   END IF;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END $$;
 
 CREATE TABLE IF NOT EXISTS users (
