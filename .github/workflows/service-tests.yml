@@ -27,7 +27,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       NODE_ENV: test
-      DEBUG_MIGRATIONS: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +44,4 @@ jobs:
 
       - name: Test
         working-directory: service
-        env:
-          DEBUG_MIGRATIONS: "1"
         run: npm test
