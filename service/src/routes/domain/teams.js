@@ -3,8 +3,11 @@ import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
 import { createTeam, deleteTeam, listTeamsByOrg, updateTeam } from "../../repositories/teamsRepo.js";
 import { badRequest, notFound, parsePagination } from "./_helpers.js";
+import teamMessagesRoutes from "./teamMessages.js";
 
 const router = Router();
+
+router.use("/:teamId/messages", teamMessagesRoutes);
 
 router.get("/", requireSession, requirePermission("teams.page.view"), async (req, res) => {
   const orgId = req.user?.activeOrgId || "org_demo";
