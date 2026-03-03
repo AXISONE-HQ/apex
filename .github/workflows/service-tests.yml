@@ -44,4 +44,4 @@ jobs:
 
       - name: Test
         working-directory: service
-        run: npm test
+        run: node --test --test-concurrency=1
