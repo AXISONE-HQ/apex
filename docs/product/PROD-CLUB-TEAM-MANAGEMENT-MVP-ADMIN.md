@@ -17,9 +17,17 @@ Clubs can’t adopt Apex without basic structure: org profiles, teams, rosters, 
 - Club profile: name, slug, region, sport, contacts
 - Multi-team structure
 - Club can **create teams**
+  - Team has **season start/end dates** (MVP)
 - Club can **invite** coaches, players, and parents
-- Roster management (add/remove, basic status)
+- Roster management:
+  - Add/remove players
+  - Add players from **club-wide player list**
+  - Add players from **previous tryouts** (if/when tryouts exist)
 - Parent ↔ player linking
+- Team dashboard (MVP):
+  - Team health (pulse/AI score placeholder if needed)
+  - Roster snapshot
+  - Upcoming events snapshot
 - Invitations/onboarding flows (MVP)
 - Permissioning for each operation
 
@@ -33,9 +41,12 @@ Clubs can’t adopt Apex without basic structure: org profiles, teams, rosters, 
 
 ## Acceptance criteria
 - [ ] **Super Admin can create a club** (platform-level) and set initial Director
-- [ ] Director can create/manage teams in their org
+- [ ] Director can create/manage teams in their org, including **season start/end dates**
 - [ ] Director can invite coaches, players, and parents
 - [ ] Coach can manage roster for assigned team(s)
+- [ ] Coach/Director can add players to a team from a **club player list** (no re-entry)
+- [ ] Coach/Director can add players from **previous tryouts** (if/when tryouts data exists)
+- [ ] Team dashboard exists and shows: team pulse/health, roster count, upcoming events
 - [ ] Parent can see linked player(s)
 - [ ] All operations are org/team scoped; no cross-tenant reads
 - [ ] DB-backed persistence (no demo-only)
