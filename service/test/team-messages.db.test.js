@@ -33,6 +33,14 @@ test("GET/POST /teams/:teamId/messages (DB)", async (t) => {
     platformAdmin: false,
   });
 
+  const xOrgAdminNoTeamScopes = testUser("u1", {
+    roles: ["OrgAdmin"],
+    activeOrgId: TEST_ORG_ID,
+    orgScopes: [TEST_ORG_ID],
+    teamScopes: [],
+    platformAdmin: false,
+  });
+
   const xViewer = testUser("u3", {
     roles: ["Viewer"],
     activeOrgId: TEST_ORG_ID,
@@ -71,7 +79,23 @@ test("GET/POST /teams/:teamId/messages (DB)", async (t) => {
     const created = await c1.json();
     assert.ok(created.message?.id);
 
-    // no team scope -> 403
+    // OrgAdmin with empty teamScopes should still work (org-wide role).
+    const adminRead = await fetch(`${baseUrl}/teams/${teamId}/messages`, {
+      headers: { "x-user": JSON.stringify(xOrgAdminNoTeamScopes) },
+    });
+    assert.equal(adminRead.status, 200);
+
+    const adminPost = await fetch(`${baseUrl}/teams/${teamId}/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-user": JSON.stringify(xOrgAdminNoTeamScopes),
+      },
+      body: JSON.stringify({ body: "admin msg" }),
+    });
+    assert.equal(adminPost.status, 201);
+
+    // viewer without team scope -> 403
     const rForbidden = await fetch(`${baseUrl}/teams/${teamId}/messages`, {
       headers: { "x-user": JSON.stringify(xNoTeamScope) },
     });

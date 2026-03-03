@@ -19,6 +19,7 @@ router.get(
     type: "organization",
     id: req.user?.activeOrgId,
   })),
+  // team scope is enforced with the events-style teamScopes guard inside the handler
   requirePermission("team_messages.view", async (req) => ({
     type: "team",
     id: req.params.teamId,
@@ -27,6 +28,11 @@ router.get(
     const orgId = req.user?.activeOrgId;
     if (!orgId) {
       return res.status(400).json({ error: { code: "bad_request", message: "activeOrgId required" } });
+    }
+
+    // Match events semantics: only restrict by teamScopes when teamScopes is non-empty.
+    if (req.user?.teamScopes?.length && !req.user.teamScopes.map(String).includes(String(req.params.teamId))) {
+      return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
     }
 
     const limit = req.query?.limit ? Number(req.query.limit) : 50;
@@ -44,6 +50,7 @@ router.post(
     type: "organization",
     id: req.user?.activeOrgId,
   })),
+  // team scope is enforced with the events-style teamScopes guard inside the handler
   requirePermission("team_messages.create", async (req) => ({
     type: "team",
     id: req.params.teamId,
@@ -53,6 +60,11 @@ router.post(
     const orgId = req.user?.activeOrgId;
     if (!orgId) {
       return res.status(400).json({ error: { code: "bad_request", message: "activeOrgId required" } });
+    }
+
+    // Match events semantics: only restrict by teamScopes when teamScopes is non-empty.
+    if (req.user?.teamScopes?.length && !req.user.teamScopes.map(String).includes(String(req.params.teamId))) {
+      return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
     }
 
     const { body } = req.body || {};
