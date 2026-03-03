@@ -20,10 +20,10 @@ router.get(
     id: req.user?.activeOrgId,
   })),
   // team scope is enforced with the events-style teamScopes guard inside the handler
-  requirePermission("team_messages.view", async (req) => ({
-    type: "team",
-    id: req.params.teamId,
-  })),
+  // NOTE: We intentionally do not use authz engine team scope enforcement here.
+  // We match events semantics: teamScopes restrict only when non-empty.
+  // So this permission check is unscoped; handler applies conditional teamScopes guard.
+  requirePermission("team_messages.view"),
   async (req, res) => {
     const orgId = req.user?.activeOrgId;
     if (!orgId) {
@@ -51,10 +51,10 @@ router.post(
     id: req.user?.activeOrgId,
   })),
   // team scope is enforced with the events-style teamScopes guard inside the handler
-  requirePermission("team_messages.create", async (req) => ({
-    type: "team",
-    id: req.params.teamId,
-  })),
+  // NOTE: We intentionally do not use authz engine team scope enforcement here.
+  // We match events semantics: teamScopes restrict only when non-empty.
+  // So this permission check is unscoped; handler applies conditional teamScopes guard.
+  requirePermission("team_messages.create"),
   postLimiter,
   async (req, res) => {
     const orgId = req.user?.activeOrgId;
