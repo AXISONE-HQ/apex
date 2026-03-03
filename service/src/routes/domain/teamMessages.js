@@ -19,14 +19,20 @@ router.get(
     type: "organization",
     id: req.user?.activeOrgId,
   })),
-  requirePermission("team_messages.view", async (req) => ({
-    type: "team",
-    id: req.params.teamId,
-  })),
+  // team scope is enforced with the events-style teamScopes guard inside the handler
+  // NOTE: We intentionally do not use authz engine team scope enforcement here.
+  // We match events semantics: teamScopes restrict only when non-empty.
+  // So this permission check is unscoped; handler applies conditional teamScopes guard.
+  requirePermission("team_messages.view"),
   async (req, res) => {
     const orgId = req.user?.activeOrgId;
     if (!orgId) {
       return res.status(400).json({ error: { code: "bad_request", message: "activeOrgId required" } });
+    }
+
+    // Match events semantics: only restrict by teamScopes when teamScopes is non-empty.
+    if (req.user?.teamScopes?.length && !req.user.teamScopes.map(String).includes(String(req.params.teamId))) {
+      return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
     }
 
     const limit = req.query?.limit ? Number(req.query.limit) : 50;
@@ -44,15 +50,21 @@ router.post(
     type: "organization",
     id: req.user?.activeOrgId,
   })),
-  requirePermission("team_messages.create", async (req) => ({
-    type: "team",
-    id: req.params.teamId,
-  })),
+  // team scope is enforced with the events-style teamScopes guard inside the handler
+  // NOTE: We intentionally do not use authz engine team scope enforcement here.
+  // We match events semantics: teamScopes restrict only when non-empty.
+  // So this permission check is unscoped; handler applies conditional teamScopes guard.
+  requirePermission("team_messages.create"),
   postLimiter,
   async (req, res) => {
     const orgId = req.user?.activeOrgId;
     if (!orgId) {
       return res.status(400).json({ error: { code: "bad_request", message: "activeOrgId required" } });
+    }
+
+    // Match events semantics: only restrict by teamScopes when teamScopes is non-empty.
+    if (req.user?.teamScopes?.length && !req.user.teamScopes.map(String).includes(String(req.params.teamId))) {
+      return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
     }
 
     const { body } = req.body || {};
