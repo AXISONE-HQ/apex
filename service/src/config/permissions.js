@@ -25,6 +25,8 @@ export const permissionCatalog = [
   "matches.function.result.approve",
   "announcements.view",
   "announcements.create",
+  "team_messages.view",
+  "team_messages.create",
   "events.view",
   "events.create",
   "events.update",
