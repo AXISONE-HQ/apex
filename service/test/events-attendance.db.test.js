@@ -44,13 +44,18 @@ if (!process.env.DATABASE_URL) {
   test.after(async () => {
     await new Promise((resolve) => server.close(resolve));
 
-    // Cleanup
+    // Cleanup (delete children before parents)
+    await query("DELETE FROM match_results");
+    await query("DELETE FROM matches");
     await query("DELETE FROM event_attendance");
     await query("DELETE FROM events");
     await query("DELETE FROM players");
     await query("DELETE FROM teams");
-    await query("DELETE FROM users");
+    await query("DELETE FROM membership_roles");
+    await query("DELETE FROM memberships");
+    await query("DELETE FROM sessions");
     await query("DELETE FROM organizations");
+    await query("DELETE FROM users");
   });
 
   test("coach can create event and set/get attendance", async () => {
