@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "../../lib/firebaseClient";
 
 type ApexPageKey =
   | "dashboard"
@@ -183,6 +184,9 @@ type EventAttendee = { name: string; response: AttendanceChoice };
 
 type ChatItem = { from: "club" | "system"; text: string; at: string };
 type MessageThread = { id: string; label: string; audience: string; unread?: number; messages: ChatItem[] };
+
+type ApiAnnouncement = { id: string; title: string; body: string; created_at: string; created_by: string | null; org_id: string };
+type ApiTeamMessage = { id: string; body: string; created_at: string; user_id: string | null; team_id: string; org_id: string };
 
 type EvaluationTemplate = {
   id: string;
@@ -661,20 +665,16 @@ export default function ApexDashboardPage() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>(MOCK_SUBSCRIPTIONS);
   const [subscriptionTeamFilter, setSubscriptionTeamFilter] = useState<string>("all");
 
-  const [messageTarget, setMessageTarget] = useState<"everyone" | "team" | "parents" | "players" | "custom">("everyone");
-  const [messageTeam, setMessageTeam] = useState<string>("");
-  const [messageCustomGroup, setMessageCustomGroup] = useState<string>("");
-  const [messageBody, setMessageBody] = useState<string>("");
-  const [threads, setThreads] = useState<MessageThread[]>([
-    { id: "th-team-u16", label: "Apex U16 A", audience: "Team", unread: 2, messages: [
-      { from: "system", text: "Practice moved to 6:30 PM.", at: "09:12" },
-      { from: "club", text: "Reminder: bring both jerseys tonight.", at: "10:01" },
-    ] },
-    { id: "th-parents-u14", label: "U14 Parents", audience: "Parents", messages: [
-      { from: "club", text: "Tournament waiver deadline is Friday.", at: "Yesterday" },
-    ] },
-  ]);
-  const [activeThreadId, setActiveThreadId] = useState<string>("th-team-u16");
+  // Comms (wired to API): announcements + team messages
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementBody, setAnnouncementBody] = useState("");
+  const [announcements, setAnnouncements] = useState<ApiAnnouncement[]>([]);
+  const [announcementsError, setAnnouncementsError] = useState<string | null>(null);
+
+  const [messagesTeamId, setMessagesTeamId] = useState<string>("");
+  const [teamMessages, setTeamMessages] = useState<ApiTeamMessage[]>([]);
+  const [teamMessageBody, setTeamMessageBody] = useState<string>("");
+  const [teamMessagesError, setTeamMessagesError] = useState<string | null>(null);
 
   const [practiceAttendanceById] = useState<Record<string, EventAttendee[]>>(MOCK_PRACTICE_ATTENDANCE);
 
@@ -853,15 +853,8 @@ export default function ApexDashboardPage() {
     [active],
   );
 
-  const activeThread = useMemo(
-    () => threads.find((t) => t.id === activeThreadId) ?? threads[0] ?? null,
-    [threads, activeThreadId],
-  );
 
-  const unreadMessagesCount = useMemo(
-    () => threads.reduce((sum, t) => sum + (t.unread ?? 0), 0),
-    [threads],
-  );
+  const unreadMessagesCount = 0;
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -2105,33 +2098,10 @@ export default function ApexDashboardPage() {
                               onClick={() => {
                                 if (m.result !== "win") return;
                                 const celebrationText = `🎉 Huge win for ${m.team}! Final score ${m.finalScore || ""}. Amazing effort from players and coaches — let’s celebrate this result!`;
-                                const existingThread = threads.find((t) => t.label === m.team || t.label.includes(m.team));
-                                if (existingThread) {
-                                  setThreads((prev) =>
-                                    prev.map((t) =>
-                                      t.id === existingThread.id
-                                        ? { ...t, messages: [...t.messages, { from: "club", text: celebrationText, at: "Now" }] }
-                                        : t,
-                                    ),
-                                  );
-                                  setActiveThreadId(existingThread.id);
-                                } else {
-                                  const id = `th-${Date.now()}`;
-                                  setThreads((prev) => [
-                                    {
-                                      id,
-                                      label: m.team,
-                                      audience: "Team",
-                                      messages: [{ from: "club", text: celebrationText, at: "Now" }],
-                                    },
-                                    ...prev,
-                                  ]);
-                                  setActiveThreadId(id);
-                                }
+                                // MVP: Messages UI is now backed by team messages API.
+                                // Keep this button as a navigation shortcut.
                                 setActive("messages");
-                                setMessageTarget("team");
-                                setMessageTeam(m.team);
-                                setSaveNotice(`Celebration sent to ${m.team}.`);
+                                setSaveNotice(`Navigate to Messages to post in ${m.team}.`);
                               }}
                             >
                               {m.result === "win" ? "Celebrate the win" : "Celebrate the win (available after a win)"}
@@ -4054,85 +4024,211 @@ export default function ApexDashboardPage() {
           ) : active === "messages" ? (
             <section className="rounded-2xl border border-white/45 bg-white/45 p-4 shadow-[0_10px_30px_rgba(17,24,39,0.10)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/35">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-base font-semibold">Messages</h2>
+                <h2 className="text-base font-semibold">Comms</h2>
                 <div className="text-xs text-black/60">Role: {userProfile.roleTitle}</div>
               </div>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-                <aside className="rounded-2xl border border-white/50 bg-white/45 p-2 lg:col-span-1">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <div className="text-xs font-semibold text-black/60">Conversations</div>
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {/* Announcements */}
+                <div className="rounded-2xl border border-white/50 bg-white/45 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm font-semibold">Announcements</div>
                     <button
                       className="rounded-lg border border-white/60 bg-white/60 px-2 py-1 text-[11px]"
-                      onClick={() => {
-                        const label = window.prompt("Conversation name", "New conversation")?.trim();
-                        if (!label) return;
-                        const id = `th-${Date.now()}`;
-                        const thread: MessageThread = {
-                          id,
-                          label,
-                          audience: "Custom",
-                          messages: [{ from: "system", text: "Conversation created.", at: "Now" }],
-                        };
-                        setThreads((prev) => [thread, ...prev]);
-                        setActiveThreadId(id);
+                      onClick={async () => {
+                        setAnnouncementsError(null);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/announcements`, { credentials: "include" });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setAnnouncementsError(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+                            return;
+                          }
+                          setAnnouncements(data.announcements || []);
+                        } catch (err: any) {
+                          setAnnouncementsError(String(err?.message || err));
+                        }
                       }}
                     >
-                      + New
+                      Refresh
                     </button>
                   </div>
-                  <div className="space-y-1">
-                    {threads.map((t) => (
-                      <button key={t.id} className={`w-full rounded-xl border px-2 py-2 text-left text-sm ${activeThread?.id===t.id ? 'border-[#FF5264]/40 bg-[#FF5264]/10' : 'border-white/50 bg-white/60'}`} onClick={() => setActiveThreadId(t.id)}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{t.label}</span>
-                          {t.unread ? <span className="rounded-full bg-[#FF5264] px-1.5 text-[10px] text-white">{t.unread}</span> : null}
+
+                  {announcementsError ? (
+                    <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+                      {announcementsError}
+                    </div>
+                  ) : null}
+
+                  <div className="max-h-[260px] space-y-2 overflow-auto rounded-xl border border-white/50 bg-white/55 p-3">
+                    {announcements.length ? (
+                      announcements.map((a) => (
+                        <div key={a.id} className="rounded-xl border border-white/60 bg-white/70 p-3">
+                          <div className="text-sm font-semibold">{a.title}</div>
+                          <div className="mt-1 text-xs text-black/70 whitespace-pre-wrap">{a.body}</div>
+                          <div className="mt-2 text-[10px] text-black/50">{new Date(a.created_at).toLocaleString()}</div>
                         </div>
-                        <div className="text-[11px] text-black/55">{t.audience}</div>
-                      </button>
-                    ))}
+                      ))
+                    ) : (
+                      <div className="text-xs text-black/55">No announcements loaded yet.</div>
+                    )}
                   </div>
-                </aside>
 
-                <div className="rounded-2xl border border-white/50 bg-white/45 p-3 lg:col-span-3">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <select className="rounded-lg border border-white/60 bg-white/60 px-2 py-1 text-xs" value={messageTarget} onChange={(e) => setMessageTarget(e.target.value as typeof messageTarget)}>
-                      <option value="everyone" disabled={!canMessageEveryone}>Everyone</option>
-                      <option value="team">Team</option>
-                      <option value="parents">Parents</option>
-                      <option value="players">Players</option>
-                      <option value="custom" disabled={!canMessageCustomGroup}>Custom group</option>
+                  <div className="mt-2 grid gap-2">
+                    <input
+                      className="rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm"
+                      placeholder="Title"
+                      value={announcementTitle}
+                      onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    />
+                    <textarea
+                      className="rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm"
+                      rows={3}
+                      placeholder="Body"
+                      value={announcementBody}
+                      onChange={(e) => setAnnouncementBody(e.target.value)}
+                    />
+                    <button
+                      className="rounded-xl border border-white/40 bg-[#FF5264]/90 px-4 py-2 text-sm text-white disabled:opacity-50"
+                      disabled={!announcementTitle.trim() || !announcementBody.trim()}
+                      onClick={async () => {
+                        setAnnouncementsError(null);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/announcements`, {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({ title: announcementTitle.trim(), body: announcementBody.trim() }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setAnnouncementsError(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+                            return;
+                          }
+                          setAnnouncementTitle("");
+                          setAnnouncementBody("");
+                          // optimistic: prepend
+                          if (data.announcement) setAnnouncements((prev) => [data.announcement, ...prev]);
+                        } catch (err: any) {
+                          setAnnouncementsError(String(err?.message || err));
+                        }
+                      }}
+                    >
+                      Post announcement
+                    </button>
+                  </div>
+                </div>
+
+                {/* Team messages */}
+                <div className="rounded-2xl border border-white/50 bg-white/45 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm font-semibold">Team messages</div>
+                    <button
+                      className="rounded-lg border border-white/60 bg-white/60 px-2 py-1 text-[11px]"
+                      onClick={async () => {
+                        if (!messagesTeamId) return;
+                        setTeamMessagesError(null);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/teams/${messagesTeamId}/messages`, { credentials: "include" });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setTeamMessagesError(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+                            return;
+                          }
+                          setTeamMessages(data.messages || []);
+                        } catch (err: any) {
+                          setTeamMessagesError(String(err?.message || err));
+                        }
+                      }}
+                    >
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="mb-2 flex gap-2">
+                    <select
+                      className="flex-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm"
+                      value={messagesTeamId}
+                      onChange={(e) => setMessagesTeamId(e.target.value)}
+                    >
+                      <option value="">Select team</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
                     </select>
-                    {messageTarget === "team" ? (
-                      <select className="rounded-lg border border-white/60 bg-white/60 px-2 py-1 text-xs" value={messageTeam} onChange={(e) => setMessageTeam(e.target.value)}>
-                        <option value="">Select team</option>
-                        {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                      </select>
-                    ) : null}
-                    {messageTarget === "custom" ? (
-                      <input className="rounded-lg border border-white/60 bg-white/60 px-2 py-1 text-xs" placeholder="Custom group" value={messageCustomGroup} onChange={(e) => setMessageCustomGroup(e.target.value)} />
-                    ) : null}
+                    <button
+                      className="rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={!messagesTeamId}
+                      onClick={async () => {
+                        if (!messagesTeamId) return;
+                        setTeamMessagesError(null);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/teams/${messagesTeamId}/messages`, { credentials: "include" });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setTeamMessagesError(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+                            return;
+                          }
+                          setTeamMessages(data.messages || []);
+                        } catch (err: any) {
+                          setTeamMessagesError(String(err?.message || err));
+                        }
+                      }}
+                    >
+                      Load
+                    </button>
                   </div>
 
-                  <div className="max-h-[360px] space-y-2 overflow-auto rounded-xl border border-white/50 bg-white/55 p-3">
-                    {(activeThread?.messages ?? []).map((m, i) => (
-                      <div key={i} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.from==='club' ? 'ml-auto border border-[#FF5264]/30 bg-[#FF5264]/10' : 'border border-white/60 bg-white/70'}`}>
-                        <div>{m.text}</div>
-                        <div className="mt-1 text-[10px] text-black/55">{m.at}</div>
-                      </div>
-                    ))}
+                  {teamMessagesError ? (
+                    <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+                      {teamMessagesError}
+                    </div>
+                  ) : null}
+
+                  <div className="max-h-[260px] space-y-2 overflow-auto rounded-xl border border-white/50 bg-white/55 p-3">
+                    {teamMessages.length ? (
+                      teamMessages.map((m) => (
+                        <div key={m.id} className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 text-sm">
+                          <div className="whitespace-pre-wrap">{m.body}</div>
+                          <div className="mt-1 text-[10px] text-black/50">{new Date(m.created_at).toLocaleString()}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-black/55">No messages loaded yet.</div>
+                    )}
                   </div>
 
                   <div className="mt-2 flex gap-2">
-                    <textarea className="flex-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm" rows={2} placeholder="Write a message..." value={messageBody} onChange={(e) => setMessageBody(e.target.value)} />
+                    <textarea
+                      className="flex-1 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-sm"
+                      rows={2}
+                      placeholder="Write a team message..."
+                      value={teamMessageBody}
+                      onChange={(e) => setTeamMessageBody(e.target.value)}
+                    />
                     <button
-                      className="rounded-xl border border-white/40 bg-[#FF5264]/90 px-4 py-2 text-sm text-white shadow-[0_8px_18px_rgba(255,82,100,0.35)] disabled:opacity-50"
-                      disabled={!messageBody.trim() || (messageTarget === "team" && !messageTeam) || (messageTarget === "custom" && !messageCustomGroup.trim())}
-                      onClick={() => {
-                        if (!activeThread) return;
-                        const audience = messageTarget === "team" ? messageTeam || "Team" : messageTarget === "custom" ? messageCustomGroup : messageTarget;
-                        setThreads((prev) => prev.map((t) => t.id === activeThread.id ? { ...t, messages: [...t.messages, { from: "club", text: `[${audience}] ${messageBody.trim()}`, at: "Now" }] } : t));
-                        setMessageBody("");
-                        setSaveNotice("Message sent.");
+                      className="rounded-xl border border-white/40 bg-[#FF5264]/90 px-4 py-2 text-sm text-white disabled:opacity-50"
+                      disabled={!messagesTeamId || !teamMessageBody.trim()}
+                      onClick={async () => {
+                        if (!messagesTeamId) return;
+                        setTeamMessagesError(null);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/teams/${messagesTeamId}/messages`, {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({ body: teamMessageBody.trim() }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            setTeamMessagesError(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+                            return;
+                          }
+                          setTeamMessageBody("");
+                          if (data.message) setTeamMessages((prev) => [data.message, ...prev]);
+                        } catch (err: any) {
+                          setTeamMessagesError(String(err?.message || err));
+                        }
                       }}
                     >
                       Send

@@ -156,7 +156,7 @@ export default function AdminClubsPage() {
                     key={club.id}
                     className="border-t border-white/10 hover:bg-white/5 cursor-pointer"
                     onClick={() => {
-                      window.location.href = `/apex/admin/clubs/${club.slug || club.id}`;
+                      window.location.href = `/apex/admin/clubs/${club.id}`;
                     }}
                   >
                     <td className="py-3 font-medium">{club.name}</td>
