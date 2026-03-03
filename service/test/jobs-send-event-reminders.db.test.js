@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import app from "../src/server.js";
-import { runMigrations } from "./helpers/dbTestUtils.js";
+import { seedTestOrgAndUsers } from "./helpers/dbTestUtils.js";
 import { query } from "../src/db/client.js";
 
 const DB_ENABLED = Boolean(process.env.DATABASE_URL);
@@ -15,7 +15,7 @@ test("POST /jobs/send-event-reminders logs upcoming events (DB)", async (t) => {
 
   process.env.BOOTSTRAP_TOKEN = process.env.BOOTSTRAP_TOKEN || "test_bootstrap_token";
 
-  await runMigrations();
+  await seedTestOrgAndUsers();
 
   const orgId = "00000000-0000-0000-0000-0000000000a1";
   const userId = "00000000-0000-0000-0000-0000000000a2";
