@@ -5,6 +5,7 @@ export const rolePermissions = {
     "teams.*",
     "players.*",
     "matches.*",
+    "announcements.*",
     "analytics.*",
     "billing.*",
     "admin.page.view",
@@ -47,6 +48,7 @@ export const rolePermissions = {
   Player: [
     "dashboard.page.view",
     "teams.page.view",
+    "announcements.view",
     "events.view",
     "teams.card.roster.view",
     "players.page.view",
@@ -60,6 +62,7 @@ export const rolePermissions = {
   Viewer: [
     "dashboard.page.view",
     "dashboard.card.kpi.view",
+    "announcements.view",
     "events.view",
     "teams.page.view",
     "teams.card.roster.view",
