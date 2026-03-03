@@ -45,7 +45,7 @@ if (!process.env.DATABASE_URL) {
     await new Promise((resolve) => server.close(resolve));
 
     // Cleanup (delete children before parents)
-    await query("DELETE FROM match_results");
+    await query("DELETE FROM match_results WHERE match_id IN (SELECT id FROM matches WHERE home_team_id = $1 OR away_team_id = $1)", [teamId]);
     await query("DELETE FROM matches WHERE home_team_id = $1 OR away_team_id = $1", [teamId]);
     await query("DELETE FROM event_attendance");
     await query("DELETE FROM events");
