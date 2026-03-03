@@ -31,12 +31,15 @@ Without tryouts, team creation and “baseline evaluation” are manual and inco
 - Status: invited / registered / checked-in / evaluated
 
 ### 3) Optional tryout fee
-- Configure tryout fee (amount, currency)
-- Track payment status: unpaid / paid / refunded (MVP: record-only if payments not integrated)
+- Tryout fee is **optional** (many clubs charge $0)
+- If fee > 0, track payment status: unpaid / paid / refunded
+- MVP can start as **record-only** if payments are not yet integrated
 
-### 4) On-site check-in (QR)
+### 4) On-site check-in (QR) + walk-up registration
 - “Check-in screen” view (tablet/TV) showing a **QR code**
-- Player scans QR → opens check-in page → confirms identity
+- Player scans QR → opens check-in page
+  - If already registered: confirm identity → check in
+  - If not registered: **walk-up registration on-site** (minimal form) → check in
 - System assigns a **tryout number** (bib number) for evaluators to reference
 
 ### 5) Multi-coach evaluations
@@ -81,6 +84,5 @@ Without tryouts, team creation and “baseline evaluation” are manual and inco
 - Auth + RBAC (coach/evaluator permissions)
 
 ## Open questions
-- Do we require payment to complete registration for MVP?
-- Do we support walk-up registration on-site (no pre-invite)?
+- For fee-based tryouts, do we *block* check-in if unpaid, or allow pay-later with a flag?
 - How many rubric categories for basketball v1 (keep small to be usable on mobile)?
