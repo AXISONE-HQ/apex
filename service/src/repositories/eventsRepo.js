@@ -136,3 +136,20 @@ export async function deleteEvent({ id, orgId }) {
   const result = await query("DELETE FROM events WHERE id = $1 AND org_id = $2", [id, orgId]);
   return result.rowCount > 0;
 }
+
+// Reminders job helper (DB-only): list upcoming events in a time window.
+// Note: events currently have no status column; all events are treated as scheduled.
+export async function listUpcomingScheduledEventsForOrg({ from, to, limit = 500 } = {}) {
+  if (!hasDatabase()) return [];
+
+  const params = [from, to, limit];
+  const result = await query(
+    `SELECT id, org_id, team_id, type, starts_at
+     FROM events
+     WHERE starts_at >= $1 AND starts_at <= $2
+     ORDER BY starts_at ASC
+     LIMIT $3`,
+    params
+  );
+  return result.rows;
+}

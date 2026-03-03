@@ -8,6 +8,7 @@ import matchesRoutes from "./routes/domain/matches.js";
 import eventsRoutes from "./routes/domain/events.js";
 import aiJobsRoutes from "./routes/aiJobs.js";
 import adminClubsRoutes from "./routes/admin/clubs.js";
+import jobsRoutes from "./routes/jobs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
@@ -138,6 +139,7 @@ app.use("/matches", matchesRoutes);
 app.use("/events", eventsRoutes);
 app.use("/ai", aiLimiter, aiJobsRoutes);
 app.use("/admin/clubs", adminClubsRoutes);
+app.use("/jobs", jobsRoutes);
 
 app.get(
   "/secure/teams",

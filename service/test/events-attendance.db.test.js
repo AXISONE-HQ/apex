@@ -45,17 +45,23 @@ if (!process.env.DATABASE_URL) {
     await new Promise((resolve) => server.close(resolve));
 
     // Cleanup (delete children before parents)
-    await query("DELETE FROM match_results");
+    // Targeted cleanup to avoid stepping on other suites.
+    await query(
+      "DELETE FROM match_results WHERE match_id IN (SELECT id FROM matches WHERE home_team_id = $1 OR away_team_id = $1)",
+      [teamId]
+    );
     await query("DELETE FROM matches WHERE home_team_id = $1 OR away_team_id = $1", [teamId]);
-    await query("DELETE FROM event_attendance");
-    await query("DELETE FROM events");
-    await query("DELETE FROM players");
-    await query("DELETE FROM teams");
-    await query("DELETE FROM membership_roles");
-    await query("DELETE FROM memberships");
-    await query("DELETE FROM sessions");
-    await query("DELETE FROM organizations");
-    await query("DELETE FROM users");
+
+    await query("DELETE FROM event_attendance WHERE event_id IN (SELECT id FROM events WHERE team_id = $1)", [teamId]);
+    await query("DELETE FROM events WHERE team_id = $1", [teamId]);
+    await query("DELETE FROM players WHERE team_id = $1", [teamId]);
+
+    // Team must be deleted only after matches/players/events are gone.
+    await query("DELETE FROM teams WHERE id = $1", [teamId]);
+
+    // User/org are uniquely generated per test run; safe to remove by id.
+    await query("DELETE FROM users WHERE id = $1", [userId]);
+    await query("DELETE FROM organizations WHERE id = $1", [orgId]);
   });
 
   test("coach can create event and set/get attendance", async () => {
