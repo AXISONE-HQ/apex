@@ -33,6 +33,7 @@ Without tryouts, team creation and “baseline evaluation” are manual and inco
 ### 3) Optional tryout fee
 - Tryout fee is **optional** (many clubs charge $0)
 - If fee > 0, track payment status: unpaid / paid / refunded
+- **Policy option (set at tryout creation):** allow unpaid check-in (mark as payment due) vs block check-in until paid
 - MVP can start as **record-only** if payments are not yet integrated
 
 ### 4) On-site check-in (QR) + walk-up registration
@@ -71,7 +72,7 @@ Without tryouts, team creation and “baseline evaluation” are manual and inco
 
 ## Acceptance criteria
 - [ ] Director can create a tryout tied to a category and optionally multiple target teams
-- [ ] Players/parents can register and appear in the tryout roster
+- [ ] Players/parents can register and appear in the tryout roster (includes walk-up registration)
 - [ ] Check-in flow via QR assigns a unique tryout number per player
 - [ ] Multiple evaluators can score players concurrently
 - [ ] Director can view aggregated results and assign players to teams
