@@ -52,8 +52,8 @@ Apex differentiates by making development structure easy, repeatable, and ground
 
 ## Acceptance criteria
 - [ ] Coach can browse, filter, and preview the template library
-- [ ] Library contains a minimum seed set for basketball across age/complexity/categories
-- [ ] Coach can generate, edit, and save a plan
+- [ ] Library contains a **minimum seed set of 25 basketball templates** across age/complexity/categories (AI-generated, then coach reviewed/approved)
+- [ ] Coach can generate, edit, and save a plan (AI recommends; coach can approve/edit/replace activities)
 - [ ] Generated plan includes 1–3 objectives + rationale (evaluations + game outcomes window)
 - [ ] Plan references drills with tags (skill, intensity, duration)
 - [ ] Session history searchable by team/date/tag
