@@ -53,7 +53,7 @@ test("GET/POST /teams/:teamId/messages (DB)", async (t) => {
     roles: ["Viewer"],
     activeOrgId: TEST_ORG_ID,
     orgScopes: [TEST_ORG_ID],
-    teamScopes: [],
+    teamScopes: ["00000000-0000-0000-0000-000000000999"],
     platformAdmin: false,
   });
 
