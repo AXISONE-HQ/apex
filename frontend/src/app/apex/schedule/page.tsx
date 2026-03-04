@@ -399,7 +399,13 @@ export default function SchedulePage() {
                 </tr>
               ) : filtered.length ? (
                 filtered.map((e) => (
-                  <tr key={e.id} className="border-t border-white/10">
+                  <tr
+                    key={e.id}
+                    className="cursor-pointer border-t border-white/10 hover:bg-white/5"
+                    onClick={() => {
+                      window.location.href = `/apex/schedule/events/${e.id}`;
+                    }}
+                  >
                     <td className="px-3 py-2 capitalize">{e.type}</td>
                     <td className="px-3 py-2">{fmt(e.starts_at)}</td>
                     <td className="px-3 py-2">{e.ends_at ? fmt(e.ends_at) : "—"}</td>
