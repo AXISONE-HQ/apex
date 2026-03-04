@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex v2 — Project Dashboard (Local)</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --text:#e7ecff;
+      --muted:#a9b4e6;
+      --border:rgba(255,255,255,.08);
+      --accent:#7aa2ff;
+      --good:#3ddc97;
+      --warn:#ffd166;
+      --bad:#ff5c7a;
+      --info:#7aa2ff;
+      --chip:#1a2550;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    *{box-sizing:border-box}
+    body{margin:0; font-family:var(--sans); background:linear-gradient(180deg, #070a14 0%, var(--bg) 30%, #060916 100%); color:var(--text)}
+
+    .app{display:grid; grid-template-columns: 260px 1fr; min-height:100vh}
+
+    nav{
+      padding:18px 14px;
+      border-right:1px solid var(--border);
+      background:rgba(10,14,30,.65);
+      backdrop-filter: blur(10px);
+    }
+    .brand{font-weight:700; letter-spacing:.3px; margin:4px 8px 16px 8px}
+    .brand small{display:block; font-weight:500; color:var(--muted); margin-top:4px}
+
+    .nav-item{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 10px;
+      margin:6px 4px;
+      border-radius:10px;
+      color:var(--text);
+      cursor:pointer;
+      border:1px solid transparent;
+    }
+    .nav-item:hover{background:rgba(122,162,255,.08); border-color:rgba(122,162,255,.18)}
+    .nav-item.active{background:rgba(122,162,255,.12); border-color:rgba(122,162,255,.25)}
+
+    main{padding:18px 18px 32px 18px}
+
+    header{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      gap:18px; margin-bottom:14px
+    }
+    h1{font-size:18px; margin:0}
+    .sub{color:var(--muted); font-size:13px; margin-top:6px}
+
+    .topbar{display:flex; gap:10px; align-items:center}
+    .btn{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:10px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .btn:hover{border-color:rgba(122,162,255,.35)}
+
+    .layout{display:grid; grid-template-columns: 25% 75%; gap:14px; align-items:start}
+
+    .card{
+      background:linear-gradient(180deg, rgba(18,26,51,.85), rgba(15,23,48,.85));
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card h2{font-size:14px; margin:0; padding:12px 12px; border-bottom:1px solid var(--border)}
+
+    .list{max-height: calc(100vh - 170px); overflow:auto}
+    .row{
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      cursor:pointer;
+    }
+    .row:hover{background:rgba(122,162,255,.06)}
+    .row.active{background:rgba(122,162,255,.10)}
+
+    .kicker{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px}
+    .title{font-weight:650; margin:3px 0 6px 0; font-size:13px}
+    .meta{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
+    .chip{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      font-size:12px;
+      color:var(--text);
+    }
+
+    .status{font-weight:600; border-color:transparent}
+    .status.completed{background:rgba(61,220,151,.12); color:#bff8df; border:1px solid rgba(61,220,151,.25)}
+    .status.inprogress{background:rgba(255,209,102,.10); color:#ffe8b3; border:1px solid rgba(255,209,102,.25)}
+    .status.notstarted{background:rgba(255,255,255,.06); color:var(--muted); border:1px solid rgba(255,255,255,.10)}
+    .status.confirm{background:rgba(122,162,255,.10); color:#cfe0ff; border:1px solid rgba(122,162,255,.25)}
+
+    .detail{padding:12px}
+    .detail .h{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:10px}
+    .detail h3{margin:0; font-size:16px}
+    .detail p{margin:8px 0 0 0; color:var(--muted); line-height:1.45}
+
+    .detail pre{
+      margin:12px 0 0 0;
+      padding:12px;
+      background:rgba(0,0,0,.25);
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:auto;
+      font-family:var(--mono);
+      font-size:12px;
+      color:#dbe4ff;
+      white-space:pre-wrap;
+    }
+
+    .hint{color:var(--muted); font-size:12px; margin-top:10px}
+    a{color:var(--accent)}
+
+    @media (max-width: 980px){
+      .app{grid-template-columns:1fr}
+      nav{position:sticky; top:0; z-index:5; border-right:none; border-bottom:1px solid var(--border)}
+      .layout{grid-template-columns:1fr}
+      .list{max-height: 40vh}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <nav>
+      <div class="brand">Apex — v2 Dashboard
+        <small>Local, file-backed</small>
+      </div>
+
+      <div class="nav-item active" data-view="roadmap">Roadmap</div>
+      <div class="nav-item" data-view="about">About</div>
+
+      <div class="hint" style="margin:14px 8px 0 8px">
+        Data source: <code>../PRODUCT-ROADMAP.md</code>
+      </div>
+    </nav>
+
+    <main>
+      <header>
+        <div>
+          <h1 id="viewTitle">Roadmap</h1>
+          <div class="sub" id="viewSub">Epics & workflows with status (Completed / In progress / Not started / Need to confirm with code)</div>
+        </div>
+        <div class="topbar">
+          <button class="btn" id="reloadBtn">Reload data</button>
+          <button class="btn" id="openDocBtn">Open roadmap doc</button>
+          <button class="btn" id="genBriefBtn" title="Generates a CTO tech brief for the selected EPIC and saves it under docs/v2/briefs/">Generate CTO Tech Brief</button>
+        </div>
+      </header>
+
+      <section id="roadmapView" class="layout">
+        <div class="card">
+          <h2>Epics / Workflows</h2>
+          <div class="list" id="items"></div>
+        </div>
+
+        <div class="card">
+          <h2>Details</h2>
+          <div class="detail" id="detail"></div>
+        </div>
+      </section>
+
+      <section id="aboutView" style="display:none">
+        <div class="card">
+          <h2>About this dashboard</h2>
+          <div class="detail">
+            <p>
+              This is a simple local dashboard that reads <code>docs/v2/PRODUCT-ROADMAP.md</code> and renders an interactive list.
+              It’s intentionally tiny: no build step, no server required.
+            </p>
+            <p>
+              To update statuses, edit <code>PRODUCT-ROADMAP.md</code> and refresh (or click <b>Reload data</b>).
+            </p>
+            <div class="hint">
+              Tip: if your browser blocks <code>fetch()</code> for <code>file://</code> URLs, run a quick local server:
+              <pre>cd projects/apex-v1/docs/v2/dashboard
+python3 -m http.server 7331
+# then open http://localhost:7331</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STATUS_CLASS = {
+      'Completed': 'completed',
+      'In progress': 'inprogress',
+      'Not started': 'notstarted',
+      'Need to confirm with code': 'confirm'
+    };
+
+    function escapeHtml(str){
+      return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+
+    function parseRoadmap(md){
+      // Very small parser tailored to PRODUCT-ROADMAP.md structure.
+      // Returns a flat list containing EPIC items and WORKFLOW items.
+      const lines = md.split(/\r?\n/);
+      const items = [];
+
+      let currentEpic = null;
+      let currentWorkflow = null;
+
+      const epicRe = /^##\s+EPIC\s+(\d+)\s+—\s+(.+)$/;
+      const wfRe = /^###\s+Workflow\s+(\d+):\s+(.+)$/;
+      const statusRe = /^\*\*Status:\*\*\s+(.+)$/;
+      const goalRe = /^\*\*Goal\*\*\s*$/;
+
+      let inGoal = false;
+      let goalBuf = [];
+
+      function startEpic(number, title){
+        currentEpic = {
+          kind: 'epic',
+          epicNumber: String(number),
+          title: String(title).trim(),
+          // We'll derive status from workflows; default until we see some
+          status: 'Need to confirm with code',
+          goal: '',
+          raw: ''
+        };
+        items.push(currentEpic);
+        currentWorkflow = null;
+      }
+
+      function startWorkflow(number, title){
+        currentWorkflow = {
+          kind: 'workflow',
+          epicNumber: currentEpic?.epicNumber || '',
+          epicTitle: currentEpic?.title || '',
+          workflowNumber: String(number),
+          title: String(title).trim(),
+          status: 'Need to confirm with code',
+          goal: '',
+          raw: ''
+        };
+        items.push(currentWorkflow);
+      }
+
+      for (let i=0;i<lines.length;i++){
+        const line = lines[i];
+
+        const em = line.match(epicRe);
+        if (em){
+          inGoal = false; goalBuf = [];
+          startEpic(em[1], em[2]);
+          continue;
+        }
+
+        const wm = line.match(wfRe);
+        if (wm){
+          inGoal = false; goalBuf = [];
+          startWorkflow(wm[1], wm[2]);
+          continue;
+        }
+
+        const sm = line.match(statusRe);
+        if (sm){
+          const status = sm[1].trim();
+          if (currentWorkflow) currentWorkflow.status = status;
+          else if (currentEpic) currentEpic.status = status;
+          continue;
+        }
+
+        if (goalRe.test(line) && currentWorkflow){
+          inGoal = true;
+          goalBuf = [];
+          continue;
+        }
+
+        if (inGoal && currentWorkflow){
+          if (line.trim().startsWith('---') || line.trim().startsWith('**') || line.startsWith('### ') || line.startsWith('## ')){
+            inGoal = false;
+            currentWorkflow.goal = goalBuf.join('\n').trim();
+          } else {
+            if (line.trim().startsWith('- ')) goalBuf.push(line.trim().slice(2));
+            else if (line.trim() !== '') goalBuf.push(line.trim());
+          }
+        }
+
+        // Collect raw text for the currently active section.
+        if (currentWorkflow) currentWorkflow.raw += line + '\n';
+        else if (currentEpic) currentEpic.raw += line + '\n';
+      }
+
+      if (inGoal && currentWorkflow){
+        currentWorkflow.goal = goalBuf.join('\n').trim();
+      }
+
+      // Derive epic statuses from their workflows (since epic-level Status is optional).
+      // Rule: if any workflow In progress -> epic In progress; else if all Completed -> Completed;
+      // else if any Need to confirm -> Need to confirm; else Not started.
+      const epicMap = new Map();
+      items.forEach(it => {
+        if (it.kind === 'epic') epicMap.set(it.epicNumber, it);
+      });
+      const workflowsByEpic = new Map();
+      items.forEach(it => {
+        if (it.kind === 'workflow'){
+          const k = it.epicNumber || '';
+          if (!workflowsByEpic.has(k)) workflowsByEpic.set(k, []);
+          workflowsByEpic.get(k).push(it);
+        }
+      });
+
+      for (const [epicNum, epic] of epicMap.entries()){
+        const wfs = workflowsByEpic.get(epicNum) || [];
+        if (wfs.length === 0) continue;
+        const statuses = wfs.map(w => w.status);
+        let derived = 'Not started';
+        if (statuses.every(s => s === 'Completed')) derived = 'Completed';
+        else if (statuses.some(s => s === 'In progress')) derived = 'In progress';
+        else if (statuses.some(s => s === 'Need to confirm with code')) derived = 'Need to confirm with code';
+        else derived = 'Not started';
+        epic.status = derived;
+      }
+
+      return items;
+    }
+
+    let LAST_ITEMS = [];
+
+    async function load(){
+      const detail = document.getElementById('detail');
+      detail.innerHTML = '<div class="hint">Loading…</div>';
+
+      let md;
+      try{
+        const res = await fetch('/PRODUCT-ROADMAP.md', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        md = await res.text();
+      } catch (e){
+        detail.innerHTML = `
+          <div class="hint">
+            Could not load <code>/PRODUCT-ROADMAP.md</code> via fetch().
+          </div>
+          <pre>${escapeHtml(String(e))}</pre>
+          <div class="hint">Make sure you’re running the dashboard server from <code>docs/v2/dashboard/server.js</code> and open <code>/dashboard/</code>.</div>
+        `;
+        return;
+      }
+
+      const items = parseRoadmap(md);
+      LAST_ITEMS = items;
+      renderList(items);
+    }
+
+    function renderList(items){
+      const container = document.getElementById('items');
+      container.innerHTML = '';
+
+      items.forEach((it, idx) => {
+        const statusCls = STATUS_CLASS[it.status] || 'confirm';
+        const el = document.createElement('div');
+
+        // Epic rows look like section headers but remain clickable.
+        const isEpic = it.kind === 'epic';
+        el.className = 'row' + (idx===0 ? ' active':'');
+        if (isEpic) el.style.background = (idx===0) ? 'rgba(122,162,255,.10)' : 'rgba(255,255,255,.02)';
+        el.dataset.idx = idx;
+
+        if (isEpic){
+          el.innerHTML = `
+            <div class="kicker">EPIC ${escapeHtml(it.epicNumber)}</div>
+            <div class="title">${escapeHtml(it.title)}</div>
+            <div class="meta">
+              <span class="chip status ${statusCls}">${escapeHtml(it.status)}</span>
+              <span class="chip">${escapeHtml((it.raw||'').trim() ? 'Has details' : 'No details')}</span>
+            </div>
+          `;
+        } else {
+          el.style.paddingLeft = '22px';
+          el.innerHTML = `
+            <div class="kicker">Workflow ${escapeHtml(it.workflowNumber)} • EPIC ${escapeHtml(it.epicNumber)}</div>
+            <div class="title">${escapeHtml(it.title)}</div>
+            <div class="meta">
+              <span class="chip status ${statusCls}">${escapeHtml(it.status)}</span>
+              <span class="chip">${escapeHtml(it.epicTitle)}</span>
+            </div>
+          `;
+        }
+
+        el.addEventListener('click', () => {
+          document.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
+          el.classList.add('active');
+          renderDetail(items[idx]);
+        });
+        container.appendChild(el);
+      });
+
+      renderDetail(items[0] || null);
+    }
+
+    function renderDetail(it){
+      const detail = document.getElementById('detail');
+      if (!it){
+        detail.innerHTML = '<div class="hint">No items found. Check PRODUCT-ROADMAP.md format.</div>';
+        return;
+      }
+      const statusCls = STATUS_CLASS[it.status] || 'confirm';
+
+      if (it.kind === 'epic'){
+        // Show epic summary + all workflows under it.
+        const allRows = Array.from(document.querySelectorAll('.row'));
+        // (No-op: selection handled by click)
+        detail.innerHTML = `
+          <div class="h">
+            <div>
+              <div class="kicker">EPIC ${escapeHtml(it.epicNumber)}</div>
+              <h3>${escapeHtml(it.title)}</h3>
+              <p>${escapeHtml('Rollup status derived from workflows. Click a workflow on the left for details.')}</p>
+            </div>
+            <div>
+              <div class="chip status ${statusCls}">${escapeHtml(it.status)}</div>
+            </div>
+          </div>
+          <div class="kicker" style="margin-top:6px">Epic section text (from PRODUCT-ROADMAP.md)</div>
+          <pre>${escapeHtml((it.raw||'').trim() || '(No epic-level notes yet — add text under the EPIC heading in PRODUCT-ROADMAP.md)')}</pre>
+        `;
+        return;
+      }
+
+      const short = it.goal ? it.goal : 'No short description found. Add a **Goal** section under the workflow.';
+
+      detail.innerHTML = `
+        <div class="h">
+          <div>
+            <div class="kicker">EPIC ${escapeHtml(it.epicNumber)} • Workflow ${escapeHtml(it.workflowNumber)}</div>
+            <h3>${escapeHtml(it.title)}</h3>
+            <p>${escapeHtml(short)}</p>
+          </div>
+          <div>
+            <div class="chip status ${statusCls}">${escapeHtml(it.status)}</div>
+          </div>
+        </div>
+
+        <div class="kicker" style="margin-top:6px">Workflow details (from PRODUCT-ROADMAP.md)</div>
+        <pre>${escapeHtml(it.raw.trim())}</pre>
+      `;
+    }
+
+    // Nav
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        el.classList.add('active');
+        const view = el.dataset.view;
+
+        document.getElementById('roadmapView').style.display = (view === 'roadmap') ? '' : 'none';
+        document.getElementById('aboutView').style.display = (view === 'about') ? '' : 'none';
+
+        document.getElementById('viewTitle').textContent = view === 'roadmap' ? 'Roadmap' : 'About';
+        document.getElementById('viewSub').textContent = view === 'roadmap'
+          ? 'Epics & workflows with status (Completed / In progress / Not started / Need to confirm with code)'
+          : 'How this local dashboard works';
+      });
+    });
+
+    function selectedItem(){
+      const active = document.querySelector('.row.active');
+      if (!active) return null;
+      const idx = Number(active.dataset.idx);
+      return Number.isFinite(idx) ? LAST_ITEMS[idx] : null;
+    }
+
+    async function generateBrief(){
+      const it = selectedItem();
+      if (!it){
+        alert('Select an EPIC first.');
+        return;
+      }
+      if (it.kind !== 'epic'){
+        alert('Tech briefs are generated at the EPIC level. Click an EPIC header on the left, then try again.');
+        return;
+      }
+      const epic = it;
+      const workflows = LAST_ITEMS.filter(x => x.kind === 'workflow' && x.epicNumber === epic.epicNumber)
+        .map(w => ({ workflowNumber: w.workflowNumber, title: w.title, status: w.status, raw: w.raw }));
+
+      const payload = { epic: { epicNumber: epic.epicNumber, title: epic.title, status: epic.status, raw: epic.raw }, workflows };
+
+      const btn = document.getElementById('genBriefBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Generating…';
+      btn.disabled = true;
+      try{
+        const res = await fetch('/api/brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+        // Open the generated markdown file
+        window.open(j.file, '_blank');
+      } catch (e){
+        alert('Failed to generate brief.\n\n' + String(e));
+      } finally {
+        btn.textContent = old;
+        btn.disabled = false;
+      }
+    }
+
+    // Buttons
+    document.getElementById('reloadBtn').addEventListener('click', load);
+    document.getElementById('openDocBtn').addEventListener('click', () => {
+      window.open('/PRODUCT-ROADMAP.md', '_blank');
+    });
+    document.getElementById('genBriefBtn').addEventListener('click', generateBrief);
+
+    load();
+  </script>
+</body>
+</html>
