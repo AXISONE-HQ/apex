@@ -13,7 +13,7 @@ function scopeAllowed(user, scope) {
   if (!scope) return true;
   if (!user) return false;
 
-  if (scope.type === "platform") return (user.scopes || []).includes("platform");
+  if (scope.type === "platform") return user.isPlatformAdmin === true || (user.scopes || []).includes("platform");
   if (scope.type === "organization") return (user.orgScopes || []).includes(scope.id);
   if (scope.type === "team") return (user.teamScopes || []).includes(scope.id);
   if (scope.type === "self") return String(user.id) === String(scope.id);

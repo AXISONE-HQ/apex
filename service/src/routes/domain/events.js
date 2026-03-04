@@ -115,7 +115,7 @@ router.get("/:id", requireSession, requirePermission("events.view"), async (req,
   const event = await getEventById({ id: req.params.id, orgId });
   if (!event) return notFound(res, "Event not found");
 
-  const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+  const bypass = Boolean(req.user?.isPlatformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
   const teamScopes = (req.user?.teamScopes || []).map(String);
   const eventTeamId = String(event.team_id ?? event.teamId);
 
@@ -133,7 +133,7 @@ router.get("/:id/attendance", requireSession, requirePermission("events.attendan
   const event = await getEventById({ id: req.params.id, orgId });
   if (!event) return notFound(res, "Event not found");
 
-  const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+  const bypass = Boolean(req.user?.isPlatformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
   const teamScopes = (req.user?.teamScopes || []).map(String);
   const eventTeamId = String(event.team_id ?? event.teamId);
 
@@ -156,7 +156,7 @@ router.put(
     const event = await getEventById({ id: req.params.id, orgId });
     if (!event) return notFound(res, "Event not found");
 
-    const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+    const bypass = Boolean(req.user?.isPlatformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
     const teamScopes = (req.user?.teamScopes || []).map(String);
     const eventTeamId = String(event.team_id ?? event.teamId);
 
