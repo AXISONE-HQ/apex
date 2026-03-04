@@ -27,6 +27,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       NODE_ENV: test
+      INVITE_TOKEN_PEPPER: test-pepper
 
     steps:
       - uses: actions/checkout@v4
