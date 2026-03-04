@@ -18,7 +18,7 @@ export async function listOrganizations() {
 
   const result = await query(
     `SELECT id, name, slug, state_province, country, pulse_score,
-            sport_type, logo_url, subscription_plan
+            sport_type, logo_object_path, subscription_plan
      FROM organizations
      ORDER BY name ASC`
   );
@@ -31,7 +31,7 @@ export async function listOrganizations() {
     country: row.country,
     pulse_score: row.pulse_score ?? null,
     sport_type: row.sport_type ?? null,
-    logo_url: row.logo_url ?? null,
+    logo_object_path: row.logo_object_path ?? null,
     subscription_plan: row.subscription_plan ?? null
   }));
 }
@@ -45,7 +45,7 @@ export async function getOrganizationById(id) {
 
   const result = await query(
     `SELECT id, name, slug, state_province, country, pulse_score,
-            sport_type, logo_url, subscription_plan, onboarding_status
+            sport_type, logo_object_path, subscription_plan, onboarding_status
      FROM organizations
      WHERE id = $1`,
     [id]
@@ -61,7 +61,7 @@ export async function getOrganizationById(id) {
     country: row.country,
     pulse_score: row.pulse_score ?? null,
     sport_type: row.sport_type ?? null,
-    logo_url: row.logo_url ?? null,
+    logo_object_path: row.logo_object_path ?? null,
     subscription_plan: row.subscription_plan ?? null,
     onboarding_status: row.onboarding_status || {}
   };
@@ -74,7 +74,7 @@ export async function updateOrganizationProfile({
   state_province,
   country,
   subscription_plan,
-  logo_url,
+  logo_object_path,
   onboarding_status,
 }) {
   if (!hasDatabase()) {
@@ -85,7 +85,7 @@ export async function updateOrganizationProfile({
       state_province: state_province ?? null,
       country: country ?? null,
       subscription_plan: subscription_plan ?? null,
-      logo_url: logo_url ?? null,
+      logo_object_path: null,
       onboarding_status: onboarding_status ?? {},
     };
   }
@@ -97,12 +97,12 @@ export async function updateOrganizationProfile({
          state_province = COALESCE($4, state_province),
          country = COALESCE($5, country),
          subscription_plan = COALESCE($6, subscription_plan),
-         logo_url = COALESCE($7, logo_url),
+         logo_object_path = COALESCE($7, logo_object_path),
          onboarding_status = COALESCE($8, onboarding_status)
      WHERE id = $1
      RETURNING id, name, slug, state_province, country, pulse_score,
-               sport_type, logo_url, subscription_plan, onboarding_status`,
-    [id, name ?? null, sport_type ?? null, state_province ?? null, country ?? null, subscription_plan ?? null, logo_url ?? null, onboarding_status ?? null]
+               sport_type, logo_object_path, subscription_plan, onboarding_status`,
+    [id, name ?? null, sport_type ?? null, state_province ?? null, country ?? null, subscription_plan ?? null, logo_object_path ?? null, onboarding_status ?? null]
   );
 
   if (!result.rows.length) return null;
@@ -115,7 +115,7 @@ export async function updateOrganizationProfile({
     country: row.country,
     pulse_score: row.pulse_score ?? null,
     sport_type: row.sport_type ?? null,
-    logo_url: row.logo_url ?? null,
+    logo_object_path: row.logo_object_path ?? null,
     subscription_plan: row.subscription_plan ?? null,
     onboarding_status: row.onboarding_status || {}
   };
