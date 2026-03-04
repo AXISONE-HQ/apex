@@ -34,6 +34,13 @@ if (process.env.AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK === "true") {
   console.warn("[SECURITY] Platform admin email fallback ENABLED");
 }
 
+// [SECURITY] Coach invites token pepper is required.
+// Keep prod behavior strict; tests should set a dummy value.
+if (!process.env.INVITE_TOKEN_PEPPER) {
+  console.error("[SECURITY] INVITE_TOKEN_PEPPER is required");
+  process.exit(1);
+}
+
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
