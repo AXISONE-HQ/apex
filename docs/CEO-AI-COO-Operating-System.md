@@ -127,9 +127,29 @@ The AI COO may create specialist AIs only when:
 ---
 
 ## 8) Slack ↔ GitHub working agreement
-- **GitHub docs** = source of truth for operating system + weekly memos.
-- **Slack** = execution updates + CEO decisions.
+- **GitHub docs** = source of truth for operating system + weekly memos + mission briefs.
+- **Slack** = real-time execution updates + CEO decisions.
 - Every week, COO posts a 10-line summary in Slack with link(s) to the GitHub artifacts.
+
+### Real-time mission workflow (chain of command)
+**CEO → PM → CTO → Coder → CTO → PM → CEO (as needed)**
+
+**PM responsibilities**
+- Create a **Mission Brief** per milestone (stored in GitHub + posted in Slack).
+- Each Mission Brief must include: objective, KR mapping, acceptance criteria, out-of-scope, deadline.
+
+**CTO responsibilities**
+- Post an engineering execution brief in **<#C0AHW98DWBX>**.
+- Maintain a single-thread daily update: shipped / next / blocked.
+- Declare “ready for validation” only when acceptance criteria are met.
+
+**Coder responsibilities**
+- Confirm understanding (“I will deliver X by Y”) in the channel.
+- Post blockers early; ship PRs; request validation when ready.
+
+**Non-negotiables**
+- One mission at a time per coder (avoid parallel thrash).
+- “Done” means acceptance criteria met + PM validation.
 
 ---
 
