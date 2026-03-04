@@ -61,30 +61,38 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     setEventError(null);
     setPartialErrors([]);
 
-    // 1) Load event via list window approach (API has get-by-id in service repo but no route yet).
-    // For MVP UI, we fetch a wide window for each team is unknown, so we do best effort:
-    // - call /events?teamId=<from query> not possible here
-    // Instead, rely on attendance endpoint to validate access, and use it as a minimal existence check.
+    const errors: string[] = [];
 
-    // Fetch attendance first to ensure org/team scoping errors are visible.
+    // Fetch event metadata + attendance + roster in parallel.
+    const eventReq = fetch(`${API_BASE_URL}/events/${eventId}`, { credentials: "include" })
+      .then(async (res) => ({ res, data: await res.json().catch(() => ({})) }))
+      .catch((err) => ({ res: null as any, data: { error: String(err?.message || err) } }));
+
     const attendanceReq = fetch(`${API_BASE_URL}/events/${eventId}/attendance`, { credentials: "include" })
       .then(async (res) => ({ res, data: await res.json().catch(() => ({})) }))
       .catch((err) => ({ res: null as any, data: { error: String(err?.message || err) } }));
 
-    // Fetch event details by scanning events for the next 180 days for all teams is too much.
-    // For MVP, display event metadata only if attendance endpoint returns it in payload (it doesn't today).
-    // We'll still show the ID + allow attendance editing.
+    const rosterReq = fetch(`${API_BASE_URL}/players`, { credentials: "include" })
+      .then(async (res) => ({ res, data: await res.json().catch(() => ({})) }))
+      .catch((err) => ({ res: null as any, data: { error: String(err?.message || err) } }));
 
-    const [att] = await Promise.all([attendanceReq]);
+    const [evt, att, roster] = await Promise.all([eventReq, attendanceReq, rosterReq]);
 
-    const errors: string[] = [];
+    // Event metadata is optional for the page (attendance is the core), but we surface errors.
+    if (!evt.res) {
+      errors.push(`Event metadata network error: ${JSON.stringify(evt.data)}`);
+    } else if (!evt.res.ok) {
+      errors.push(`Event metadata HTTP ${evt.res.status}: ${JSON.stringify(evt.data)}`);
+    } else {
+      setEvent(evt.data as ApiEvent);
+    }
 
+    // Attendance is required for the page.
     if (!att.res) {
       setEventError(`Network error loading attendance: ${JSON.stringify(att.data)}`);
       setLoading(false);
       return;
     }
-
     if (!att.res.ok) {
       setEventError(`HTTP ${att.res.status}: ${JSON.stringify(att.data)}`);
       setLoading(false);
@@ -96,30 +104,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     for (const r of rows) byPlayer[String(r.player_id)] = r;
     setAttendance(byPlayer);
 
-    // Infer teamId from first attendance row? Not reliable. We'll fetch all players and filter client-side.
-    const playersRes = await fetch(`${API_BASE_URL}/players`, { credentials: "include" })
-      .then(async (res) => ({ res, data: await res.json().catch(() => ({})) }))
-      .catch((err) => ({ res: null as any, data: { error: String(err?.message || err) } }));
-
-    if (!playersRes.res) {
-      errors.push(`Network error loading roster: ${JSON.stringify(playersRes.data)}`);
-    } else if (!playersRes.res.ok) {
-      errors.push(`Roster HTTP ${playersRes.res.status}: ${JSON.stringify(playersRes.data)}`);
+    if (!roster.res) {
+      errors.push(`Roster network error: ${JSON.stringify(roster.data)}`);
+    } else if (!roster.res.ok) {
+      errors.push(`Roster HTTP ${roster.res.status}: ${JSON.stringify(roster.data)}`);
     } else {
-      const items = playersRes.data.items || [];
-      setPlayers(items);
+      setPlayers(roster.data.items || []);
     }
-
-    setEvent({
-      id: eventId,
-      org_id: "",
-      team_id: "",
-      type: "",
-      starts_at: "",
-      ends_at: null,
-      location: null,
-      notes: null,
-    });
 
     setPartialErrors(errors);
     setLoading(false);
@@ -184,7 +175,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold">Event</h1>
-            <div className="text-xs text-white/70">{eventId}</div>
+            <div className="text-xs text-white/70">{event?.type ? `${event.type} • ` : ""}{eventId}</div>
           </div>
           <button
             className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm"
@@ -212,6 +203,33 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 <li key={i}>{e}</li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {event ? (
+          <div className="mb-3 rounded-2xl border border-white/15 bg-white/5 p-3 text-sm">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div>
+                <div className="text-xs text-white/70">Type</div>
+                <div className="mt-0.5 capitalize">{event.type || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-white/70">Starts</div>
+                <div className="mt-0.5">{event.starts_at ? fmt(event.starts_at) : "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-white/70">Ends</div>
+                <div className="mt-0.5">{event.ends_at ? fmt(event.ends_at) : "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-white/70">Location</div>
+                <div className="mt-0.5">{event.location || "—"}</div>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-xs text-white/70">Notes</div>
+                <div className="mt-0.5 whitespace-pre-wrap text-white/90">{event.notes || "—"}</div>
+              </div>
+            </div>
           </div>
         ) : null}
 
