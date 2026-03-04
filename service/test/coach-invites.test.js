@@ -94,9 +94,17 @@ test("Accept returns 409 user_not_provisioned when user not provisioned", async 
   await runMigrations();
 
   const orgId = "00000000-0000-0000-0000-0000000000c1";
+  const creatorId = "00000000-0000-0000-0000-0000000000c2";
+
   await query(
     "INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING",
     [orgId, "Invite Org2", "invite-org2"]
+  );
+
+  // created_by_user_id FK requires an existing user
+  await query(
+    "INSERT INTO users (id, external_uid, email, name) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",
+    [creatorId, "ext_creator", "admin@example.com", "Admin"]
   );
 
   // Insert invite directly (simulate admin create). Token hash uses pepper.
@@ -107,7 +115,7 @@ test("Accept returns 409 user_not_provisioned when user not provisioned", async 
   await query(
     `INSERT INTO organization_invites (org_id, email, role_code, coach_type, team_ids, token_hash, expires_at, status, created_by_user_id)
      VALUES ($1, $2, 'ManagerCoach', 'head', '[]'::jsonb, $3, NOW() + interval '48 hours', 'pending', $4)`,
-    [orgId, "coach@club.com", tokenHash, "00000000-0000-0000-0000-0000000000c2"]
+    [orgId, "coach@club.com", tokenHash, creatorId]
   );
 
   const res = await fetch(`${baseUrl}/auth/invites/accept`, {
