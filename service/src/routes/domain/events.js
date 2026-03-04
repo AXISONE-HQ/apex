@@ -108,6 +108,24 @@ router.delete("/:id", requireSession, requirePermission("events.delete"), async 
   res.status(204).send();
 });
 
+router.get("/:id", requireSession, requirePermission("events.view"), async (req, res) => {
+  const orgId = req.user?.activeOrgId;
+  if (!orgId) return res.status(400).json({ error: { code: "bad_request", message: "active org required" } });
+
+  const event = await getEventById({ id: req.params.id, orgId });
+  if (!event) return notFound(res, "Event not found");
+
+  const bypass = Boolean(req.user?.platformAdmin) || (req.user?.roles || []).includes("OrgAdmin");
+  const teamScopes = (req.user?.teamScopes || []).map(String);
+  const eventTeamId = String(event.team_id ?? event.teamId);
+
+  if (!bypass && teamScopes.length && !teamScopes.includes(eventTeamId)) {
+    return res.status(403).json({ error: "forbidden", reason: "team_scope_restriction" });
+  }
+
+  return res.status(200).json(event);
+});
+
 router.get("/:id/attendance", requireSession, requirePermission("events.attendance.view"), async (req, res) => {
   const orgId = req.user?.activeOrgId;
   if (!orgId) return res.status(400).json({ error: { code: "bad_request", message: "active org required" } });
