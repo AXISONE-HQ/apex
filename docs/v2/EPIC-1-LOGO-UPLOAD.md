@@ -82,7 +82,10 @@ Response:
 ```
 
 ### 4) Get signed read URL for UI
-`GET /admin/clubs/:orgId/logo/read-url?objectPath=club-logos/<orgId>/<uuid>.png`
+`GET /admin/clubs/:orgId/logo/read-url`
+
+Notes
+- No query params. Server signs the org’s stored `logo_object_path` (defense-in-depth).
 
 Response:
 ```json
