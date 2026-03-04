@@ -21,6 +21,17 @@ import { hasDatabase, query } from "./db/client.js";
 
 const app = express();
 
+// [SECURITY] Emergency fallback guard (default OFF).
+// If enabled, require an explicit allowlist and warn loudly.
+if (process.env.AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK === "true") {
+  if (!process.env.PLATFORM_ADMIN_EMAILS) {
+    throw new Error(
+      "[SECURITY] AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK=true requires PLATFORM_ADMIN_EMAILS"
+    );
+  }
+  console.warn("[SECURITY] Platform admin email fallback ENABLED");
+}
+
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
@@ -105,7 +116,8 @@ app.use(async (req, _res, next) => {
           orgScopes,
           teamScopes: session.teamScopes || [],
           playerScopes: session.playerScopes || [],
-          platformAdmin
+          // Canonical normalized flag: used by requirePlatformAdmin + policy checks.
+          isPlatformAdmin: platformAdmin || Boolean(user.isPlatformAdmin)
         };
       }
     }
