@@ -10,6 +10,7 @@ import announcementsRoutes from "./routes/domain/announcements.js";
 import aiJobsRoutes from "./routes/aiJobs.js";
 import adminClubsRoutes from "./routes/admin/clubs.js";
 import adminClubLogosRoutes from "./routes/admin/clubLogos.js";
+import adminClubProfileRoutes from "./routes/admin/clubProfile.js";
 import jobsRoutes from "./routes/jobs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
@@ -143,6 +144,7 @@ app.use("/announcements", announcementsRoutes);
 app.use("/ai", aiLimiter, aiJobsRoutes);
 app.use("/admin/clubs", adminClubsRoutes);
 app.use("/admin/clubs", adminClubLogosRoutes);
+app.use("/admin/clubs", adminClubProfileRoutes);
 app.use("/jobs", jobsRoutes);
 
 app.get(

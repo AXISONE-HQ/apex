@@ -106,7 +106,8 @@ router.post(
   }
 );
 
-// GET /admin/clubs/:orgId/logo/read-url?objectPath=...
+// GET /admin/clubs/:orgId/logo/read-url
+// No query param: always signs the org's persisted logo_object_path.
 router.get(
   "/:orgId/logo/read-url",
   requireSession,
@@ -115,17 +116,17 @@ router.get(
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const objectPath = String(req.query.objectPath || "");
+    // Fetch org logo pointer. Note: this avoids letting callers sign arbitrary objects.
+    const { getOrganizationById } = await import("../../repositories/organizationsRepo.js");
+    const org = await getOrganizationById(orgId);
+    if (!org) return res.status(404).json({ error: "org_not_found" });
+
+    const objectPath = org.logo_object_path;
     if (!objectPath) {
-      return badRequest(res, "objectPath query param required");
+      return res.status(404).json({ error: "no_logo" });
     }
 
-    const expectedPrefix = `club-logos/${orgId}/`;
-    if (!objectPath.startsWith(expectedPrefix)) {
-      return res.status(400).json({ error: "invalid_object_path_prefix" });
-    }
-
-    // Optional: fail fast if object missing
+    // Fail fast if object missing
     try {
       await headObject({ objectPath });
     } catch {
