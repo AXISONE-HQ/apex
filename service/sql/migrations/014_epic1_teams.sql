@@ -15,30 +15,52 @@ ALTER TABLE teams
   ADD COLUMN IF NOT EXISTS home_venue JSONB;
 
 -- Foreign key for optional head coach assignment
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_head_coach_user_id_fkey
-  FOREIGN KEY (head_coach_user_id) REFERENCES users(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'teams_head_coach_user_id_fkey'
+  ) THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_head_coach_user_id_fkey
+      FOREIGN KEY (head_coach_user_id) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+END$$;
 
 -- Guardrail checks
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_season_year_check
-    CHECK (season_year IS NULL OR season_year BETWEEN 2000 AND 2100);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teams_season_year_check') THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_season_year_check
+      CHECK (season_year IS NULL OR season_year BETWEEN 2000 AND 2100);
+  END IF;
 
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_training_frequency_check
-    CHECK (training_frequency_per_week IS NULL OR training_frequency_per_week BETWEEN 0 AND 14);
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teams_training_frequency_check') THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_training_frequency_check
+      CHECK (training_frequency_per_week IS NULL OR training_frequency_per_week BETWEEN 0 AND 14);
+  END IF;
 
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_default_training_duration_check
-    CHECK (default_training_duration_min IS NULL OR default_training_duration_min BETWEEN 15 AND 600);
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teams_default_training_duration_check') THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_default_training_duration_check
+      CHECK (default_training_duration_min IS NULL OR default_training_duration_min BETWEEN 15 AND 600);
+  END IF;
 
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_name_length_check
-    CHECK (char_length(name) BETWEEN 1 AND 120);
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teams_name_length_check') THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_name_length_check
+      CHECK (char_length(name) BETWEEN 1 AND 120);
+  END IF;
 
-ALTER TABLE teams
-  ADD CONSTRAINT IF NOT EXISTS teams_home_venue_object_check
-    CHECK (home_venue IS NULL OR jsonb_typeof(home_venue) = 'object');
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teams_home_venue_object_check') THEN
+    ALTER TABLE teams
+      ADD CONSTRAINT teams_home_venue_object_check
+      CHECK (home_venue IS NULL OR jsonb_typeof(home_venue) = 'object');
+  END IF;
+END$$;
 
 -- New uniqueness for season-scoped teams.
 -- NOTE: legacy schema already has UNIQUE(org_id, name). We keep it for backwards compatibility,
