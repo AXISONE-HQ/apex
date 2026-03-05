@@ -8,6 +8,7 @@ import {
   updateTeam,
 } from "../../repositories/teamsRepo.js";
 import { query } from "../../db/client.js";
+import { getMembershipByOrgAndUserId } from "../../repositories/membershipsRepo.js";
 
 const router = Router({ mergeParams: true });
 
@@ -86,19 +87,12 @@ async function validateHeadCoach({ orgId, headCoachUserId }) {
     throw new Error("head_coach_not_found");
   }
 
-  // Verify membership + role
-  const memRes = await query(
-    `SELECT role_code
-     FROM memberships
-     WHERE org_id = $1 AND user_id = $2
-     LIMIT 1`,
-    [orgId, headCoachUserId]
-  );
+  // Verify membership + role (canonical repo lookup)
+  const membership = await getMembershipByOrgAndUserId({ orgId, userId: headCoachUserId });
+  if (!membership) throw new Error("head_coach_not_member");
 
-  if (!memRes.rows.length) throw new Error("head_coach_not_member");
-
-  const roleCode = String(memRes.rows[0].role_code || "");
-  if (!['ManagerCoach','OrgAdmin'].includes(roleCode)) {
+  const roleCode = String(membership.roleCode || "");
+  if (!["ManagerCoach", "OrgAdmin"].includes(roleCode)) {
     throw new Error("head_coach_role_not_allowed");
   }
 

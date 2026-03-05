@@ -62,27 +62,12 @@ test.before(async () => {
       [USER_RANDOM, "ext-random-1", "random1@example.com", "Random 1"]
     );
 
-    // Memberships
-    await query(
-      `INSERT INTO memberships (org_id, user_id, role_code)
-       VALUES ($1, $2, $3)
-       ON CONFLICT DO NOTHING`,
-      [ORG_1, USER_ORGADMIN_1, "OrgAdmin"]
-    );
+    // Memberships + roles (canonical schema)
+    const { ensureMembershipRole } = await import("../src/repositories/membershipsRepo.js");
 
-    await query(
-      `INSERT INTO memberships (org_id, user_id, role_code)
-       VALUES ($1, $2, $3)
-       ON CONFLICT DO NOTHING`,
-      [ORG_1, USER_COACH_1, "ManagerCoach"]
-    );
-
-    await query(
-      `INSERT INTO memberships (org_id, user_id, role_code)
-       VALUES ($1, $2, $3)
-       ON CONFLICT DO NOTHING`,
-      [ORG_1, USER_RANDOM, "Viewer"]
-    );
+    await ensureMembershipRole({ userId: USER_ORGADMIN_1, orgId: ORG_1, roleCode: "OrgAdmin" });
+    await ensureMembershipRole({ userId: USER_COACH_1, orgId: ORG_1, roleCode: "ManagerCoach" });
+    await ensureMembershipRole({ userId: USER_RANDOM, orgId: ORG_1, roleCode: "Viewer" });
   }
 
   server = app.listen(0);
