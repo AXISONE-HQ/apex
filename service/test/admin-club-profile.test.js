@@ -7,6 +7,18 @@ let server;
 let baseUrl;
 
 test.before(async () => {
+  // DB-mode tests need a deterministic org row to exist.
+  // In non-DB mode, repositories already provide demo orgs.
+  if (process.env.DATABASE_URL) {
+    const { query } = await import("../src/db/client.js");
+    await query(
+      `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO NOTHING`,
+      ["org_demo", "Demo Club", "demo-org", "Ontario", "Canada", 82]
+    );
+  }
+
   server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address();

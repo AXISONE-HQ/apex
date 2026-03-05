@@ -54,8 +54,8 @@ router.post("/invites/accept", async (req, res) => {
   // We expect the user to already exist via Firebase auth -> upsert on /auth/session.
   // If they haven't created a session yet, we do not create local users here.
   // Instead, require them to authenticate via /auth/session first.
-  const { findUserByEmail } = await import("../repositories/usersLookupRepo.js");
-  const user = await findUserByEmail(email);
+  const { getUserByEmail } = await import("../repositories/usersRepo.js");
+  const user = await getUserByEmail(email);
   if (!user) {
     return res.status(409).json({
       error: "user_not_provisioned",
