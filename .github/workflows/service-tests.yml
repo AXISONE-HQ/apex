@@ -43,6 +43,10 @@ jobs:
         working-directory: service
         run: npm ci
 
+      - name: Migrate DB
+        working-directory: service
+        run: npm run migrate
+
       - name: Test
         working-directory: service
         run: node --test --test-concurrency=1
