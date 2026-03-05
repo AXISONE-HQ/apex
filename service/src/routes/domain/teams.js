@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
-import { createTeam, deleteTeam, listTeamsByOrg, updateTeam } from "../../repositories/teamsRepo.js";
+import { createTeam, deleteTeam, listTeamsByOrg, updateTeam } from "../../repositories/teamsRepoLegacy.js";
 import { badRequest, notFound, parsePagination } from "./_helpers.js";
 import teamMessagesRoutes from "./teamMessages.js";
 
