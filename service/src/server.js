@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
+import authInvitesRoutes from "./routes/authInvites.js";
 import teamsRoutes from "./routes/domain/teams.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
@@ -9,8 +10,7 @@ import eventsRoutes from "./routes/domain/events.js";
 import announcementsRoutes from "./routes/domain/announcements.js";
 import aiJobsRoutes from "./routes/aiJobs.js";
 import adminClubsRoutes from "./routes/admin/clubs.js";
-import adminClubLogosRoutes from "./routes/admin/clubLogos.js";
-import adminClubProfileRoutes from "./routes/admin/clubProfile.js";
+import adminCoachInvitesRoutes from "./routes/admin/coachInvites.js";
 import jobsRoutes from "./routes/jobs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
@@ -32,6 +32,13 @@ if (process.env.AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK === "true") {
     );
   }
   console.warn("[SECURITY] Platform admin email fallback ENABLED");
+}
+
+// [SECURITY] Coach invites token pepper is required.
+// Keep prod behavior strict; tests should set a dummy value.
+if (!process.env.INVITE_TOKEN_PEPPER) {
+  console.error("[SECURITY] INVITE_TOKEN_PEPPER is required");
+  process.exit(1);
 }
 
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
@@ -148,6 +155,7 @@ const aiLimiter = createRateLimiter({
 });
 
 app.use("/auth", authRoutes);
+app.use("/auth", authInvitesRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
@@ -155,8 +163,7 @@ app.use("/events", eventsRoutes);
 app.use("/announcements", announcementsRoutes);
 app.use("/ai", aiLimiter, aiJobsRoutes);
 app.use("/admin/clubs", adminClubsRoutes);
-app.use("/admin/clubs", adminClubLogosRoutes);
-app.use("/admin/clubs", adminClubProfileRoutes);
+app.use("/admin", adminCoachInvitesRoutes);
 app.use("/jobs", jobsRoutes);
 
 app.get(
