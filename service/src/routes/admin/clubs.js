@@ -4,6 +4,7 @@ import { requirePermission } from "../../middleware/requirePermission.js";
 import { listOrganizations } from "../../repositories/organizationsRepo.js";
 import clubProfileRoutes from "./clubProfile.js";
 import clubLogosRoutes from "./clubLogos.js";
+import adminTeamsRoutes from "./teams.js";
 
 const router = Router();
 
@@ -17,8 +18,9 @@ router.get(
   }
 );
 
-// /admin/clubs/:orgId profile + logos
+// /admin/clubs/:orgId profile + logos + teams
 router.use("/", clubProfileRoutes);
 router.use("/", clubLogosRoutes);
+router.use("/", adminTeamsRoutes);
 
 export default router;
