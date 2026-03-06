@@ -5,6 +5,7 @@ import { listOrganizations } from "../../repositories/organizationsRepo.js";
 import clubProfileRoutes from "./clubProfile.js";
 import clubLogosRoutes from "./clubLogos.js";
 import adminTeamsRoutes from "./teams.js";
+import clubSettingsRoutes from "./clubSettings.js";
 
 const router = Router();
 
@@ -18,9 +19,10 @@ router.get(
   }
 );
 
-// /admin/clubs/:orgId profile + logos + teams
+// /admin/clubs/:orgId profile + logos + teams + settings
 router.use("/", clubProfileRoutes);
 router.use("/", clubLogosRoutes);
 router.use("/", adminTeamsRoutes);
+router.use("/", clubSettingsRoutes);
 
 export default router;
