@@ -298,6 +298,38 @@ export async function clearPlayerTeam(playerId, orgId) {
   return result.rows[0] || null;
 }
 
+export async function setPlayerStatus(playerId, orgId, status) {
+  if (!playerId || !orgId) throw new Error("playerId and orgId required");
+  if (!status) throw new Error("status required");
+
+  if (!hasDatabase()) {
+    const existing = memoryPlayers.get(playerId);
+    if (!existing) return null;
+    if (String(existing.org_id) !== String(orgId)) return null;
+
+    const now = new Date().toISOString();
+    const updated = {
+      ...existing,
+      status,
+      updated_at: now,
+    };
+    memoryPlayers.set(playerId, updated);
+    return updated;
+  }
+
+  const result = await query(
+    `UPDATE players
+     SET status = $3, updated_at = NOW()
+     WHERE id = $1 AND org_id = $2
+     RETURNING id, org_id, team_id, first_name, last_name, display_name,
+               jersey_number, birth_year, position, status, notes,
+               created_at, updated_at`,
+    [playerId, orgId, status]
+  );
+
+  return result.rows[0] || null;
+}
+
 export async function deletePlayer(orgId, playerId) {
   if (!playerId || !orgId) throw new Error("playerId and orgId required");
 

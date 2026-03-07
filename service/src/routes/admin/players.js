@@ -8,6 +8,7 @@ import {
   updatePlayer,
   assignPlayerTeam,
   clearPlayerTeam,
+  setPlayerStatus,
 } from "../../repositories/playersRepo.js";
 import { getTeamById } from "../../repositories/teamsRepo.js";
 
@@ -193,6 +194,52 @@ router.get("/:orgId/players/unassigned", requireSession, async (req, res) => {
   const players = await listUnassignedPlayersByOrg(orgId);
   return res.status(200).json({ players: players.map(normalizePlayerRow) });
 });
+
+router.post(
+  "/:orgId/players/:playerId/activate",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const existing = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!existing) return res.status(404).json({ error: "player_not_found" });
+
+    if (existing.status === "active") {
+      return res.status(200).json({ player: normalizePlayerRow(existing) });
+    }
+
+    const updated = await setPlayerStatus(playerId, orgId, "active");
+    if (!updated) return res.status(404).json({ error: "player_not_found" });
+
+    return res.status(200).json({ player: normalizePlayerRow(updated) });
+  }
+);
+
+router.post(
+  "/:orgId/players/:playerId/deactivate",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const existing = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!existing) return res.status(404).json({ error: "player_not_found" });
+
+    if (existing.status === "inactive") {
+      return res.status(200).json({ player: normalizePlayerRow(existing) });
+    }
+
+    const updated = await setPlayerStatus(playerId, orgId, "inactive");
+    if (!updated) return res.status(404).json({ error: "player_not_found" });
+
+    return res.status(200).json({ player: normalizePlayerRow(updated) });
+  }
+);
 
 router.get("/:orgId/players", requireSession, async (req, res) => {
   const orgId = req.params.orgId;
