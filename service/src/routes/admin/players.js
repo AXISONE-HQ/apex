@@ -1,0 +1,373 @@
+import { Router } from "express";
+import { requireSession } from "../../middleware/requireSession.js";
+import {
+  createPlayer,
+  listPlayersByOrg,
+  getPlayerByIdAndOrg,
+  updatePlayer,
+  assignPlayerTeam,
+  clearPlayerTeam,
+} from "../../repositories/playersRepo.js";
+import { getTeamById } from "../../repositories/teamsRepo.js";
+
+const router = Router({ mergeParams: true });
+
+const POST_FIELDS = new Set([
+  "first_name",
+  "last_name",
+  "display_name",
+  "team_id",
+  "jersey_number",
+  "birth_year",
+  "position",
+  "status",
+  "notes",
+]);
+
+const PATCH_FIELDS = POST_FIELDS;
+const ASSIGN_FIELDS = new Set(["team_id"]);
+
+class TeamNotFoundError extends Error {
+  constructor(message = "team_not_found") {
+    super(message);
+    this.name = "TeamNotFoundError";
+  }
+}
+
+function allowPlayersAdmin(req, orgId) {
+  if (req.user?.isPlatformAdmin === true) return true;
+  return (
+    (req.user?.roles || []).includes("OrgAdmin") &&
+    (req.user?.orgScopes || []).map(String).includes(String(orgId))
+  );
+}
+
+function badRequest(res, message) {
+  return res.status(400).json({ error: "bad_request", message });
+}
+
+function forbidden(res) {
+  return res.status(403).json({ error: "forbidden" });
+}
+
+function rejectUnknownFields(body, allowed) {
+  const keys = Object.keys(body || {});
+  for (const key of keys) {
+    if (!allowed.has(key)) return key;
+  }
+  return null;
+}
+
+function sanitizeString(value, { required = false, max, field, allowNull = true }) {
+  if (value === undefined) {
+    if (required) throw new Error(`${field} is required`);
+    return undefined;
+  }
+  if (value === null) {
+    if (required) throw new Error(`${field} is required`);
+    return null;
+  }
+  if (typeof value !== "string") throw new Error(`${field} must be a string`);
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    if (required) throw new Error(`${field} is required`);
+    return allowNull ? null : "";
+  }
+  if (max && trimmed.length > max) throw new Error(`${field} must be at most ${max} characters`);
+  return trimmed;
+}
+
+function sanitizeOptionalString(value, opts) {
+  const result = sanitizeString(value, { ...opts, required: false });
+  if (result === undefined) return undefined;
+  if (result === "") return null;
+  return result;
+}
+
+function sanitizeOptionalInt(value, { field, min, max }) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const num = typeof value === "string" ? Number(value) : value;
+  if (!Number.isInteger(num)) {
+    throw new Error(`${field} must be an integer between ${min} and ${max}`);
+  }
+  if (num < min || num > max) {
+    throw new Error(`${field} must be an integer between ${min} and ${max}`);
+  }
+  return num;
+}
+
+function sanitizeStatus(value) {
+  if (value === undefined || value === null) return undefined;
+  if (value !== "active" && value !== "inactive") {
+    throw new Error("status must be one of: active, inactive");
+  }
+  return value;
+}
+
+async function validateTeam(orgId, teamId) {
+  if (teamId === undefined) return undefined;
+  if (teamId === null) return null;
+  const team = await getTeamById(orgId, teamId);
+  if (!team || team.is_archived) {
+    throw new TeamNotFoundError();
+  }
+  return team.id;
+}
+
+function normalizePlayerRow(row) {
+  return row;
+}
+
+router.post("/:orgId/players", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+  const unknown = rejectUnknownFields(req.body || {}, POST_FIELDS);
+  if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+  try {
+    const first_name = sanitizeString(req.body?.first_name, {
+      required: true,
+      max: 120,
+      field: "first_name",
+    });
+    const last_name = sanitizeString(req.body?.last_name, {
+      required: true,
+      max: 120,
+      field: "last_name",
+    });
+    const display_name = sanitizeOptionalString(req.body?.display_name, {
+      field: "display_name",
+      max: 120,
+    });
+    const position = sanitizeOptionalString(req.body?.position, {
+      field: "position",
+      max: 64,
+    });
+    const notes = sanitizeOptionalString(req.body?.notes, {
+      field: "notes",
+      max: 500,
+    });
+    const jersey_number = sanitizeOptionalInt(req.body?.jersey_number, {
+      field: "jersey_number",
+      min: 0,
+      max: 99,
+    });
+    const currentYear = new Date().getUTCFullYear();
+    const birth_year = sanitizeOptionalInt(req.body?.birth_year, {
+      field: "birth_year",
+      min: 1950,
+      max: currentYear,
+    });
+    const status = sanitizeStatus(req.body?.status) ?? "active";
+    const team_id = await validateTeam(orgId, req.body?.team_id);
+
+    const player = await createPlayer({
+      orgId,
+      teamId: team_id ?? null,
+      firstName: first_name,
+      lastName: last_name,
+      displayName: display_name ?? null,
+      jerseyNumber: jersey_number ?? null,
+      birthYear: birth_year ?? null,
+      position: position ?? null,
+      status,
+      notes: notes ?? null,
+    });
+
+    return res.status(201).json({ item: normalizePlayerRow(player) });
+  } catch (err) {
+    if (err instanceof TeamNotFoundError) {
+      return res.status(404).json({ error: "team_not_found" });
+    }
+    return badRequest(res, err.message || "bad_request");
+  }
+});
+
+router.get("/:orgId/players", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+  const statusFilter = (req.query.status || "active").toLowerCase();
+  if (!["active", "inactive", "all"].includes(statusFilter)) {
+    return badRequest(res, "status must be one of: active, inactive, all");
+  }
+
+  const teamFilter = req.query.teamId ? String(req.query.teamId) : null;
+
+  const players = await listPlayersByOrg(orgId);
+  const filtered = players.filter((player) => {
+    if (statusFilter !== "all" && player.status !== statusFilter) return false;
+    if (teamFilter && String(player.team_id) !== teamFilter) return false;
+    return true;
+  });
+
+  return res.status(200).json({ items: filtered.map(normalizePlayerRow) });
+});
+
+router.patch(
+  "/:orgId/players/:playerId",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const unknown = rejectUnknownFields(req.body || {}, PATCH_FIELDS);
+    if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return badRequest(res, "request body must include at least one allowed field");
+    }
+
+    const existing = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!existing) return res.status(404).json({ error: "player_not_found" });
+
+    try {
+      const patch = {};
+      if ("first_name" in req.body) {
+        const val = sanitizeString(req.body.first_name, {
+          required: false,
+          max: 120,
+          field: "first_name",
+        });
+        if (val === null) throw new Error("first_name is required");
+        if (val !== undefined) patch.first_name = val;
+      }
+      if ("last_name" in req.body) {
+        const val = sanitizeString(req.body.last_name, {
+          required: false,
+          max: 120,
+          field: "last_name",
+        });
+        if (val === null) throw new Error("last_name is required");
+        if (val !== undefined) patch.last_name = val;
+      }
+      if ("display_name" in req.body) {
+        patch.display_name = sanitizeOptionalString(req.body.display_name, {
+          field: "display_name",
+          max: 120,
+        }) ?? null;
+      }
+      if ("position" in req.body) {
+        patch.position = sanitizeOptionalString(req.body.position, {
+          field: "position",
+          max: 64,
+        }) ?? null;
+      }
+      if ("notes" in req.body) {
+        patch.notes = sanitizeOptionalString(req.body.notes, {
+          field: "notes",
+          max: 500,
+        }) ?? null;
+      }
+      if ("jersey_number" in req.body) {
+        patch.jersey_number = sanitizeOptionalInt(req.body.jersey_number, {
+          field: "jersey_number",
+          min: 0,
+          max: 99,
+        });
+      }
+      if ("birth_year" in req.body) {
+        const currentYear = new Date().getUTCFullYear();
+        patch.birth_year = sanitizeOptionalInt(req.body.birth_year, {
+          field: "birth_year",
+          min: 1950,
+          max: currentYear,
+        });
+      }
+      if ("status" in req.body) {
+        patch.status = sanitizeStatus(req.body.status);
+      }
+      if ("team_id" in req.body) {
+        patch.team_id = await validateTeam(orgId, req.body.team_id);
+      }
+
+      if (Object.keys(patch).length === 0) {
+        return badRequest(res, "request body must include at least one allowed field");
+      }
+
+      const updated = await updatePlayer(playerId, orgId, patch);
+      if (!updated) return res.status(404).json({ error: "player_not_found" });
+
+      return res.status(200).json({ item: normalizePlayerRow(updated) });
+    } catch (err) {
+      if (err instanceof TeamNotFoundError) {
+        return res.status(404).json({ error: "team_not_found" });
+      }
+      return badRequest(res, err.message || "bad_request");
+    }
+  }
+);
+
+router.post(
+  "/:orgId/players/:playerId/team",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const unknown = rejectUnknownFields(req.body || {}, ASSIGN_FIELDS);
+    if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+    if (!req.body || req.body.team_id === undefined || req.body.team_id === null) {
+      return badRequest(res, "team_id is required");
+    }
+
+    const existing = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!existing) return res.status(404).json({ error: "player_not_found" });
+
+    try {
+      const teamId = await validateTeam(orgId, req.body.team_id);
+
+      const sameTeam =
+        existing.team_id !== null &&
+        existing.team_id !== undefined &&
+        teamId !== null &&
+        teamId !== undefined &&
+        String(existing.team_id) === String(teamId);
+
+      if (sameTeam) {
+        return res.status(200).json({ player: normalizePlayerRow(existing) });
+      }
+
+      const updated = await assignPlayerTeam(playerId, orgId, teamId);
+      if (!updated) return res.status(404).json({ error: "player_not_found" });
+
+      return res.status(200).json({ player: normalizePlayerRow(updated) });
+    } catch (err) {
+      if (err instanceof TeamNotFoundError) {
+        return res.status(404).json({ error: "team_not_found" });
+      }
+      return badRequest(res, err.message || "bad_request");
+    }
+  }
+);
+
+router.delete(
+  "/:orgId/players/:playerId/team",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const existing = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!existing) return res.status(404).json({ error: "player_not_found" });
+
+    if (existing.team_id === null || existing.team_id === undefined) {
+      return res.status(200).json({ player: normalizePlayerRow(existing) });
+    }
+
+    const updated = await clearPlayerTeam(playerId, orgId);
+    if (!updated) return res.status(404).json({ error: "player_not_found" });
+
+    return res.status(200).json({ player: normalizePlayerRow(updated) });
+  }
+);
+
+export default router;
