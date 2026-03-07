@@ -7,6 +7,7 @@ import clubLogosRoutes from "./clubLogos.js";
 import adminTeamsRoutes from "./teams.js";
 import clubSettingsRoutes from "./clubSettings.js";
 import playersRoutes from "./players.js";
+import guardiansRoutes from "./guardians.js";
 
 const router = Router();
 
@@ -20,11 +21,12 @@ router.get(
   }
 );
 
-// /admin/clubs/:orgId profile + logos + teams + settings + players
+// /admin/clubs/:orgId profile + logos + teams + settings + players + guardians
 router.use("/", clubProfileRoutes);
 router.use("/", clubLogosRoutes);
 router.use("/", adminTeamsRoutes);
 router.use("/", clubSettingsRoutes);
 router.use("/", playersRoutes);
+router.use("/", guardiansRoutes);
 
 export default router;
