@@ -39,20 +39,63 @@ const platformHeaders = {
   "x-user": JSON.stringify(xUser({ id: USER_PLATFORM, isPlatformAdmin: true })),
 };
 
+const teamCache = new Map();
+
+async function seedDb() {
+  if (!process.env.DATABASE_URL) return;
+  const { query } = await import("../src/db/client.js");
+
+  await query(
+    `INSERT INTO organizations (id, name, slug)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [ORG_1, "Evaluations Org One", "evaluations-org-one"]
+  );
+
+  await query(
+    `INSERT INTO organizations (id, name, slug)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [ORG_2, "Evaluations Org Two", "evaluations-org-two"]
+  );
+}
+
+async function createTeamForOrg(orgId, name = "Evaluations Team") {
+  const res = await fetch(`${baseUrl}/admin/clubs/${orgId}/teams`, {
+    method: "POST",
+    headers: headersForOrgAdmin(orgId),
+    body: JSON.stringify({ name, season_year: 2026 }),
+  });
+  if (res.status !== 201) {
+    throw new Error(`Failed to create team for org ${orgId}: ${res.status}`);
+  }
+  return (await res.json()).item;
+}
+
+async function ensureTeam(orgId) {
+  if (!teamCache.has(orgId)) {
+    const team = await createTeamForOrg(orgId);
+    teamCache.set(orgId, team);
+  }
+  return teamCache.get(orgId);
+}
+
 async function createPlayer(orgId, lastName = "Player") {
+  const team = await ensureTeam(orgId);
   const res = await fetch(`${baseUrl}/admin/clubs/${orgId}/players`, {
     method: "POST",
     headers: headersForOrgAdmin(orgId),
-    body: JSON.stringify({ first_name: "Eval", last_name: lastName }),
+    body: JSON.stringify({ first_name: "Eval", last_name: lastName, team_id: team.id }),
   });
   if (res.status !== 201) throw new Error(`createPlayer failed: ${res.status}`);
   return (await res.json()).item;
 }
 
 async function createEvent(orgId, name) {
+  const team = await ensureTeam(orgId);
   const event = await repoCreateEvent({
     orgId,
-    teamId: `team_${orgId}`,
+    teamId: team.id,
     type: "practice",
     startsAt: new Date().toISOString(),
     createdBy: USER_PLATFORM,
@@ -92,6 +135,9 @@ async function patchEvaluation({ orgId, playerId, evaluationId, headers = header
 }
 
 test.before(async () => {
+  teamCache.clear();
+  if (process.env.DATABASE_URL) await seedDb();
+
   server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
