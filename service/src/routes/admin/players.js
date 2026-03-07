@@ -15,6 +15,7 @@ import {
   unlinkGuardianFromPlayer,
   listGuardiansByPlayer,
 } from "../../repositories/guardianPlayersRepo.js";
+import { listAttendanceByPlayer } from "../../repositories/playerAttendanceRepo.js";
 import { getTeamById } from "../../repositories/teamsRepo.js";
 import { getGuardianByIdAndOrg } from "../../repositories/guardiansRepo.js";
 
@@ -42,7 +43,7 @@ class TeamNotFoundError extends Error {
   }
 }
 
-function allowPlayersAdmin(req, orgId) {
+export function allowPlayersAdmin(req, orgId) {
   if (req.user?.isPlatformAdmin === true) return true;
   return (
     (req.user?.roles || []).includes("OrgAdmin") &&
@@ -50,11 +51,11 @@ function allowPlayersAdmin(req, orgId) {
   );
 }
 
-function badRequest(res, message) {
+export function badRequest(res, message) {
   return res.status(400).json({ error: "bad_request", message });
 }
 
-function forbidden(res) {
+export function forbidden(res) {
   return res.status(403).json({ error: "forbidden" });
 }
 
@@ -307,6 +308,23 @@ router.delete(
 
     await unlinkGuardianFromPlayer({ orgId, playerId, guardianId });
     return res.status(200).json({ ok: true });
+  }
+);
+
+router.get(
+  "/:orgId/players/:playerId/attendance",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const attendance = await listAttendanceByPlayer({ orgId, playerId });
+    return res.status(200).json({ attendance });
   }
 );
 
