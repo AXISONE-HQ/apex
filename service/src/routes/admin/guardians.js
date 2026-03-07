@@ -6,6 +6,7 @@ import {
   getGuardianByIdAndOrg,
   updateGuardian,
 } from "../../repositories/guardiansRepo.js";
+import { listPlayersByGuardian } from "../../repositories/guardianPlayersRepo.js";
 
 const router = Router({ mergeParams: true });
 
@@ -242,5 +243,22 @@ router.patch("/:orgId/guardians/:guardianId", requireSession, async (req, res) =
     return badRequest(res, err.message || "bad_request");
   }
 });
+
+router.get(
+  "/:orgId/guardians/:guardianId/players",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const guardianId = req.params.guardianId;
+
+    if (!allowGuardiansAdmin(req, orgId)) return forbidden(res);
+
+    const guardian = await getGuardianByIdAndOrg(guardianId, orgId);
+    if (!guardian) return res.status(404).json({ error: "guardian_not_found" });
+
+    const players = await listPlayersByGuardian({ orgId, guardianId });
+    return res.status(200).json({ players });
+  }
+);
 
 export default router;

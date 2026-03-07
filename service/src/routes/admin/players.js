@@ -10,7 +10,13 @@ import {
   clearPlayerTeam,
   setPlayerStatus,
 } from "../../repositories/playersRepo.js";
+import {
+  linkGuardianToPlayer,
+  unlinkGuardianFromPlayer,
+  listGuardiansByPlayer,
+} from "../../repositories/guardianPlayersRepo.js";
 import { getTeamById } from "../../repositories/teamsRepo.js";
+import { getGuardianByIdAndOrg } from "../../repositories/guardiansRepo.js";
 
 const router = Router({ mergeParams: true });
 
@@ -238,6 +244,69 @@ router.post(
     if (!updated) return res.status(404).json({ error: "player_not_found" });
 
     return res.status(200).json({ player: normalizePlayerRow(updated) });
+  }
+);
+
+router.post(
+  "/:orgId/players/:playerId/guardians",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const guardianId = req.body?.guardian_id;
+    if (!guardianId) {
+      return badRequest(res, "guardian_id is required");
+    }
+
+    const guardian = await getGuardianByIdAndOrg(guardianId, orgId);
+    if (!guardian) return res.status(404).json({ error: "guardian_not_found" });
+
+    await linkGuardianToPlayer({ orgId, playerId, guardianId });
+    return res.status(200).json({ ok: true });
+  }
+);
+
+router.get(
+  "/:orgId/players/:playerId/guardians",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const guardians = await listGuardiansByPlayer({ orgId, playerId });
+    return res.status(200).json({ guardians });
+  }
+);
+
+router.delete(
+  "/:orgId/players/:playerId/guardians/:guardianId",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+    const guardianId = req.params.guardianId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const guardian = await getGuardianByIdAndOrg(guardianId, orgId);
+    if (!guardian) return res.status(404).json({ error: "guardian_not_found" });
+
+    await unlinkGuardianFromPlayer({ orgId, playerId, guardianId });
+    return res.status(200).json({ ok: true });
   }
 );
 
