@@ -16,6 +16,13 @@ import {
   listGuardiansByPlayer,
 } from "../../repositories/guardianPlayersRepo.js";
 import { listAttendanceByPlayer } from "../../repositories/playerAttendanceRepo.js";
+import {
+  createPlayerEvaluation,
+  listEvaluationsByPlayer,
+  getEvaluationByIdAndPlayer,
+  updatePlayerEvaluation,
+} from "../../repositories/playerEvaluationsRepo.js";
+import { getEventById } from "../../repositories/eventsRepo.js";
 import { getTeamById } from "../../repositories/teamsRepo.js";
 import { getGuardianByIdAndOrg } from "../../repositories/guardiansRepo.js";
 
@@ -35,6 +42,16 @@ const POST_FIELDS = new Set([
 
 const PATCH_FIELDS = POST_FIELDS;
 const ASSIGN_FIELDS = new Set(["team_id"]);
+const EVALUATION_POST_FIELDS = new Set([
+  "event_id",
+  "title",
+  "summary",
+  "strengths",
+  "improvements",
+  "rating",
+  "status",
+]);
+const EVALUATION_PATCH_FIELDS = EVALUATION_POST_FIELDS;
 
 class TeamNotFoundError extends Error {
   constructor(message = "team_not_found") {
@@ -112,6 +129,23 @@ function sanitizeStatus(value) {
     throw new Error("status must be one of: active, inactive");
   }
   return value;
+}
+
+function sanitizeEvaluationStatus(value) {
+  if (value === undefined || value === null) return undefined;
+  if (value !== "draft" && value !== "published") {
+    throw new Error("status must be one of: draft, published");
+  }
+  return value;
+}
+
+function sanitizeRating(value) {
+  if (value === undefined || value === null) return value === undefined ? undefined : null;
+  const num = typeof value === "string" ? Number(value) : value;
+  if (!Number.isInteger(num) || num < 1 || num > 5) {
+    throw new Error("rating must be an integer between 1 and 5");
+  }
+  return num;
 }
 
 async function validateTeam(orgId, teamId) {
@@ -325,6 +359,168 @@ router.get(
 
     const attendance = await listAttendanceByPlayer({ orgId, playerId });
     return res.status(200).json({ attendance });
+  }
+);
+
+router.post(
+  "/:orgId/players/:playerId/evaluations",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const unknown = rejectUnknownFields(req.body || {}, EVALUATION_POST_FIELDS);
+    if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+    try {
+      const title = sanitizeString(req.body?.title, {
+        required: true,
+        max: 160,
+        field: "title",
+      });
+      const summary = sanitizeOptionalString(req.body?.summary, {
+        field: "summary",
+        max: 1000,
+      });
+      const strengths = sanitizeOptionalString(req.body?.strengths, {
+        field: "strengths",
+        max: 1000,
+      });
+      const improvements = sanitizeOptionalString(req.body?.improvements, {
+        field: "improvements",
+        max: 1000,
+      });
+      const rating = sanitizeRating(req.body?.rating);
+      const status = sanitizeEvaluationStatus(req.body?.status) ?? "published";
+      const eventId = req.body?.event_id ?? null;
+
+      if (eventId) {
+        const event = await getEventById({ id: eventId, orgId });
+        if (!event) return res.status(404).json({ error: "event_not_found" });
+      }
+
+      const evaluation = await createPlayerEvaluation({
+        orgId,
+        playerId,
+        eventId: eventId ?? null,
+        authorUserId: req.user?.id ?? null,
+        title,
+        summary: summary ?? null,
+        strengths: strengths ?? null,
+        improvements: improvements ?? null,
+        rating: rating ?? null,
+        status,
+      });
+
+      return res.status(201).json({ evaluation });
+    } catch (err) {
+      return badRequest(res, err.message || "bad_request");
+    }
+  }
+);
+
+router.get(
+  "/:orgId/players/:playerId/evaluations",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const evaluations = await listEvaluationsByPlayer({ orgId, playerId });
+    return res.status(200).json({ evaluations });
+  }
+);
+
+router.patch(
+  "/:orgId/players/:playerId/evaluations/:evaluationId",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const playerId = req.params.playerId;
+    const evaluationId = req.params.evaluationId;
+
+    if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const unknown = rejectUnknownFields(req.body || {}, EVALUATION_PATCH_FIELDS);
+    if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return badRequest(res, "request body must include at least one allowed field");
+    }
+
+    const player = await getPlayerByIdAndOrg(playerId, orgId);
+    if (!player) return res.status(404).json({ error: "player_not_found" });
+
+    const existing = await getEvaluationByIdAndPlayer({ evaluationId, playerId, orgId });
+    if (!existing) return res.status(404).json({ error: "evaluation_not_found" });
+
+    try {
+      const patch = {};
+      if ("title" in req.body) {
+        const title = sanitizeString(req.body.title, {
+          required: false,
+          max: 160,
+          field: "title",
+        });
+        if (title === null) throw new Error("title is required");
+        if (title !== undefined) patch.title = title;
+      }
+      if ("summary" in req.body) {
+        patch.summary = sanitizeOptionalString(req.body.summary, {
+          field: "summary",
+          max: 1000,
+        }) ?? null;
+      }
+      if ("strengths" in req.body) {
+        patch.strengths = sanitizeOptionalString(req.body.strengths, {
+          field: "strengths",
+          max: 1000,
+        }) ?? null;
+      }
+      if ("improvements" in req.body) {
+        patch.improvements = sanitizeOptionalString(req.body.improvements, {
+          field: "improvements",
+          max: 1000,
+        }) ?? null;
+      }
+      if ("rating" in req.body) {
+        patch.rating = sanitizeRating(req.body.rating) ?? null;
+      }
+      if ("status" in req.body) {
+        patch.status = sanitizeEvaluationStatus(req.body.status);
+      }
+      if ("event_id" in req.body) {
+        const eventId = req.body.event_id;
+        if (eventId === null) {
+          patch.event_id = null;
+        } else {
+          const event = await getEventById({ id: eventId, orgId });
+          if (!event) return res.status(404).json({ error: "event_not_found" });
+          patch.event_id = eventId;
+        }
+      }
+
+      if (Object.keys(patch).length === 0) {
+        return badRequest(res, "request body must include at least one allowed field");
+      }
+
+      const updated = await updatePlayerEvaluation({ evaluationId, playerId, orgId, patch });
+      if (!updated) return res.status(404).json({ error: "evaluation_not_found" });
+
+      return res.status(200).json({ evaluation: updated });
+    } catch (err) {
+      return badRequest(res, err.message || "bad_request");
+    }
   }
 );
 
