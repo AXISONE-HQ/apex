@@ -8,6 +8,7 @@ import adminTeamsRoutes from "./teams.js";
 import clubSettingsRoutes from "./clubSettings.js";
 import playersRoutes from "./players.js";
 import guardiansRoutes from "./guardians.js";
+import eventsRoutes from "./events.js";
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use("/", adminTeamsRoutes);
 router.use("/", clubSettingsRoutes);
 router.use("/", playersRoutes);
 router.use("/", guardiansRoutes);
+router.use("/", eventsRoutes);
 
 export default router;
