@@ -7,6 +7,7 @@ import {
   listTeams,
   updateTeam,
 } from "../../repositories/teamsRepo.js";
+import { listPlayersByTeam } from "../../repositories/playersRepo.js";
 import { query } from "../../db/client.js";
 import { getMembershipByOrgAndUserId } from "../../repositories/membershipsRepo.js";
 
@@ -245,6 +246,27 @@ router.patch(
       }
       return res.status(500).json({ error: "update_team_failed", message: err.message });
     }
+  }
+);
+
+router.get(
+  "/:orgId/teams/:teamId/players",
+  requireSession,
+  async (req, res) => {
+    const orgId = req.params.orgId;
+    const teamId = req.params.teamId;
+
+    if (!allowTeamsAdmin(req, orgId)) {
+      return res.status(403).json({ error: "forbidden" });
+    }
+
+    const team = await getTeamById(orgId, teamId);
+    if (!team || team.is_archived) {
+      return res.status(404).json({ error: "team_not_found" });
+    }
+
+    const players = await listPlayersByTeam(orgId, teamId);
+    return res.status(200).json({ players });
   }
 );
 

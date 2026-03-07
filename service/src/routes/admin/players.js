@@ -3,6 +3,7 @@ import { requireSession } from "../../middleware/requireSession.js";
 import {
   createPlayer,
   listPlayersByOrg,
+  listUnassignedPlayersByOrg,
   getPlayerByIdAndOrg,
   updatePlayer,
   assignPlayerTeam,
@@ -183,6 +184,14 @@ router.post("/:orgId/players", requireSession, async (req, res) => {
     }
     return badRequest(res, err.message || "bad_request");
   }
+});
+
+router.get("/:orgId/players/unassigned", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+  const players = await listUnassignedPlayersByOrg(orgId);
+  return res.status(200).json({ players: players.map(normalizePlayerRow) });
 });
 
 router.get("/:orgId/players", requireSession, async (req, res) => {

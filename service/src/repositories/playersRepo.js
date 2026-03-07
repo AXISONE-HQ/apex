@@ -107,6 +107,65 @@ export async function listPlayersByOrg(orgId) {
   return result.rows;
 }
 
+export async function listPlayersByTeam(orgId, teamId) {
+  if (!orgId) throw new Error("orgId required");
+  if (!teamId) throw new Error("teamId required");
+
+  if (!hasDatabase()) {
+    const rows = Array.from(memoryPlayers.values()).filter(
+      (p) => String(p.org_id) === String(orgId) && String(p.team_id) === String(teamId)
+    );
+    return rows.sort((a, b) => {
+      const last = a.last_name.localeCompare(b.last_name);
+      if (last !== 0) return last;
+      const first = a.first_name.localeCompare(b.first_name);
+      if (first !== 0) return first;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }
+
+  const result = await query(
+    `SELECT id, org_id, team_id, first_name, last_name, display_name,
+            jersey_number, birth_year, position, status, notes,
+            created_at, updated_at
+     FROM players
+     WHERE org_id = $1 AND team_id = $2
+     ORDER BY last_name ASC, first_name ASC, created_at ASC`,
+    [orgId, teamId]
+  );
+
+  return result.rows;
+}
+
+export async function listUnassignedPlayersByOrg(orgId) {
+  if (!orgId) throw new Error("orgId required");
+
+  if (!hasDatabase()) {
+    const rows = Array.from(memoryPlayers.values()).filter(
+      (p) => String(p.org_id) === String(orgId) && (p.team_id === null || p.team_id === undefined)
+    );
+    return rows.sort((a, b) => {
+      const last = a.last_name.localeCompare(b.last_name);
+      if (last !== 0) return last;
+      const first = a.first_name.localeCompare(b.first_name);
+      if (first !== 0) return first;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }
+
+  const result = await query(
+    `SELECT id, org_id, team_id, first_name, last_name, display_name,
+            jersey_number, birth_year, position, status, notes,
+            created_at, updated_at
+     FROM players
+     WHERE org_id = $1 AND team_id IS NULL
+     ORDER BY last_name ASC, first_name ASC, created_at ASC`,
+    [orgId]
+  );
+
+  return result.rows;
+}
+
 export async function getPlayerByIdAndOrg(playerId, orgId) {
   if (!playerId || !orgId) throw new Error("playerId and orgId required");
 
