@@ -58,6 +58,18 @@ async function seedDb() {
      ON CONFLICT (id) DO NOTHING`,
     [ORG_2, "Evaluations Org Two", "evaluations-org-two"]
   );
+
+  await query(
+    `INSERT INTO users (id, external_uid, email, name)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      USER_PLATFORM,
+      'evaluations-platform-admin',
+      'evaluations-platform-admin@example.com',
+      'Evaluations Platform Admin'
+    ]
+  );
 }
 
 async function createTeamForOrg(orgId, name = "Evaluations Team") {
