@@ -2,16 +2,18 @@
 
 import { Button } from "@/components/ui/Button";
 
-const OPTIONS = [
-  { label: "Yes", value: "yes", variant: "success" as const },
-  { label: "No", value: "no", variant: "danger" as const },
-  { label: "Late", value: "late", variant: "warning" as const },
-  { label: "Excused", value: "excused", variant: "ghost" as const },
+const OPTIONS: Array<{ label: string; value: RsvpStatus; variant: "success" | "danger" | "warning" | "ghost" }> = [
+  { label: "Yes", value: "yes", variant: "success" },
+  { label: "No", value: "no", variant: "danger" },
+  { label: "Late", value: "late", variant: "warning" },
+  { label: "Excused", value: "excused", variant: "ghost" },
 ];
 
+type RsvpStatus = "yes" | "no" | "late" | "excused";
+
 interface RsvpButtonsProps {
-  current?: "yes" | "no" | "late" | "excused" | null;
-  onSelect?: (value: string) => void;
+  current?: RsvpStatus | null;
+  onSelect?: (value: RsvpStatus) => void;
   disabled?: boolean;
 }
 

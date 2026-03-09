@@ -40,9 +40,7 @@ export function EventsPageClient({ orgId }: EventsPageClientProps) {
           <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Events</h1>
           <p className="text-sm text-[var(--color-navy-500)]">Operational list of upcoming and past events</p>
         </div>
-        <Button asChild>
-          <Link href="/app/schedule">Create event</Link>
-        </Button>
+        <Button onClick={() => router.push("/app/schedule")}>Create event</Button>
       </div>
       <Table>
         <TableHead>

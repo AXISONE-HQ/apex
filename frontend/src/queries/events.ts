@@ -54,8 +54,9 @@ export async function fetchAttendance(orgId: string, eventId: string): Promise<A
 }
 
 export function useEvents(orgId: string, filters: EventFilters = {}) {
+  const keyFilters: Record<string, unknown> | undefined = Object.keys(filters).length ? { ...filters } : undefined;
   return useQuery({
-    queryKey: queryKeys.events(orgId, filters),
+    queryKey: queryKeys.events(orgId, keyFilters),
     queryFn: () => fetchEvents(orgId, filters),
     enabled: Boolean(orgId),
   });

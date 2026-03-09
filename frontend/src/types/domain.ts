@@ -26,6 +26,7 @@ export interface Player {
   status?: "active" | "inactive";
   jerseyNumber?: number | null;
   birthYear?: number | null;
+  attendanceRate?: number | null;
   notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
