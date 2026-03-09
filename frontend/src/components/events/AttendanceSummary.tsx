@@ -1,8 +1,8 @@
 import { Card } from "@/components/ui/Card";
-import { AttendanceSummary } from "@/types/domain";
+import type { AttendanceSummary as AttendanceSummaryModel } from "@/types/domain";
 
 interface AttendanceSummaryProps {
-  summary?: AttendanceSummary;
+  summary?: AttendanceSummaryModel;
 }
 
 export function AttendanceSummary({ summary }: AttendanceSummaryProps) {
