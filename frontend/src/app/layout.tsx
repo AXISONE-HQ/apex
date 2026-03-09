@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "AxisOne · Dashboard",
-  description: "AxisOne company dashboard (local)",
+  title: "Apex Admin",
+  description: "Club management platform",
 };
 
 export default function RootLayout({
@@ -23,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className="bg-[var(--color-background)]">
+      <body className={`${inter.variable} min-h-screen bg-[var(--color-background)] text-navy-900`}>
         {children}
       </body>
     </html>
