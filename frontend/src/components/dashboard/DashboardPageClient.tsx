@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ErrorState, LoadingState } from "@/components/ui/State";
@@ -14,6 +15,7 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
+  const router = useRouter();
   const teamsQuery = useTeams(orgId);
   const playersQuery = usePlayers(orgId, { status: "all" });
   const eventsQuery = useEvents(orgId, { from: new Date().toISOString(), limit: 5 });
@@ -38,9 +40,7 @@ export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
           <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Dashboard</h1>
           <p className="text-sm text-[var(--color-navy-500)]">Quick health of your club operations</p>
         </div>
-        <Button asChild>
-          <Link href="/app/schedule">Create event</Link>
-        </Button>
+        <Button onClick={() => router.push("/app/schedule")}>Create event</Button>
       </div>
 
       {isLoading ? (
