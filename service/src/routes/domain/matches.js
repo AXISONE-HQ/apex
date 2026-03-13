@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
 import { createMatch, listMatchesByOrg, submitMatchResult } from "../../repositories/matchesRepo.js";
-import { badRequest, parsePagination } from "./_helpers.js";
+import { badRequest, parsePagination, notFound } from "./_helpers.js";
 
 const router = Router();
 
@@ -26,9 +26,19 @@ router.post("/", requireSession, requirePermission("matches.function.create"), a
 });
 
 router.post("/:id/result", requireSession, requirePermission("matches.function.result.submit"), async (req, res) => {
+  const orgId = req.user?.activeOrgId || "org_demo";
   const { homeScore, awayScore } = req.body || {};
   if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore)) {
     return badRequest(res, "homeScore and awayScore must be integers");
+  }
+
+  const match = (await listMatchesByOrg(orgId, { limit: 1000, offset: 0 })).find((m) => m.id === req.params.id);
+  const matchOrgId = match?.org_id ?? match?.orgId;
+  const homeTeamId = match?.home_team_id ?? match?.homeTeamId;
+  const awayTeamId = match?.away_team_id ?? match?.awayTeamId;
+
+  if (!match || matchOrgId !== orgId) {
+    return notFound(res, "Match not found");
   }
 
   const result = await submitMatchResult({
