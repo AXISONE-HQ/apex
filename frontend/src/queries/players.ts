@@ -3,9 +3,9 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { queryKeys } from "@/lib/queryKeys";
-import { mapPlayer, mapTeam } from "@/lib/mappers";
-import { CreatePlayerPayload, CreatePlayerResponse, PlayerDetailResponse, PlayersResponse } from "@/types/api";
-import { Player, Team } from "@/types/domain";
+import { mapGuardian, mapPlayer, mapTeam } from "@/lib/mappers";
+import { CreatePlayerPayload, CreatePlayerResponse, PlayerDetailResponse, PlayerGuardiansResponse, PlayersResponse } from "@/types/api";
+import { Guardian, Player, Team } from "@/types/domain";
 
 interface PlayerFilters {
   status?: "active" | "inactive" | "all";
@@ -82,3 +82,44 @@ function invalidateOrgPlayers(queryClient: QueryClient, orgId: string) {
     },
   });
 }
+
+export async function fetchPlayerGuardians(orgId: string, playerId: string): Promise<Guardian[]> {
+  const data = await apiClient<PlayerGuardiansResponse>(`/admin/clubs/${orgId}/players/${playerId}/guardians`);
+  return data.guardians.map(mapGuardian);
+}
+
+export function usePlayerGuardians(orgId: string, playerId: string) {
+  return useQuery({
+    queryKey: queryKeys.playerGuardians(orgId, playerId),
+    queryFn: () => fetchPlayerGuardians(orgId, playerId),
+    enabled: Boolean(orgId && playerId),
+  });
+}
+
+export function useLinkGuardian(orgId: string, playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (guardianId: string) =>
+      apiClient<{ ok: boolean }>(`/admin/clubs/${orgId}/players/${playerId}/guardians`, {
+        method: "POST",
+        body: { guardian_id: guardianId },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerGuardians(orgId, playerId) });
+    },
+  });
+}
+
+export function useUnlinkGuardian(orgId: string, playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (guardianId: string) =>
+      apiClient<{ ok: boolean }>(`/admin/clubs/${orgId}/players/${playerId}/guardians/${guardianId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerGuardians(orgId, playerId) });
+    },
+  });
+}
+

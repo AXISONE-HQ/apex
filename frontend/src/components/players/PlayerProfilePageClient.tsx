@@ -9,6 +9,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Tabs } from "@/components/ui/Tabs";
 import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
+import { PlayerGuardiansCard } from "@/components/players/PlayerGuardiansCard";
 import { CalendarView, endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "@/lib/date-utils";
 
 interface PlayerProfilePageClientProps {
@@ -112,6 +113,7 @@ export function PlayerProfilePageClient({ orgId, playerId }: PlayerProfilePageCl
           No attendance data yet. Once weekly practices/games are logged, this card will summarize rates and trends for quick reference.
         </div>
       </Card>
+      <PlayerGuardiansCard orgId={orgId} playerId={playerId} />
       {calendarCard}
     </div>
   );

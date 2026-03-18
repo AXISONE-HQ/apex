@@ -9,6 +9,7 @@ export const queryKeys = {
     serialize(filters),
   ] as const,
   player: (orgId: string, playerId: string) => ["player", orgId, playerId] as const,
+  playerGuardians: (orgId: string, playerId: string) => ["player-guardians", orgId, playerId] as const,
   guardians: (orgId: string) => ["guardians", orgId] as const,
   teamPlayers: (orgId: string, teamId: string) => ["team-players", orgId, teamId] as const,
   events: (orgId: string, filters?: unknown) => [
