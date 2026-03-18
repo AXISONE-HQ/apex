@@ -37,6 +37,7 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
   const [view, setView] = useState<CalendarView>(initialView);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [clearedDateFilters, setClearedDateFilters] = useState(false);
 
   const eventsFilters = useMemo(() => {
     const filters: { teamId?: string; from?: string; to?: string } = {};
@@ -84,12 +85,23 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [teamFilter, eventType, fromDate, toDate, view, pathname, router]);
 
+
   const handleResetFilters = useCallback(() => {
     setTeamFilter("all");
     setEventType("all");
     setFromDate("");
     setToDate("");
+    setClearedDateFilters(false);
   }, []);
+
+  const handleNavigate = useCallback((nextDate: Date) => {
+    setCurrentDate(nextDate);
+    if (fromDate || toDate) {
+      setFromDate("");
+      setToDate("");
+      setClearedDateFilters(true);
+    }
+  }, [fromDate, toDate]);
 
   if (isLoading) return <LoadingState message="Loading schedule" />;
   if (isError) return <ErrorState message="Unable to load events" onRetry={() => refetch()} />;
@@ -151,18 +163,46 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
             <label className="text-sm font-medium text-[var(--color-navy-700)]">
               From date
-              <Input type="date" className="mt-1" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              <Input
+              type="date"
+              className="mt-1"
+              value={fromDate}
+              onChange={(event) => {
+                if (clearedDateFilters) setClearedDateFilters(false);
+                setFromDate(event.target.value);
+              }}
+            />
             </label>
             <label className="text-sm font-medium text-[var(--color-navy-700)]">
               To date
-              <Input type="date" className="mt-1" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              <Input
+              type="date"
+              className="mt-1"
+              value={toDate}
+              onChange={(event) => {
+                if (clearedDateFilters) setClearedDateFilters(false);
+                setToDate(event.target.value);
+              }}
+            />
             </label>
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button type="button" variant="secondary" onClick={handleResetFilters} disabled={teamFilter === "all" && eventType === "all" && !fromDate && !toDate}>
-            Reset filters
-          </Button>
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleResetFilters}
+              disabled={teamFilter === "all" && eventType === "all" && !fromDate && !toDate}
+            >
+              Reset filters
+            </Button>
+          </div>
+          {clearedDateFilters ? (
+            <p className="text-xs text-[var(--color-navy-500)]">
+              Date filters were cleared after navigating the calendar so your view stays in sync.
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -171,8 +211,8 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
         currentDate={currentDate}
         view={view}
         onViewChange={setView}
-        onNavigate={setCurrentDate}
-        onNavigateToday={() => setCurrentDate(new Date())}
+        onNavigate={handleNavigate}
+        onNavigateToday={() => handleNavigate(new Date())}
         teamLookup={teamLookup}
       />
       <CreateEventModal orgId={orgId} open={isCreateOpen} onClose={() => setCreateOpen(false)} />

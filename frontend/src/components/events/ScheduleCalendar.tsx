@@ -9,10 +9,13 @@ import {
   addDays,
   addMonths,
   dateKey,
+  endOfMonth,
   endOfMonthGrid,
+  endOfWeek,
   formatMonthLabel,
   formatWeekRangeLabel,
   isSameDay,
+  startOfMonth,
   startOfMonthGrid,
   startOfWeek,
 } from "@/lib/date-utils";
@@ -38,8 +41,15 @@ export function ScheduleCalendar({
   onViewChange,
   teamLookup,
 }: ScheduleCalendarProps) {
-  const today = useMemo(() => new Date(), []);
+  const today = new Date();
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }), []);
+  const weekdayFormatter = useMemo(() => new Intl.DateTimeFormat("en-US", { weekday: "short" }), []);
+  const mobileDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric" }),
+    []
+  );
+  const rangeStart = useMemo(() => (view === "week" ? startOfWeek(currentDate) : startOfMonth(currentDate)), [currentDate, view]);
+  const rangeEnd = useMemo(() => (view === "week" ? endOfWeek(currentDate) : endOfMonth(currentDate)), [currentDate, view]);
 
   const eventsByDay = useMemo<Record<string, EventSummary[]>>(() => {
     const map: Record<string, EventSummary[]> = {};
@@ -53,6 +63,25 @@ export function ScheduleCalendar({
     );
     return map;
   }, [events]);
+
+  const eventsInRange = useMemo(() => {
+    const startMs = rangeStart.getTime();
+    const endMs = rangeEnd.getTime();
+    return events
+      .filter((event) => {
+        const startsAt = new Date(event.startsAt).getTime();
+        return startsAt >= startMs && startsAt <= endMs;
+      })
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  }, [events, rangeStart, rangeEnd]);
+
+  const emptyMessage = useMemo(() => {
+    if (events.length === 0) return "No events match your filters.";
+    if (eventsInRange.length === 0) {
+      return view === "week" ? "No events scheduled for this week." : "No events scheduled for this month.";
+    }
+    return null;
+  }, [events.length, eventsInRange.length, view]);
 
   return (
     <div className="rounded-2xl border border-[var(--color-navy-200)] bg-white shadow-sm">
@@ -105,23 +134,39 @@ export function ScheduleCalendar({
         </div>
       </div>
       <div className="px-4 py-4">
-        {view === "week" ? (
-          <WeekGrid
-            eventsByDay={eventsByDay}
-            currentDate={currentDate}
+        {emptyMessage ? (
+          <p className="mb-4 rounded-xl border border-dashed border-[var(--color-navy-200)] bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-navy-600)]">
+            {emptyMessage}
+          </p>
+        ) : null}
+        <div className="md:hidden">
+          <MobileEventList
+            events={eventsInRange}
             teamLookup={teamLookup}
-            today={today}
             timeFormatter={timeFormatter}
+            dateFormatter={mobileDateFormatter}
           />
-        ) : (
-          <MonthGrid
-            eventsByDay={eventsByDay}
-            currentDate={currentDate}
-            teamLookup={teamLookup}
-            today={today}
-            timeFormatter={timeFormatter}
-          />
-        )}
+        </div>
+        <div className="hidden md:block">
+          {view === "week" ? (
+            <WeekGrid
+              eventsByDay={eventsByDay}
+              currentDate={currentDate}
+              teamLookup={teamLookup}
+              today={today}
+              timeFormatter={timeFormatter}
+              weekdayFormatter={weekdayFormatter}
+            />
+          ) : (
+            <MonthGrid
+              eventsByDay={eventsByDay}
+              currentDate={currentDate}
+              teamLookup={teamLookup}
+              today={today}
+              timeFormatter={timeFormatter}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -154,12 +199,12 @@ function MonthGrid({
 
   return (
     <div>
-      <div className="mb-2 hidden grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)] md:grid">
+      <div className="mb-2 hidden grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)] lg:grid">
         {WEEKDAY_LABELS.map((label) => (
           <span key={label}>{label}</span>
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-7">
         {calendarDays.map((day) => {
           const key = dateKey(day);
           const dayEvents = eventsByDay[key] ?? [];
@@ -211,12 +256,14 @@ function WeekGrid({
   teamLookup,
   today,
   timeFormatter,
+  weekdayFormatter,
 }: {
   eventsByDay: Record<string, EventSummary[]>;
   currentDate: Date;
   teamLookup: Record<string, string | undefined>;
   today: Date;
   timeFormatter: Intl.DateTimeFormat;
+  weekdayFormatter: Intl.DateTimeFormat;
 }) {
   const start = startOfWeek(currentDate);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(start, index)), [start]);
@@ -233,12 +280,8 @@ function WeekGrid({
             <div key={`${key}-${index}`} className="rounded-2xl border border-[var(--color-navy-100)] bg-white p-3 shadow-sm">
               <div className="flex items-center justify-between border-b border-[var(--color-navy-100)] pb-2">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">
-                    {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
-                  </p>
-                  <p className={cn("text-lg font-semibold", highlight ? "text-[var(--color-navy-900)]" : "text-[var(--color-navy-700)]")}>
-                    {day.getDate()}
-                  </p>
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">{weekdayFormatter.format(day)}</p>
+                  <p className={cn("text-lg font-semibold", highlight ? "text-[var(--color-navy-900)]" : "text-[var(--color-navy-700)]")}>{day.getDate()}</p>
                 </div>
                 {highlight ? <span className="rounded-full bg-[var(--color-navy-900)] px-2 py-0.5 text-xs text-white">Today</span> : null}
               </div>
@@ -265,6 +308,59 @@ function WeekGrid({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function MobileEventList({
+  events,
+  teamLookup,
+  timeFormatter,
+  dateFormatter,
+}: {
+  events: EventSummary[];
+  teamLookup: Record<string, string | undefined>;
+  timeFormatter: Intl.DateTimeFormat;
+  dateFormatter: Intl.DateTimeFormat;
+}) {
+  if (events.length === 0) {
+    return (
+      <div className="rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-6 text-sm text-[var(--color-navy-600)]" data-testid="schedule-mobile-list">
+        No events to show.
+      </div>
+    );
+  }
+
+  const grouped = events.reduce<Record<string, EventSummary[]>>((acc, event) => {
+    const key = dateKey(new Date(event.startsAt));
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(event);
+    return acc;
+  }, {});
+
+  const orderedEntries = Object.entries(grouped).sort(([a], [b]) => (a > b ? 1 : -1));
+
+  return (
+    <div className="space-y-3" data-testid="schedule-mobile-list">
+      {orderedEntries.map(([key, dayEvents]) => (
+        <div key={key} className="rounded-2xl border border-[var(--color-navy-100)] bg-white p-3 shadow-sm">
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">{dateFormatter.format(new Date(key))}</p>
+          <div className="mt-2 space-y-2">
+            {dayEvents.map((event) => (
+              <Link
+                key={event.id}
+                href={`/app/events/${event.id}`}
+                className="block rounded-xl border border-[var(--color-navy-100)] px-3 py-2 text-xs text-[var(--color-navy-700)]"
+              >
+                <p className="font-medium text-[var(--color-navy-900)]">{event.title}</p>
+                <p className="text-[10px] text-[var(--color-navy-500)]">
+                  {timeFormatter.format(new Date(event.startsAt))} · {teamLookup[event.teamId] ?? "Team"}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
