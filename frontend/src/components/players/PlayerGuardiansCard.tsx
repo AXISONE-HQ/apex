@@ -24,7 +24,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
   const linkGuardian = useLinkGuardian(orgId, playerId);
   const unlinkGuardian = useUnlinkGuardian(orgId, playerId);
 
-  const linkedGuardians = playerGuardiansQuery.data ?? [];
+  const linkedGuardians = useMemo(() => playerGuardiansQuery.data ?? [], [playerGuardiansQuery.data]);
 
   const linkedIds = useMemo(() => new Set(linkedGuardians.map((guardian) => guardian.id)), [linkedGuardians]);
 
