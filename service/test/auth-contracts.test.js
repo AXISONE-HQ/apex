@@ -36,13 +36,13 @@ test.before(async () => {
 
     await runMigrations();
     await query(
-      "INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING",
+      "INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
       [TEST_ORG_ID, "Test Org", "test-org"]
     );
 
     for (const [label, id] of Object.entries(TEST_USER_UUIDS)) {
       await query(
-        "INSERT INTO users (id, external_uid, email, name) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO users (id, external_uid, email, name) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
         [id, `ext_${label}`, `${label}@example.com`, `User ${label.slice(1)}`]
       );
     }

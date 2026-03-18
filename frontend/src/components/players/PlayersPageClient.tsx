@@ -25,8 +25,14 @@ export function PlayersPageClient({ orgId }: PlayersPageClientProps) {
           <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Players</h1>
           <p className="text-sm text-[var(--color-navy-500)]">Search and manage player records</p>
         </div>
-        <Button type="button" size="sm" onClick={() => router.push("/app/players/create")}>
-          Add player
+        <Button
+          type="button"
+          size="sm"
+          className="gap-2 tracking-wide"
+          onClick={() => router.push("/app/players/create")}
+        >
+          <span aria-hidden="true" className="text-lg leading-none">+</span>
+          <span className="text-xs font-semibold uppercase">Add player</span>
         </Button>
       </div>
       <PlayerTable players={data} />

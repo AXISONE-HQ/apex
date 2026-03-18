@@ -119,15 +119,24 @@ export function CreatePlayerForm() {
         <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Add player</h1>
         <p className="text-sm text-[var(--color-navy-500)]">Create a player record for your club roster.</p>
       </div>
-      <Card>
-        <CardTitle>Create player</CardTitle>
-        <CardDescription>Capture the basic roster information and assign the player to a team.</CardDescription>
-        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-          {error ? (
-            <div className="rounded-xl border border-[var(--color-red-200)] bg-[var(--color-red-50)] px-4 py-3 text-sm text-[var(--color-red-600)]">
-              {error}
-            </div>
-          ) : null}
+      <Card className="space-y-5">
+        <div className="space-y-1">
+          <CardTitle>Create player</CardTitle>
+          <CardDescription className="text-[var(--color-navy-500)]">Capture the basic roster information and assign the player to a team.</CardDescription>
+        </div>
+        <form className="mt-6 space-y-5" onSubmit={handleSubmit} noValidate>
+          <div
+            role="alert"
+            aria-live="assertive"
+            className={error ? "rounded-xl border border-[var(--color-red-200)] bg-[var(--color-red-50)] px-4 py-3 text-sm text-[var(--color-red-600)]" : ""}
+            style={
+              error
+                ? undefined
+                : { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", border: 0 }
+            }
+          >
+            {error ?? ""}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium text-[var(--color-navy-700)]">
               First name

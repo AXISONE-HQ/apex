@@ -50,28 +50,28 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Status Org One", "status-org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Status Org Two", "status-org-two"]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG1, ORG_1, "Status Org1 Team", 2026]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG2, ORG_2, "Status Org2 Team", 2026]
   );
 }
@@ -83,6 +83,11 @@ async function createTeamForOrg(orgId, name) {
     body: JSON.stringify({
       name,
       season_year: 2026,
+      season_label: "2026 Outdoor",
+      sport: "soccer",
+      team_level: "club",
+      competition_level: "club",
+      age_category: "U18",
     }),
   });
   if (res.status !== 201) {

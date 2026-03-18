@@ -1,26 +1,33 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { queryKeys } from "@/lib/queryKeys";
-import { mapPlayer, mapTeam } from "@/lib/mappers";
-import { TeamPlayersResponse, TeamsResponse } from "@/types/api";
-import { Player, Team } from "@/types/domain";
+import { mapPlayer, mapTeam, mapTeamDetail } from "@/lib/mappers";
+import { ApiTeam, ApiTeamDetailResponse, TeamPlayersResponse, TeamsResponse } from "@/types/api";
+import { Player, Team, TeamDetail } from "@/types/domain";
 
 export async function fetchTeams(orgId: string): Promise<Team[]> {
   const data = await apiClient<TeamsResponse>(`/admin/clubs/${orgId}/teams`);
   return data.items.map(mapTeam);
 }
 
-export async function fetchTeam(orgId: string, teamId: string): Promise<Team> {
-  const data = await apiClient<TeamsResponse>(`/admin/clubs/${orgId}/teams`, {
-    searchParams: { includeArchived: "true" },
-  });
-  const match = data.items.find((team) => team.id === teamId);
-  if (!match) {
+export async function fetchTeam(orgId: string, teamId: string): Promise<TeamDetail> {
+  const data = await apiClient<ApiTeamDetailResponse>(`/admin/clubs/${orgId}/teams/${teamId}`);
+  if (!data?.team) {
     throw new ApiError({ message: "team_not_found", status: 404, details: null });
   }
-  return mapTeam(match);
+  return mapTeamDetail(data);
+}
+
+export interface CreateTeamPayload {
+  name: string;
+  sport: string;
+  season_label: string;
+  season_year: number;
+  team_level: string;
+  age_category: string;
+  head_coach_user_id: string | null;
 }
 
 export function useTeams(orgId: string) {
@@ -49,5 +56,19 @@ export function useTeamPlayers(orgId: string, teamId: string) {
     queryKey: queryKeys.teamPlayers(orgId, teamId),
     queryFn: () => fetchTeamPlayers(orgId, teamId),
     enabled: Boolean(orgId && teamId),
+  });
+}
+
+export function useCreateTeam(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateTeamPayload) =>
+      apiClient<{ item: ApiTeam }>(`/admin/clubs/${orgId}/teams`, {
+        method: "POST",
+        body: payload,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.teams(orgId) });
+    },
   });
 }

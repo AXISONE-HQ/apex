@@ -33,13 +33,13 @@ test("GET /events/:id scoping (DB)", async (t) => {
   );
 
   const eventAllowed = await query(
-    "INSERT INTO events (org_id, team_id, type, starts_at) VALUES ($1,$2,$3, NOW()) RETURNING id",
-    [TEST_ORG_ID, teamAllowed, "practice"]
+    "INSERT INTO events (org_id, team_id, type, title, starts_at) VALUES ($1,$2,$3,$4, NOW()) RETURNING id",
+    [TEST_ORG_ID, teamAllowed, "practice", "DB Event Allowed"]
   );
 
   const eventOtherOrg = await query(
-    "INSERT INTO events (org_id, team_id, type, starts_at) VALUES ($1,$2,$3, NOW()) RETURNING id",
-    [otherOrg, teamAllowed, "practice"]
+    "INSERT INTO events (org_id, team_id, type, title, starts_at) VALUES ($1,$2,$3,$4, NOW()) RETURNING id",
+    [otherOrg, teamAllowed, "practice", "DB Event Other Org"]
   );
 
   const server = app.listen(0);

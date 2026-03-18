@@ -5,8 +5,15 @@ import {
   listGuardiansByOrg,
   getGuardianByIdAndOrg,
   updateGuardian,
+  findGuardianByEmail,
 } from "../../repositories/guardiansRepo.js";
 import { listPlayersByGuardian } from "../../repositories/guardianPlayersRepo.js";
+import { listEvents, getEventById } from "../../repositories/eventsRepo.js";
+import {
+  upsertPlayerAttendance,
+  listAttendanceByEvent,
+} from "../../repositories/playerAttendanceRepo.js";
+import { serializeEvent, parseDate } from "./events.js";
 
 const router = Router({ mergeParams: true });
 
@@ -22,6 +29,15 @@ const CREATE_FIELDS = new Set([
 ]);
 
 const PATCH_FIELDS = CREATE_FIELDS;
+
+async function ensureUniqueEmail({ orgId, email, guardianId = null }) {
+  if (!email) return;
+  const normalized = email.toLowerCase();
+  const existing = await findGuardianByEmail(orgId, normalized);
+  if (!existing) return;
+  if (guardianId && existing.id === guardianId) return;
+  throw new Error("guardian email already exists in this organization");
+}
 
 function allowGuardiansAdmin(req, orgId) {
   if (req.user?.isPlatformAdmin === true) return true;
@@ -73,10 +89,106 @@ function sanitizeOptionalString(value, opts) {
   return result;
 }
 
+function normalizeEmail(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") throw new Error("email must be a string");
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    throw new Error("invalid email format");
+  }
+  return trimmed.toLowerCase();
+}
+
 function sanitizeEmail(value) {
-  const result = sanitizeOptionalString(value, { field: "email", max: 255 });
-  if (result === undefined || result === null) return result;
-  return result.toLowerCase();
+  return normalizeEmail(value);
+}
+
+function normalizeGuardianStatus(value) {
+  if (!value || typeof value !== "string") {
+    throw new Error("status must be one of: yes, no, late, present, absent, excused");
+  }
+  const normalized = value.toLowerCase();
+  if (normalized === "yes") return "present";
+  if (normalized === "no") return "absent";
+  if (normalized === "late") return "late";
+  if (["present", "absent", "excused"].includes(normalized)) return normalized;
+  throw new Error("status must be one of: yes, no, late, present, absent, excused");
+}
+
+function toGuardianDisplayStatus(status) {
+  switch (status) {
+    case "present":
+      return "yes";
+    case "absent":
+      return "no";
+    case "late":
+      return "late";
+    case "excused":
+      return "excused";
+    default:
+      return null;
+  }
+}
+
+function sanitizeGuardianNotes(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") throw new Error("notes must be a string");
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > 500) throw new Error("notes must be at most 500 characters");
+  return trimmed;
+}
+
+function ensureEventHasTeam(event) {
+  const teamId = event.team_id ?? event.teamId ?? null;
+  if (!teamId) return null;
+  return teamId;
+}
+
+async function requireGuardian(req, res, orgId, guardianId) {
+  const guardian = await getGuardianByIdAndOrg(guardianId, orgId);
+  if (!guardian) {
+    res.status(404).json({ error: "guardian_not_found" });
+    return null;
+  }
+  return guardian;
+}
+
+async function requireEvent(req, res, orgId, eventId) {
+  const event = await getEventById({ id: eventId, orgId });
+  if (!event) {
+    res.status(404).json({ error: "event_not_found" });
+    return null;
+  }
+  return event;
+}
+
+function eligiblePlayersForEvent(linkedPlayers, teamId) {
+  const teamKey = String(teamId);
+  return linkedPlayers.filter((player) => {
+    const isActive = (player.status ?? "active") !== "inactive";
+    const playerTeamId = player.team_id ?? player.teamId ?? null;
+    return isActive && playerTeamId && String(playerTeamId) === teamKey;
+  });
+}
+
+function formatGuardianAttendanceResponse({ attendanceRow, guardianId }) {
+  if (!attendanceRow) return null;
+  const eventId = attendanceRow.event_id ?? attendanceRow.eventId ?? null;
+  const playerId = attendanceRow.player_id ?? attendanceRow.playerId ?? null;
+  const status = attendanceRow.status ?? null;
+  return {
+    event_id: eventId,
+    player_id: playerId,
+    guardian_id: guardianId,
+    status,
+    notes: attendanceRow.notes ?? null,
+    rsvp_status: status ? toGuardianDisplayStatus(status) : null,
+    updated_at: attendanceRow.updated_at ?? attendanceRow.updatedAt ?? null,
+  };
 }
 
 function sanitizeStatus(value) {
@@ -114,6 +226,7 @@ router.post("/:orgId/guardians", requireSession, async (req, res) => {
       max: 120,
     });
     const email = sanitizeEmail(req.body?.email);
+    await ensureUniqueEmail({ orgId, email });
     const phone = sanitizeOptionalString(req.body?.phone, {
       field: "phone",
       max: 50,
@@ -203,7 +316,9 @@ router.patch("/:orgId/guardians/:guardianId", requireSession, async (req, res) =
     }
 
     if ("email" in req.body) {
-      patch.email = sanitizeEmail(req.body.email) ?? null;
+      const normalizedEmail = sanitizeEmail(req.body.email) ?? null;
+      await ensureUniqueEmail({ orgId, email: normalizedEmail, guardianId });
+      patch.email = normalizedEmail;
     }
 
     if ("phone" in req.body) {
@@ -257,8 +372,166 @@ router.get(
     if (!guardian) return res.status(404).json({ error: "guardian_not_found" });
 
     const players = await listPlayersByGuardian({ orgId, guardianId });
-    return res.status(200).json({ players });
+    return res.status(200).json({
+      players: players.map((p) => ({ ...p, linked_at: p.linked_at ?? null })),
+    });
   }
 );
+
+router.get("/:orgId/guardians/:guardianId/events", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  const guardianId = req.params.guardianId;
+
+  if (!allowGuardiansAdmin(req, orgId)) return forbidden(res);
+
+  const guardian = await getGuardianByIdAndOrg(guardianId, orgId);
+  if (!guardian) return res.status(404).json({ error: "guardian_not_found" });
+
+  const linkedPlayers = await listPlayersByGuardian({ orgId, guardianId });
+  const activePlayers = linkedPlayers.filter((player) => (player.status ?? "active") === "active" && player.team_id);
+  const teamIds = Array.from(new Set(activePlayers.map((p) => p.team_id)));
+  if (!teamIds.length) {
+    return res.status(200).json({ events: [] });
+  }
+
+  let { from: fromParam, to: toParam } = req.query || {};
+  const filters = { orgId, teamIds };
+  if (fromParam) {
+    const parsed = parseDate(fromParam, { field: "from", required: true });
+    filters.from = parsed;
+  }
+  if (toParam) {
+    const parsed = parseDate(toParam, { field: "to", required: true });
+    filters.to = parsed;
+  }
+  if (filters.from && filters.to && filters.to <= filters.from) {
+    return badRequest(res, "to must be later than from");
+  }
+
+  const events = await listEvents({ orgId, teamIds, from: filters.from, to: filters.to });
+
+  const playersByTeam = teamIds.reduce((acc, teamId) => {
+    acc[teamId] = activePlayers.filter((p) => p.team_id === teamId).map((p) => ({
+      id: p.id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      display_name: p.display_name ?? null,
+    }));
+    return acc;
+  }, {});
+
+  const mapped = events.map((event) => {
+    const teamKey = event.team_id ?? event.teamId;
+    return {
+      ...serializeEvent(event),
+      players: playersByTeam[teamKey] || [],
+    };
+  });
+  return res.status(200).json({ events: mapped });
+});
+
+router.post("/:orgId/guardians/:guardianId/events/:eventId/rsvp", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  const guardianId = req.params.guardianId;
+  const eventId = req.params.eventId;
+
+  if (!allowGuardiansAdmin(req, orgId)) return forbidden(res);
+
+  const unknown = rejectUnknownFields(req.body || {}, new Set(["player_id", "status", "notes"]));
+  if (unknown) return badRequest(res, `unknown field: ${unknown}`);
+
+  const playerId = req.body?.player_id;
+  if (!playerId) return badRequest(res, "player_id is required");
+
+  try {
+    const status = normalizeGuardianStatus(req.body?.status);
+    const notes = sanitizeGuardianNotes(req.body?.notes);
+
+    const guardian = await requireGuardian(req, res, orgId, guardianId);
+    if (!guardian) return;
+
+    const event = await requireEvent(req, res, orgId, eventId);
+    if (!event) return;
+
+    const teamId = ensureEventHasTeam(event);
+    if (!teamId) return badRequest(res, "event does not have a team and cannot accept guardian RSVPs");
+
+    const linkedPlayers = await listPlayersByGuardian({ orgId, guardianId });
+    const eligible = eligiblePlayersForEvent(linkedPlayers, teamId);
+    const normalizedPlayerId = String(playerId);
+    const targetPlayer = eligible.find((player) => String(player.id) === normalizedPlayerId);
+    if (!targetPlayer) {
+      return badRequest(res, "player is not eligible for guardian RSVP on this event");
+    }
+
+    const attendanceRow = await upsertPlayerAttendance({
+      orgId,
+      eventId,
+      playerId: normalizedPlayerId,
+      status,
+      notes: notes ?? null,
+      recordedBy: req.user?.id ?? null,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      attendance: formatGuardianAttendanceResponse({ attendanceRow, guardianId }),
+    });
+  } catch (err) {
+    return badRequest(res, err.message || "bad_request");
+  }
+});
+
+router.get("/:orgId/guardians/:guardianId/events/:eventId/rsvp", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  const guardianId = req.params.guardianId;
+  const eventId = req.params.eventId;
+
+  if (!allowGuardiansAdmin(req, orgId)) return forbidden(res);
+
+  const guardian = await requireGuardian(req, res, orgId, guardianId);
+  if (!guardian) return;
+
+  const event = await requireEvent(req, res, orgId, eventId);
+  if (!event) return;
+
+  const teamId = ensureEventHasTeam(event);
+  if (!teamId) return res.status(200).json({ rsvps: [] });
+
+  const linkedPlayers = await listPlayersByGuardian({ orgId, guardianId });
+  const eligible = eligiblePlayersForEvent(linkedPlayers, teamId);
+  if (!eligible.length) {
+    return res.status(200).json({ rsvps: [] });
+  }
+
+  const attendanceRows = await listAttendanceByEvent({ orgId, eventId });
+  const attendanceByPlayer = new Map(attendanceRows.map((row) => [String(row.player_id ?? row.playerId), row]));
+
+  const rsvps = eligible.map((player) => {
+    const row = attendanceByPlayer.get(String(player.id));
+    const attendance = row
+      ? formatGuardianAttendanceResponse({ attendanceRow: row, guardianId })
+      : {
+          event_id: event.id,
+          player_id: player.id,
+          guardian_id: guardianId,
+          status: null,
+          notes: null,
+          rsvp_status: null,
+          updated_at: null,
+        };
+    return {
+      player: {
+        id: player.id,
+        first_name: player.first_name,
+        last_name: player.last_name,
+        display_name: player.display_name ?? null,
+      },
+      attendance,
+    };
+  });
+
+  return res.status(200).json({ rsvps });
+});
 
 export default router;

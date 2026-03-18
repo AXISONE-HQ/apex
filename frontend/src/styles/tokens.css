@@ -1,5 +1,5 @@
 :root {
-  --color-navy-900: #0F172A;
+  --color-navy-900: #000000;
   --color-navy-800: #1E293B;
   --color-navy-700: #334155;
   --color-navy-600: #475569;
@@ -10,7 +10,7 @@
   --color-navy-100: #F1F5F9;
   --color-blue-800: #1E40AF;
   --color-blue-700: #1D4ED8;
-  --color-blue-600: #2563EB;
+  --color-blue-600: #000000;
   --color-blue-500: #3B82F6;
   --color-blue-200: #BFDBFE;
   --color-blue-100: #DBEAFE;
@@ -23,6 +23,7 @@
   --color-red-500: #EF4444;
   --color-red-700: #B91C1C;
   --color-red-100: #FEE2E2;
+  --color-brand-red: #D42B2B;
   --color-surface: #FFFFFF;
   --color-muted: #F1F5F9;
   --color-background: #F8FAFC;
@@ -62,6 +63,7 @@
   --color-red-500: var(--color-red-500);
   --color-red-700: var(--color-red-700);
   --color-red-100: var(--color-red-100);
+  --color-brand-red: var(--color-brand-red);
   --color-surface: var(--color-surface);
   --color-muted: var(--color-muted);
   --color-background: var(--color-background);

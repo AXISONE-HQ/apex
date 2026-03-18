@@ -67,46 +67,101 @@ if (!process.env.DATABASE_URL) {
   test("coach can create event and set/get attendance", async () => {
     const xUser = {
       id: userId,
-      roles: ["ManagerCoach"],
+      roles: ["ManagerCoach", "OrgAdmin"],
       activeOrgId: orgId,
       orgScopes: [orgId],
       teamScopes: [teamId]
     };
 
-    const create = await fetch(`${baseUrl}/events`, {
+    let create;
+    const now = new Date();
+    const createPayload = {
+      team_id: teamId,
+      type: "practice",
+      title: "Practice Session",
+      starts_at: now.toISOString(),
+      ends_at: new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+    };
+    try {
+      create = await fetch(`${baseUrl}/admin/clubs/${orgId}/events`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-user": JSON.stringify(xUser)
+        },
+        body: JSON.stringify(createPayload)
+      });
+    } catch (err) {
+      console.error("[events-attendance] fetch failed for event create", {
+        orgId,
+        teamId,
+        payload: createPayload,
+        error: err.message
+      });
+      throw err;
+    }
+
+    if (create.status !== 201) {
+      let bodyText = "<unavailable>";
+      try {
+        bodyText = await create.text();
+      } catch (err) {
+        bodyText = `<failed to read body: ${err.message}>`;
+      }
+      console.error("[events-attendance] unexpected event create response", {
+        status: create.status,
+        body: bodyText,
+        orgId,
+        teamId,
+        payload: createPayload
+      });
+      assert.equal(create.status, 201);
+    }
+
+    const createBody = await create.json();
+    assert.ok(createBody.event?.id);
+    const eventId = createBody.event.id;
+
+    const put = await fetch(`${baseUrl}/admin/clubs/${orgId}/events/${eventId}/attendance`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-user": JSON.stringify(xUser)
       },
-      body: JSON.stringify({ teamId, type: "practice", startsAt: new Date().toISOString() })
+      body: JSON.stringify({ player_id: playerId, status: "yes", notes: "Coming" })
     });
 
-    assert.equal(create.status, 201);
-    const event = await create.json();
-    assert.ok(event.id);
+    if (put.status !== 200) {
+      let bodyText = "<unavailable>";
+      try {
+        bodyText = await put.text();
+      } catch (err) {
+        bodyText = `<failed to read body: ${err.message}>`;
+      }
+      console.error("[events-attendance] unexpected attendance response", {
+        status: put.status,
+        body: bodyText,
+        orgId,
+        eventId,
+        playerId
+      });
+      assert.equal(put.status, 200);
+    }
 
-    const put = await fetch(`${baseUrl}/events/${event.id}/attendance/${playerId}`, {
-      method: "PUT",
-      headers: {
-        "content-type": "application/json",
-        "x-user": JSON.stringify(xUser)
-      },
-      body: JSON.stringify({ status: "yes", note: "Coming" })
-    });
-
-    assert.equal(put.status, 200);
     const putBody = await put.json();
-    assert.equal(putBody.status, "yes");
+    assert.equal(putBody.attendance.status, "present");
+    assert.equal(putBody.attendance.player_id, playerId);
 
-    const get = await fetch(`${baseUrl}/events/${event.id}/attendance`, {
+    const get = await fetch(`${baseUrl}/admin/clubs/${orgId}/events/${eventId}/attendance`, {
       headers: { "x-user": JSON.stringify(xUser) }
     });
 
     assert.equal(get.status, 200);
-    const body = await get.json();
-    assert.equal(body.items.length, 1);
-    assert.equal(body.items[0].player_id, playerId);
+    const attendanceBody = await get.json();
+    assert.ok(Array.isArray(attendanceBody.attendance));
+    assert.equal(attendanceBody.attendance.length, 1);
+    assert.equal(attendanceBody.attendance[0].player_id, playerId);
+    assert.equal(attendanceBody.attendance[0].status, "present");
   });
 
   test("attendance update denied without permission", async () => {
@@ -118,19 +173,28 @@ if (!process.env.DATABASE_URL) {
       teamScopes: [teamId]
     };
 
+    const now = new Date();
     const eventRes = await query(
-      "INSERT INTO events (org_id, team_id, type, starts_at, created_by) VALUES ($1,$2,$3,NOW(),$4) RETURNING id",
-      [orgId, teamId, "practice", userId]
+      "INSERT INTO events (org_id, team_id, type, title, starts_at, ends_at, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+      [
+        orgId,
+        teamId,
+        "practice",
+        "DB Attendance Event",
+        now.toISOString(),
+        new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+        userId
+      ]
     );
     const eventId = eventRes.rows[0].id;
 
-    const put = await fetch(`${baseUrl}/events/${eventId}/attendance/${playerId}`, {
-      method: "PUT",
+    const put = await fetch(`${baseUrl}/admin/clubs/${orgId}/events/${eventId}/attendance`, {
+      method: "POST",
       headers: {
         "content-type": "application/json",
         "x-user": JSON.stringify(xUser)
       },
-      body: JSON.stringify({ status: "maybe" })
+      body: JSON.stringify({ player_id: playerId, status: "maybe" })
     });
 
     assert.equal(put.status, 403);

@@ -17,6 +17,10 @@ export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableSecti
   return <thead className={cn("bg-[var(--color-navy-100)] text-left text-sm", className)} {...props} />;
 }
 
+export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
+  return <tbody className={cn("text-sm", className)} {...props} />;
+}
+
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return <tr className={cn("border-b border-[var(--color-navy-100)]", className)} {...props} />;
 }

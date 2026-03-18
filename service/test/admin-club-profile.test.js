@@ -17,7 +17,7 @@ test.before(async () => {
     await query(
       `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT DO NOTHING`,
       [ORG_DEMO_ID, "Demo Club", "demo-org", "Ontario", "Canada", 82]
     );
   }

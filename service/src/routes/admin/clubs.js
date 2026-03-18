@@ -9,6 +9,10 @@ import clubSettingsRoutes from "./clubSettings.js";
 import playersRoutes from "./players.js";
 import guardiansRoutes from "./guardians.js";
 import eventsRoutes from "./events.js";
+import evaluationBlocksRoutes from "./evaluationBlocks.js";
+import evaluationPlansRoutes from "./evaluationPlans.js";
+import evaluationAIRoutes from "./evaluationAI.js";
+import evaluationSessionsRoutes from "./evaluationSessions.js";
 
 const router = Router();
 
@@ -30,5 +34,9 @@ router.use("/", clubSettingsRoutes);
 router.use("/", playersRoutes);
 router.use("/", guardiansRoutes);
 router.use("/", eventsRoutes);
+router.use("/", evaluationBlocksRoutes);
+router.use("/", evaluationPlansRoutes);
+router.use("/", evaluationAIRoutes);
+router.use("/", evaluationSessionsRoutes);
 
 export default router;

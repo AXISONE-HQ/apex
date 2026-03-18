@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 process.env.NODE_ENV ||= "test";
 process.env.INVITE_TOKEN_PEPPER ||= "test-pepper";
 
 const { default: app } = await import("../src/server.js");
+
+const DB_ENABLED = Boolean(process.env.DATABASE_URL);
 
 let server;
 let baseUrl;
@@ -54,28 +57,28 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Roster Org One", "roster-org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Roster Org Two", "roster-org-two"]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG1, ORG_1, "Roster Org1 Team", 2026]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG2, ORG_2, "Roster Org2 Team", 2026]
   );
 }
@@ -87,6 +90,11 @@ async function createTeamForOrg(orgId, name) {
     body: JSON.stringify({
       name,
       season_year: 2026,
+      season_label: "2026 Outdoor",
+      sport: "soccer",
+      team_level: "club",
+      competition_level: "club",
+      age_category: "U18",
     }),
   });
   if (res.status !== 201) {
@@ -340,18 +348,21 @@ test("Unassigned players: excludes assigned players and other orgs", async () =>
   assert.ok(!body.players.some((p) => p.id === org2Player.item.id));
 });
 
-test("Unassigned players: empty list returns 200", async () => {
-  const initial = await fetchUnassigned({ orgId: ORG_2, headers: platformHeaders });
-  for (const player of initial.body.players || []) {
-    await assignPlayerToTeam({
-      orgId: ORG_2,
-      playerId: player.id,
-      teamId: teamOrg2Id,
-      headers: platformHeaders,
-    });
+test("Unassigned players: empty list returns 200", async (t) => {
+  if (!DB_ENABLED) {
+    t.skip("DATABASE_URL not set");
+    return;
   }
 
-  const { status, body } = await fetchUnassigned({ orgId: ORG_2, headers: platformHeaders });
+  const emptyOrgId = randomUUID();
+  const emptySlug = uniqueValue("empty-org");
+  const { query } = await import("../src/db/client.js");
+  await query(
+    "INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3)",
+    [emptyOrgId, "Roster Empty Org", emptySlug]
+  );
+
+  const { status, body } = await fetchUnassigned({ orgId: emptyOrgId, headers: platformHeaders });
   assert.equal(status, 200);
   assert.deepEqual(body.players, []);
 });

@@ -44,14 +44,14 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Link Org One", "link-org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Link Org Two", "link-org-two"]
   );
 }
@@ -195,6 +195,19 @@ test("Link: idempotent linking", async () => {
   assert.ok(second.body.ok);
 });
 
+test("Link: unknown fields rejected", async () => {
+  const guardian = await createGuardian(ORG_1, "UnknownFieldGuardian");
+  const player = await createPlayer(ORG_1, "UnknownFieldPlayer");
+  const res = await fetch(`${baseUrl}/admin/clubs/${ORG_1}/players/${player.id}/guardians`, {
+    method: "POST",
+    headers: headersForOrgAdmin(ORG_1),
+    body: JSON.stringify({ guardian_id: guardian.id, extra: true }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.message, /unknown field/i);
+});
+
 // UNLINK TESTS
 
 test("Unlink: success", async () => {
@@ -253,6 +266,9 @@ test("List guardians for player: success + ordering", async () => {
   assert.equal(status, 200);
   const names = body.guardians.map((g) => `${g.last_name}-${g.first_name}`);
   assert.deepEqual(names, [...names].sort());
+  body.guardians.forEach((g) => {
+    assert.ok(g.linked_at, "linked_at missing on guardian");
+  });
 });
 
 test("List guardians for player: wrong-org forbidden", async () => {
@@ -298,6 +314,9 @@ test("List players for guardian: success + ordering", async () => {
   assert.equal(status, 200);
   const names = body.players.map((p) => `${p.last_name}-${p.first_name}`);
   assert.deepEqual(names, [...names].sort());
+  body.players.forEach((p) => {
+    assert.ok(p.linked_at, "linked_at missing on player");
+  });
 });
 
 test("List players for guardian: wrong-org forbidden", async () => {

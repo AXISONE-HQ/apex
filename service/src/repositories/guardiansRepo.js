@@ -168,3 +168,28 @@ export async function updateGuardian(guardianId, orgId, patch = {}) {
 
   return result.rows[0] || null;
 }
+
+export async function findGuardianByEmail(orgId, email) {
+  if (!email || !orgId) return null;
+
+  if (!hasDatabase()) {
+    for (const guardian of memoryGuardians.values()) {
+      if (String(guardian.org_id) === String(orgId) &&
+          (guardian.email?.toLowerCase?.() || guardian.email) === email) {
+        return guardian;
+      }
+    }
+    return null;
+  }
+
+  const result = await query(
+    `SELECT id, org_id, first_name, last_name, display_name, email,
+            phone, relationship, status, notes, created_at, updated_at
+     FROM guardians
+     WHERE org_id = $1 AND lower(email) = $2
+     LIMIT 1`,
+    [orgId, email.toLowerCase()]
+  );
+
+  return result.rows[0] || null;
+}

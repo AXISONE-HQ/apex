@@ -46,19 +46,30 @@ export async function listGuardiansByPlayer({ orgId, playerId }) {
   if (!hasDatabase()) {
     const { listGuardiansByOrg } = await import("./guardiansRepo.js");
     const guardians = await listGuardiansByOrg(orgId);
-    const linkedIds = Array.from(memoryLinks.values())
-      .filter((link) => link.player_id === playerId)
-      .map((link) => link.guardian_id);
-    return guardians.filter((g) => linkedIds.includes(g.id));
+    const linked = Array.from(memoryLinks.values()).filter(
+      (link) => String(link.player_id) === String(playerId) && String(link.org_id) === String(orgId)
+    );
+    const linkedMap = new Map(linked.map((link) => [String(link.guardian_id), link]));
+    return guardians
+      .filter((g) => linkedMap.has(String(g.id)))
+      .map((g) => ({ ...g, linked_at: linkedMap.get(String(g.id)).created_at }))
+      .sort((a, b) => {
+        const last = a.last_name.localeCompare(b.last_name);
+        if (last !== 0) return last;
+        const first = a.first_name.localeCompare(b.first_name);
+        if (first !== 0) return first;
+        return new Date(a.linked_at).getTime() - new Date(b.linked_at).getTime();
+      });
   }
 
   const result = await query(
     `SELECT g.id, g.org_id, g.first_name, g.last_name, g.display_name, g.email,
-            g.phone, g.relationship, g.status, g.notes, g.created_at, g.updated_at
+            g.phone, g.relationship, g.status, g.notes, g.created_at, g.updated_at,
+            gp.created_at AS linked_at
      FROM guardian_players gp
      JOIN guardians g ON g.id = gp.guardian_id
      WHERE gp.org_id = $1 AND gp.player_id = $2
-     ORDER BY g.last_name ASC, g.first_name ASC, g.created_at ASC`,
+     ORDER BY g.last_name ASC, g.first_name ASC, gp.created_at ASC`,
     [orgId, playerId]
   );
 
@@ -71,20 +82,31 @@ export async function listPlayersByGuardian({ orgId, guardianId }) {
   if (!hasDatabase()) {
     const { listPlayersByOrg } = await import("./playersRepo.js");
     const players = await listPlayersByOrg(orgId);
-    const linkedIds = Array.from(memoryLinks.values())
-      .filter((link) => link.guardian_id === guardianId)
-      .map((link) => link.player_id);
-    return players.filter((p) => linkedIds.includes(p.id));
+    const linked = Array.from(memoryLinks.values()).filter(
+      (link) => String(link.guardian_id) === String(guardianId) && String(link.org_id) === String(orgId)
+    );
+    const linkedMap = new Map(linked.map((link) => [String(link.player_id), link]));
+    return players
+      .filter((p) => linkedMap.has(String(p.id)))
+      .map((p) => ({ ...p, linked_at: linkedMap.get(String(p.id)).created_at }))
+      .sort((a, b) => {
+        const last = a.last_name.localeCompare(b.last_name);
+        if (last !== 0) return last;
+        const first = a.first_name.localeCompare(b.first_name);
+        if (first !== 0) return first;
+        return new Date(a.linked_at).getTime() - new Date(b.linked_at).getTime();
+      });
   }
 
   const result = await query(
     `SELECT p.id, p.org_id, p.team_id, p.first_name, p.last_name, p.display_name,
             p.jersey_number, p.birth_year, p.position, p.status, p.notes,
-            p.created_at, p.updated_at
+            p.created_at, p.updated_at,
+            gp.created_at AS linked_at
      FROM guardian_players gp
      JOIN players p ON p.id = gp.player_id
      WHERE gp.org_id = $1 AND gp.guardian_id = $2
-     ORDER BY p.last_name ASC, p.first_name ASC, p.created_at ASC`,
+     ORDER BY p.last_name ASC, p.first_name ASC, gp.created_at ASC`,
     [orgId, guardianId]
   );
 

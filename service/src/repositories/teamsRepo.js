@@ -3,8 +3,10 @@ import { hasDatabase, query } from "../db/client.js";
 const UPDATABLE_FIELDS = new Set([
   "name",
   "season_year",
+  "season_label",
   "competition_level",
   "age_category",
+  "sport",
   "is_archived",
   "head_coach_user_id",
   "training_frequency_per_week",
@@ -27,8 +29,10 @@ export async function createTeam({
   // PR5 params
   name,
   season_year,
+  season_label = null,
   competition_level = null,
   age_category = null,
+  sport = null,
   is_archived = false,
   head_coach_user_id = null,
   training_frequency_per_week = null,
@@ -58,10 +62,15 @@ export async function createTeam({
       org_id: String(orgId),
       name,
       season_year,
+      season_label,
       competition_level,
       age_category,
+      sport,
       is_archived: Boolean(is_archived),
       head_coach_user_id,
+      head_coach_name: null,
+      head_coach_email: null,
+      player_count: 0,
       training_frequency_per_week,
       default_training_duration_min,
       home_venue,
@@ -77,25 +86,26 @@ export async function createTeam({
        org_id,
        name,
        season_year,
+       season_label,
        competition_level,
        age_category,
+       sport,
        is_archived,
        head_coach_user_id,
        training_frequency_per_week,
        default_training_duration_min,
        home_venue
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     RETURNING
-       id, org_id, name, season_year, competition_level, age_category, is_archived,
-       head_coach_user_id, training_frequency_per_week, default_training_duration_min, home_venue,
-       created_at, updated_at`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     RETURNING id`,
     [
       orgId,
       name,
       season_year,
+      season_label,
       competition_level,
       age_category,
+      sport,
       is_archived,
       head_coach_user_id,
       training_frequency_per_week,
@@ -104,7 +114,7 @@ export async function createTeam({
     ]
   );
 
-  return result.rows[0];
+  return await getTeamById(orgId, result.rows[0].id);
 }
 
 export async function listTeams(orgId, { includeArchived = false } = {}) {
@@ -124,13 +134,22 @@ export async function listTeams(orgId, { includeArchived = false } = {}) {
 
   const result = await query(
     `SELECT
-       id, org_id, name, season_year, competition_level, age_category, is_archived,
-       head_coach_user_id, training_frequency_per_week, default_training_duration_min, home_venue,
-       created_at, updated_at
-     FROM teams
-     WHERE org_id = $1
+       t.id, t.org_id, t.name, t.season_year, t.season_label, t.competition_level, t.age_category, t.sport, t.is_archived,
+       t.head_coach_user_id, hc.name AS head_coach_name, hc.email AS head_coach_email,
+       COALESCE(pc.player_count, 0) AS player_count,
+       t.training_frequency_per_week, t.default_training_duration_min, t.home_venue,
+       t.created_at, t.updated_at
+     FROM teams t
+     LEFT JOIN users hc ON hc.id = t.head_coach_user_id
+     LEFT JOIN (
+       SELECT team_id, COUNT(*) AS player_count
+       FROM players
+       WHERE team_id IS NOT NULL
+       GROUP BY team_id
+     ) pc ON pc.team_id = t.id
+     WHERE t.org_id = $1
      ${whereArchived}
-     ORDER BY season_year DESC, name ASC, created_at DESC`,
+     ORDER BY t.season_year DESC, t.name ASC, t.created_at DESC`,
     [orgId]
   );
 
@@ -150,11 +169,20 @@ export async function getTeamById(orgId, teamId) {
 
   const result = await query(
     `SELECT
-       id, org_id, name, season_year, competition_level, age_category, is_archived,
-       head_coach_user_id, training_frequency_per_week, default_training_duration_min, home_venue,
-       created_at, updated_at
-     FROM teams
-     WHERE org_id = $1 AND id = $2
+       t.id, t.org_id, t.name, t.season_year, t.season_label, t.competition_level, t.age_category, t.sport, t.is_archived,
+       t.head_coach_user_id, hc.name AS head_coach_name, hc.email AS head_coach_email,
+       COALESCE(pc.player_count, 0) AS player_count,
+       t.training_frequency_per_week, t.default_training_duration_min, t.home_venue,
+       t.created_at, t.updated_at
+     FROM teams t
+     LEFT JOIN users hc ON hc.id = t.head_coach_user_id
+     LEFT JOIN (
+       SELECT team_id, COUNT(*) AS player_count
+       FROM players
+       WHERE team_id IS NOT NULL
+       GROUP BY team_id
+     ) pc ON pc.team_id = t.id
+     WHERE t.org_id = $1 AND t.id = $2
      LIMIT 1`,
     [orgId, teamId]
   );
@@ -207,12 +235,11 @@ export async function updateTeam(orgId, teamId, patch = {}) {
     `UPDATE teams
      SET ${set.join(", ")}
      WHERE org_id = $1 AND id = $2
-     RETURNING
-       id, org_id, name, season_year, competition_level, age_category, is_archived,
-       head_coach_user_id, training_frequency_per_week, default_training_duration_min, home_venue,
-       created_at, updated_at`,
+     RETURNING id`,
     values
   );
 
-  return result.rows[0] || null;
+  const updated = result.rows[0];
+  if (!updated) return null;
+  return await getTeamById(orgId, teamId);
 }

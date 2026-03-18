@@ -12,10 +12,20 @@ type Tab = {
 interface TabsProps {
   tabs: Tab[];
   defaultTab?: string;
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
 }
 
-export function Tabs({ tabs, defaultTab }: TabsProps) {
-  const [active, setActive] = useState(defaultTab ?? tabs[0]?.id);
+export function Tabs({ tabs, defaultTab, activeTab, onTabChange }: TabsProps) {
+  const [internalActive, setInternalActive] = useState(defaultTab ?? tabs[0]?.id);
+  const current = activeTab ?? internalActive;
+
+  const handleChange = (tabId: string) => {
+    if (activeTab === undefined) {
+      setInternalActive(tabId);
+    }
+    onTabChange?.(tabId);
+  };
 
   return (
     <div>
@@ -25,11 +35,11 @@ export function Tabs({ tabs, defaultTab }: TabsProps) {
             key={tab.id}
             className={cn(
               "px-4 py-2 text-sm font-medium",
-              active === tab.id
+              current === tab.id
                 ? "border-b-2 border-[var(--color-blue-600)] text-[var(--color-blue-600)]"
                 : "text-[var(--color-navy-500)]"
             )}
-            onClick={() => setActive(tab.id)}
+            onClick={() => handleChange(tab.id)}
           >
             {tab.label}
           </button>
@@ -37,7 +47,7 @@ export function Tabs({ tabs, defaultTab }: TabsProps) {
       </div>
       <div className="pt-4">
         {tabs.map((tab) => (
-          <div key={tab.id} hidden={tab.id !== active}>
+          <div key={tab.id} hidden={tab.id !== current}>
             {tab.content}
           </div>
         ))}

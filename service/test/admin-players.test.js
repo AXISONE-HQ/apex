@@ -25,11 +25,12 @@ function uniqueName(prefix) {
   return `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function xUser({ id, roles = [], orgScopes = [], isPlatformAdmin = false }) {
+function xUser({ id, roles = [], orgScopes = [], teamScopes = [], isPlatformAdmin = false }) {
   return {
     id,
     roles,
     orgScopes,
+    teamScopes,
     isPlatformAdmin,
   };
 }
@@ -54,28 +55,28 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Org One", "org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Org Two", "org-two"]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG1, ORG_1, "Team One", 2026]
   );
 
   await query(
     `INSERT INTO teams (id, org_id, name, season_year)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [TEAM_1_ORG2, ORG_2, "Team Two", 2026]
   );
 }
@@ -109,6 +110,11 @@ async function createTeamForOrg(orgId, name) {
     body: JSON.stringify({
       name,
       season_year: 2026,
+      season_label: "2026 Outdoor",
+      sport: "soccer",
+      team_level: "club",
+      competition_level: "club",
+      age_category: "U18",
     }),
   });
   if (res.status !== 201) {
@@ -718,4 +724,79 @@ test("Unassign team: removing assignment updates updated_at and clears team_id",
   assert.equal(removed.status, 200);
   assert.equal(removed.body.player.team_id, null);
   assert.notEqual(removed.body.player.updated_at, assigned.body.player.updated_at);
+});
+
+
+test("Coach with team scope can view player detail", async () => {
+  const playerRes = await createPlayer({
+    orgId: ORG_1,
+    body: {
+      first_name: "Roster",
+      last_name: "Target",
+      team_id: teamOrg1Id,
+      jersey_number: 12,
+      birth_year: 2010,
+      position: "G",
+      status: "active",
+    },
+  });
+  assert.equal(playerRes.status, 201, `player create failed: ${playerRes.status}`);
+  const playerId = playerRes.body.item.id;
+
+  const coachHeaders = {
+    "content-type": "application/json",
+    "x-user": JSON.stringify(
+      xUser({
+        id: "coach-user",
+        roles: ["Coach"],
+        orgScopes: [ORG_1],
+        teamScopes: [teamOrg1Id],
+      })
+    ),
+  };
+
+  const detailRes = await fetch(`${baseUrl}/admin/clubs/${ORG_1}/players/${playerId}`, {
+    method: "GET",
+    headers: coachHeaders,
+  });
+  assert.equal(detailRes.status, 200);
+  const detailBody = await detailRes.json();
+  assert.ok(detailBody.player);
+  assert.equal(detailBody.player.id, playerId);
+  assert.ok(detailBody.team);
+  assert.equal(detailBody.team.id, teamOrg1Id);
+});
+
+test("Coach without team scope cannot view player detail", async () => {
+  const playerRes = await createPlayer({
+    orgId: ORG_1,
+    body: {
+      first_name: "Blocked",
+      last_name: "Player",
+      team_id: teamOrg1Id,
+      status: "active",
+    },
+  });
+  assert.equal(playerRes.status, 201, `player create failed: ${playerRes.status}`);
+  const playerId = playerRes.body.item.id;
+
+  const coachHeaders = {
+    "content-type": "application/json",
+    "x-user": JSON.stringify(
+      xUser({
+        id: "coach-noscope",
+        roles: ["Coach"],
+        orgScopes: [ORG_1],
+        teamScopes: [],
+      })
+    ),
+  };
+
+  const detailRes = await fetch(`${baseUrl}/admin/clubs/${ORG_1}/players/${playerId}`, {
+    method: "GET",
+    headers: coachHeaders,
+  });
+  assert.equal(detailRes.status, 403);
+  const body = await detailRes.json();
+  assert.equal(body.error, "forbidden");
 });

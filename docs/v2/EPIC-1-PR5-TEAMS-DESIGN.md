@@ -81,7 +81,7 @@ All values should be strings (nullable/omitted allowed). No additional keys.
 When `head_coach_user_id` is provided (create or patch):
 
 - The user **must be a member of the org** (`memberships.org_id = :orgId`).
-- The member must have role code **ManagerCoach** OR **OrgAdmin**.
+- The member must have role code **Coach**, **ManagerCoach**, **ClubDirector** (alias of OrgAdmin today), or **OrgAdmin**. Platform admins may assign themselves only if they also belong to the club.
 - If the user does not exist, is not a member, or has wrong role → **400** with a clear error.
 
 Suggested error codes:
@@ -138,10 +138,12 @@ Base path variables:
 
 ```json
 {
-  "name": "U14 AAA",
+  "name": "U15 Boys Black",
+  "season_label": "2026 Summer",
   "season_year": 2026,
-  "competition_level": "AAA",
-  "age_category": "U14",
+  "sport": "basketball",
+  "team_level": "Elite",
+  "age_category": "U15",
   "head_coach_user_id": "uuid-or-null",
   "training_frequency_per_week": 3,
   "default_training_duration_min": 90,
@@ -155,6 +157,11 @@ Base path variables:
   }
 }
 ```
+
+Notes:
+- `season_label` is required input; `season_year` is derived server-side (but callers may still provide it for clarity).
+- `team_level` is the client-facing alias; the server stores it in `competition_level` for backward compatibility.
+- `sport` is a normalized lowercase enum (`basketball`, `soccer`, `hockey`, `volleyball`, `other`).
 
 Notes:
 - Unknown fields must be rejected (400).
@@ -197,6 +204,23 @@ Query params:
 - `includeArchived` (boolean, optional) — default `false` (archived teams excluded unless explicitly requested)
 
 #### Success response (200)
+
+### 3) Get Team Detail
+
+`GET /admin/clubs/:orgId/teams/:teamId`
+
+Returns consolidated data for the newly created team:
+
+```json
+{
+  "team": { /* ApiTeam */ },
+  "club": { "id": "...", "name": "...", "slug": "..." },
+  "headCoach": { "id": "...", "name": "...", "email": "..." },
+  "staff": [ { "id": "...", "name": "..." } ]
+}
+```
+
+This allows the frontend to hydrate the detail view (team header + metadata) in a single request and provides a future hook for assistant coaches.
 
 ```json
 {

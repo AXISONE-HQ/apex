@@ -53,12 +53,16 @@ export async function fetchAttendance(orgId: string, eventId: string): Promise<A
   return data.attendance.map(mapAttendanceRecord);
 }
 
-export function useEvents(orgId: string, filters: EventFilters = {}) {
+interface UseEventsOptions {
+  enabled?: boolean;
+}
+
+export function useEvents(orgId: string, filters: EventFilters = {}, options: UseEventsOptions = {}) {
   const keyFilters: Record<string, unknown> | undefined = Object.keys(filters).length ? { ...filters } : undefined;
   return useQuery({
     queryKey: queryKeys.events(orgId, keyFilters),
     queryFn: () => fetchEvents(orgId, filters),
-    enabled: Boolean(orgId),
+    enabled: options.enabled ?? Boolean(orgId),
   });
 }
 

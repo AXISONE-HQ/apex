@@ -85,9 +85,12 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
             {linkedGuardians.length === 0 ? (
               <p className="text-sm text-[var(--color-navy-500)]">No guardians linked yet.</p>
             ) : (
-              <ul className="divide-y divide-[var(--color-navy-100)] rounded-2xl border border-[var(--color-navy-100)]">
+              <ul className="space-y-3">
                 {linkedGuardians.map((guardian) => (
-                  <li key={guardian.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <li
+                    key={guardian.id}
+                    className="flex flex-col gap-1 rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div>
                       <p className="text-sm font-semibold text-[var(--color-navy-900)]">
                         {guardian.firstName} {guardian.lastName}
@@ -119,7 +122,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
               placeholder="Search by name or email"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              disabled={guardiansDirectory.isLoading || guardiansDirectory.isError}
+              disabled={guardiansDirectory.isLoading || guardiansDirectory.isError || isMutating}
             />
             {guardiansDirectory.isLoading ? (
               <p className="text-xs text-[var(--color-navy-500)]">Loading guardian directory…</p>
@@ -130,7 +133,10 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
             ) : (
               <ul className="space-y-2">
                 {filteredDirectory.map((guardian) => (
-                  <li key={guardian.id} className="flex items-center justify-between rounded-xl border border-[var(--color-navy-100)] px-3 py-2">
+                  <li
+                    key={guardian.id}
+                    className="flex items-center justify-between rounded-xl border border-[var(--color-navy-100)] bg-white px-3 py-2 shadow-sm"
+                  >
                     <div>
                       <p className="text-sm font-medium text-[var(--color-navy-900)]">
                         {guardian.firstName} {guardian.lastName}
