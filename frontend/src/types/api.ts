@@ -231,6 +231,21 @@ export interface CreateEventPayload {
   arrival_time?: string | null;
 }
 
+export interface CreatePlayerPayload {
+  first_name: string;
+  last_name: string;
+  team_id?: string | null;
+  jersey_number?: number | null;
+  birth_year?: number | null;
+  position?: string | null;
+  status?: "active" | "inactive";
+  notes?: string | null;
+}
+
+export interface CreatePlayerResponse {
+  player: ApiPlayer;
+}
+
 export interface UpdateAttendancePayload {
   player_id: string;
   status: "present" | "absent" | "late" | "excused" | "yes" | "no";

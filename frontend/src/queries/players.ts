@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { queryKeys } from "@/lib/queryKeys";
 import { mapPlayer, mapTeam } from "@/lib/mappers";
-import { PlayerDetailResponse, PlayersResponse } from "@/types/api";
+import { CreatePlayerPayload, CreatePlayerResponse, PlayerDetailResponse, PlayersResponse } from "@/types/api";
 import { Player, Team } from "@/types/domain";
 
 interface PlayerFilters {
@@ -56,5 +56,29 @@ export function usePlayer(orgId: string, playerId: string) {
     queryKey: queryKeys.player(orgId, playerId),
     queryFn: () => fetchPlayerDetail(orgId, playerId),
     enabled: Boolean(orgId && playerId),
+  });
+}
+
+
+export function useCreatePlayer(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePlayerPayload) =>
+      apiClient<CreatePlayerResponse>(`/admin/clubs/${orgId}/players`, {
+        method: "POST",
+        body: payload,
+      }),
+    onSuccess: () => {
+      invalidateOrgPlayers(queryClient, orgId);
+    },
+  });
+}
+
+function invalidateOrgPlayers(queryClient: QueryClient, orgId: string) {
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      return Array.isArray(key) && key[0] === "players" && key[1] === orgId;
+    },
   });
 }
