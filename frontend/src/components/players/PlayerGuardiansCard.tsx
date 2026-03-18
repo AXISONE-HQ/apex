@@ -64,7 +64,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
   const isMutating = linkGuardian.isPending || unlinkGuardian.isPending;
 
   return (
-    <Card className="space-y-4">
+    <Card className="space-y-4 border-[var(--color-navy-100)] bg-[var(--color-muted)] p-5 sm:p-6">
       <div>
         <CardTitle>Guardians</CardTitle>
         <CardDescription>Link existing guardians to this player for communications and RSVPs.</CardDescription>

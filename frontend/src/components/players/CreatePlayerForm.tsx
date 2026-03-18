@@ -114,7 +114,7 @@ export function CreatePlayerForm() {
   const isSubmitting = createPlayer.isPending;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full max-w-[640px] space-y-6">
       <div>
         <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Add player</h1>
         <p className="text-sm text-[var(--color-navy-500)]">Create a player record for your club roster.</p>

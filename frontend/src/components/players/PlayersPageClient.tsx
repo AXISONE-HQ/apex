@@ -28,11 +28,16 @@ export function PlayersPageClient({ orgId }: PlayersPageClientProps) {
         <Button
           type="button"
           size="sm"
-          className="gap-2 tracking-wide"
+          className="gap-3 uppercase tracking-[0.28em] text-[0.75rem] font-semibold"
           onClick={() => router.push("/app/players/create")}
         >
-          <span aria-hidden="true" className="text-lg leading-none">+</span>
-          <span className="text-xs font-semibold uppercase">Add player</span>
+          <span
+            aria-hidden="true"
+            className="flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-base leading-none"
+          >
+            +
+          </span>
+          <span>Add player</span>
         </Button>
       </div>
       <PlayerTable players={data} />
