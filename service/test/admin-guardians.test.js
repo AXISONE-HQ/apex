@@ -48,14 +48,14 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Guardian Org One", "guardian-org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Guardian Org Two", "guardian-org-two"]
   );
 }

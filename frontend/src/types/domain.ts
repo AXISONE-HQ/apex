@@ -3,16 +3,45 @@ export interface Team {
   orgId: string;
   name: string;
   seasonYear: number;
+  seasonLabel?: string | null;
   competitionLevel?: string | null;
   ageCategory?: string | null;
+  sport?: string | null;
   isArchived?: boolean;
   headCoachUserId?: string | null;
+  headCoachName?: string | null;
   trainingFrequencyPerWeek?: number | null;
   defaultTrainingDurationMin?: number | null;
   homeVenue?: Record<string, string | null> | null;
   playerCount?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ClubSummary {
+  id: string;
+  name: string;
+  slug?: string | null;
+}
+
+export interface UserSummary {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface TeamDetail {
+  team: Team;
+  club: ClubSummary | null;
+  headCoach?: UserSummary | null;
+  staff?: UserSummary[];
+}
+
+export interface Coach {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  roles?: string[];
 }
 
 export interface Player {
@@ -122,4 +151,137 @@ export interface GuardianAttendanceRecord {
 export interface GuardianRsvpEntry {
   player: GuardianEventPlayer;
   attendance: GuardianAttendanceRecord;
+}
+
+export type EvaluationScoringMethod = "numeric_scale" | "rating_scale" | "custom_metric";
+export type EvaluationDifficulty = "easy" | "medium" | "hard" | null;
+
+export interface EvaluationBlock {
+  id: string;
+  orgId: string | null;
+  teamId?: string | null;
+  name: string;
+  sport: string;
+  evaluationType: string;
+  scoringMethod: EvaluationScoringMethod;
+  scoringConfig: Record<string, unknown> | null;
+  instructions: string;
+  objective?: string | null;
+  difficulty?: EvaluationDifficulty;
+  createdByType?: string | null;
+  createdById?: string | null;
+  categories: string[];
+  popularityScore?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EvaluationPlan {
+  id: string;
+  orgId: string;
+  teamId?: string | null;
+  name: string;
+  sport: string;
+  ageGroup?: string | null;
+  gender?: string | null;
+  evaluationCategory: string;
+  scope: "club" | "team";
+  createdByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EvaluationPlanBlock {
+  id: string;
+  planId: string;
+  blockId: string;
+  position: number;
+  createdAt?: string;
+  block: EvaluationBlock | null;
+}
+
+export interface EvaluationPlanStrength {
+  status: "strong" | "needs_more_blocks" | "needs_balance";
+  badge: string;
+  blockCount: number;
+  minBlockThreshold?: number;
+  categoryCoverage: {
+    skills: boolean;
+    conditioning: boolean;
+    plays: boolean;
+  };
+  difficultyDistribution: {
+    easy: number;
+    medium: number;
+    hard: number;
+  };
+  recommendations: string[];
+  evaluatedAt?: string | null;
+}
+
+export interface EvaluationSession {
+  id: string;
+  orgId: string;
+  teamId: string;
+  eventId: string;
+  evaluationPlanId: string;
+  createdByUserId?: string | null;
+  startedAt?: string;
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EvaluationSessionSummaryBlock {
+  blockId: string;
+  blockName?: string | null;
+  averageScore: number;
+}
+
+export interface EvaluationSessionSummaryPlayer {
+  playerId: string;
+  playerName?: string | null;
+  overallScore: number;
+}
+
+export interface EvaluationSessionSummary {
+  sessionId: string;
+  playersEvaluated: number;
+  blocksEvaluated: number;
+  averageScoresByBlock: EvaluationSessionSummaryBlock[];
+  topPlayers: EvaluationSessionSummaryPlayer[];
+  lowestPlayers: EvaluationSessionSummaryPlayer[];
+}
+
+export interface EvaluationPlayerBlockSummary {
+  blockId: string;
+  blockName?: string | null;
+  score?: Record<string, unknown> | null;
+  normalizedScore?: number | null;
+}
+
+export interface EvaluationPlayerSummary {
+  playerId: string;
+  playerName?: string | null;
+  overallScore?: number | null;
+  blocks: EvaluationPlayerBlockSummary[];
+}
+
+
+export interface SessionScore {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  blockId: string;
+  score: Record<string, unknown> | null;
+  notes?: string | null;
+  updatedAt?: string;
+  player?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    displayName?: string | null;
+    jerseyNumber?: number | null;
+  } | null;
+  block?: EvaluationBlock | null;
 }

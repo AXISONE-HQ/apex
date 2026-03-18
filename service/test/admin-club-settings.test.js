@@ -26,19 +26,19 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Org One", "org-one"]
   );
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Org Two", "org-two"]
   );
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_3, "Org Three", "org-three"]
   );
 
@@ -46,13 +46,13 @@ async function seedDb() {
   await query(
     `INSERT INTO users (id, external_uid, email, name)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [USER_ORGADMIN_1, "ext-admin-1", "admin1@example.com", "Admin 1"]
   );
   await query(
     `INSERT INTO users (id, external_uid, email, name)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [USER_PLATFORM, "ext-platform-1", "platform@example.com", "Platform Admin"]
   );
 }

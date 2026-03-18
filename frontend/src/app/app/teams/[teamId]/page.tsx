@@ -1,11 +1,14 @@
 import { TeamDetailPageClient } from "@/components/teams/TeamDetailPageClient";
 import { getDefaultOrgId } from "@/lib/config";
 
+export const dynamic = "force-dynamic";
+
 interface TeamPageProps {
-  params: { teamId: string };
+  params: Promise<{ teamId: string }>;
 }
 
-export default function TeamDetailPage({ params }: TeamPageProps) {
+export default async function TeamDetailPage({ params }: TeamPageProps) {
   const orgId = getDefaultOrgId();
-  return <TeamDetailPageClient orgId={orgId} teamId={params.teamId} />;
+  const { teamId } = await params;
+  return <TeamDetailPageClient orgId={orgId} teamId={teamId} />;
 }

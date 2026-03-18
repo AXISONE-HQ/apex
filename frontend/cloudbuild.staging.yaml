@@ -1,0 +1,32 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - frontend/Dockerfile
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
+      - frontend
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ssrapexstagingweb
+      - --image
+      - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
+      - --region
+      - us-central1
+      - --service-account
+      - 153079040450-compute@developer.gserviceaccount.com
+      - --set-env-vars
+      - NEXT_PUBLIC_API_BASE_URL=https://api.staging.axisone.ca,NEXT_PUBLIC_ENABLE_DEMO_SESSION=true,NEXT_PUBLIC_DEMO_ID_TOKEN=test:demo@apex.dev,NEXT_PUBLIC_ORG_ID=32a6caf1-a200-408e-9a1f-4a56e7827d77
+      - --allow-unauthenticated
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
+options:
+  logging: CLOUD_LOGGING_ONLY

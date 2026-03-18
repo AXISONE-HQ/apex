@@ -1,32 +1,85 @@
 import { hasDatabase, query } from "../db/client.js";
 
 const demoEvents = [];
+const demoEventGames = new Map();
 
-export async function listEvents({ orgId, teamId, from = null, to = null, limit = 200 } = {}) {
+function attachGameFieldsToRow(row, game = null) {
+  if (!game) return row;
+  return {
+    ...row,
+    game_opponent_name: game.opponent_name ?? null,
+    game_location_type: game.location_type ?? null,
+    game_game_type: game.game_type ?? null,
+    game_uniform_color: game.uniform_color ?? null,
+    game_arrival_time: game.arrival_time ?? null,
+  };
+}
+
+export async function listEvents({ orgId, teamId = null, teamIds = null, from = null, to = null, limit = 200 } = {}) {
+  if (!orgId) throw new Error("orgId required");
+
+  const teamFilter = teamIds ? Array.from(new Set(teamIds)) : teamId ? [teamId] : null;
+
   if (!hasDatabase()) {
-    return demoEvents.filter((e) => e.orgId === orgId && e.teamId === teamId);
+    return demoEvents
+      .filter((e) => e.orgId === orgId && (!teamFilter || teamFilter.includes(e.teamId)))
+      .filter((e) => {
+        const startsAt = new Date(e.startsAt).getTime();
+        if (Number.isNaN(startsAt)) return false;
+        if (from && startsAt < new Date(from).getTime()) return false;
+        if (to && startsAt > new Date(to).getTime()) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
+      .map((event) => attachGameFieldsToRow(event, demoEventGames.get(event.id)));
   }
 
-  const params = [orgId, teamId];
-  let where = "org_id = $1 AND team_id = $2";
+  const params = [orgId];
+  let where = "e.org_id = $1";
+
+  if (teamFilter && teamFilter.length === 1) {
+    params.push(teamFilter[0]);
+    where += ` AND e.team_id = $${params.length}`;
+  } else if (teamFilter && teamFilter.length > 1) {
+    params.push(teamFilter);
+    where += ` AND e.team_id = ANY($${params.length})`;
+  }
 
   if (from) {
     params.push(from);
-    where += ` AND starts_at >= $${params.length}`;
+    where += ` AND e.starts_at >= $${params.length}`;
   }
 
   if (to) {
     params.push(to);
-    where += ` AND starts_at <= $${params.length}`;
+    where += ` AND e.starts_at <= $${params.length}`;
   }
 
   params.push(limit);
 
   const result = await query(
-    `SELECT id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at
-     FROM events
+    `SELECT
+       e.id,
+       e.org_id,
+       e.team_id,
+       e.title,
+       e.type,
+       e.starts_at,
+       e.ends_at,
+       e.location,
+       e.notes,
+       e.created_by,
+       e.created_at,
+       e.updated_at,
+       eg.opponent_name AS game_opponent_name,
+       eg.location_type AS game_location_type,
+       eg.game_type AS game_game_type,
+       eg.uniform_color AS game_uniform_color,
+       eg.arrival_time AS game_arrival_time
+     FROM events e
+     LEFT JOIN event_games eg ON eg.event_id = e.id
      WHERE ${where}
-     ORDER BY starts_at ASC
+     ORDER BY e.starts_at ASC
      LIMIT $${params.length}`,
     params
   );
@@ -36,25 +89,57 @@ export async function listEvents({ orgId, teamId, from = null, to = null, limit 
 
 export async function getEventById({ id, orgId }) {
   if (!hasDatabase()) {
-    return demoEvents.find((e) => e.id === id && e.orgId === orgId) || null;
+    const event = demoEvents.find((e) => e.id === id && e.orgId === orgId) || null;
+    if (!event) return null;
+    return attachGameFieldsToRow(event, demoEventGames.get(event.id));
   }
 
   const result = await query(
-    `SELECT id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at
-     FROM events
-     WHERE id = $1 AND org_id = $2`,
+    `SELECT
+       e.id,
+       e.org_id,
+       e.team_id,
+       e.title,
+       e.type,
+       e.starts_at,
+       e.ends_at,
+       e.location,
+       e.notes,
+       e.created_by,
+       e.created_at,
+       e.updated_at,
+       eg.opponent_name AS game_opponent_name,
+       eg.location_type AS game_location_type,
+       eg.game_type AS game_game_type,
+       eg.uniform_color AS game_uniform_color,
+       eg.arrival_time AS game_arrival_time
+     FROM events e
+     LEFT JOIN event_games eg ON eg.event_id = e.id
+     WHERE e.id = $1 AND e.org_id = $2`,
     [id, orgId]
   );
 
   return result.rows[0] || null;
 }
 
-export async function createEvent({ orgId, teamId, type, startsAt, endsAt = null, location = null, notes = null, createdBy = null }) {
+export async function createEvent({
+  orgId,
+  teamId,
+  title,
+  type,
+  startsAt,
+  endsAt = null,
+  location = null,
+  notes = null,
+  createdBy = null,
+  gameDetails = null,
+}) {
   if (!hasDatabase()) {
     const event = {
       id: `event_${demoEvents.length + 1}`,
       orgId,
       teamId,
+      title,
       type,
       startsAt,
       endsAt,
@@ -65,16 +150,59 @@ export async function createEvent({ orgId, teamId, type, startsAt, endsAt = null
       updatedAt: new Date().toISOString()
     };
     demoEvents.push(event);
+    if (gameDetails) {
+      demoEventGames.set(event.id, { ...gameDetails });
+      return attachGameFieldsToRow(event, gameDetails);
+    }
     return event;
   }
 
   const result = await query(
-    `INSERT INTO events (org_id, team_id, type, starts_at, ends_at, location, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     RETURNING id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at`,
-    [orgId, teamId, type, startsAt, endsAt, location, notes, createdBy]
+    `INSERT INTO events (org_id, team_id, title, type, starts_at, ends_at, location, notes, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING id, org_id, team_id, title, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at`,
+    [orgId, teamId, title, type, startsAt, endsAt, location, notes, createdBy]
   );
-  return result.rows[0];
+  const eventRow = result.rows[0];
+
+  if (gameDetails) {
+    await query(
+      `INSERT INTO event_games (
+         event_id,
+         opponent_name,
+         location_type,
+         game_type,
+         uniform_color,
+         arrival_time
+       )
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (event_id) DO UPDATE SET
+         opponent_name = EXCLUDED.opponent_name,
+         location_type = EXCLUDED.location_type,
+         game_type = EXCLUDED.game_type,
+         uniform_color = EXCLUDED.uniform_color,
+         arrival_time = EXCLUDED.arrival_time,
+         updated_at = NOW()`,
+      [
+        eventRow.id,
+        gameDetails.opponent_name,
+        gameDetails.location_type,
+        gameDetails.game_type,
+        gameDetails.uniform_color,
+        gameDetails.arrival_time,
+      ]
+    );
+    return {
+      ...eventRow,
+      game_opponent_name: gameDetails.opponent_name,
+      game_location_type: gameDetails.location_type,
+      game_game_type: gameDetails.game_type,
+      game_uniform_color: gameDetails.uniform_color,
+      game_arrival_time: gameDetails.arrival_time,
+    };
+  }
+
+  return eventRow;
 }
 
 export async function updateEvent({ id, orgId, patch = {} }) {
@@ -82,12 +210,13 @@ export async function updateEvent({ id, orgId, patch = {} }) {
     const idx = demoEvents.findIndex((e) => e.id === id && e.orgId === orgId);
     if (idx === -1) return null;
     demoEvents[idx] = { ...demoEvents[idx], ...patch, updatedAt: new Date().toISOString() };
-    return demoEvents[idx];
+    return attachGameFieldsToRow(demoEvents[idx], demoEventGames.get(id));
   }
 
   const fields = [];
   const values = [];
   const allowed = {
+    title: "title",
     type: "type",
     starts_at: "starts_at",
     ends_at: "ends_at",
@@ -103,12 +232,8 @@ export async function updateEvent({ id, orgId, patch = {} }) {
   }
 
   if (!fields.length) {
-    const existing = await query(
-      `SELECT id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at
-       FROM events WHERE id = $1 AND org_id = $2`,
-      [id, orgId]
-    );
-    return existing.rows[0] || null;
+    const existing = await getEventById({ id, orgId });
+    return existing;
   }
 
   values.push(id);
@@ -118,11 +243,28 @@ export async function updateEvent({ id, orgId, patch = {} }) {
     `UPDATE events
      SET ${fields.join(", ")}, updated_at = NOW()
      WHERE id = $${values.length - 1} AND org_id = $${values.length}
-     RETURNING id, org_id, team_id, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at`,
+     RETURNING id, org_id, team_id, title, type, starts_at, ends_at, location, notes, created_by, created_at, updated_at`,
     values
   );
 
-  return result.rows[0] || null;
+  const row = result.rows[0] || null;
+  if (!row) return null;
+
+  const game = await query(
+    `SELECT opponent_name AS game_opponent_name,
+            location_type AS game_location_type,
+            game_type AS game_game_type,
+            uniform_color AS game_uniform_color,
+            arrival_time AS game_arrival_time
+     FROM event_games
+     WHERE event_id = $1`,
+    [row.id]
+  );
+
+  return {
+    ...row,
+    ...game.rows[0],
+  };
 }
 
 export async function deleteEvent({ id, orgId }) {

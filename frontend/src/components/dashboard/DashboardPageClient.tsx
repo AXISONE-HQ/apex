@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ErrorState, LoadingState } from "@/components/ui/State";
 import { useTeams } from "@/queries/teams";
 import { usePlayers } from "@/queries/players";
 import { useEvents } from "@/queries/events";
+import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
+import { CalendarView, endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "@/lib/date-utils";
 
 interface DashboardPageClientProps {
   orgId: string;
@@ -16,22 +17,41 @@ interface DashboardPageClientProps {
 
 export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
   const router = useRouter();
+  const [calendarView, setCalendarView] = useState<CalendarView>("week");
+  const [calendarDate, setCalendarDate] = useState(new Date());
+
   const teamsQuery = useTeams(orgId);
   const playersQuery = usePlayers(orgId, { status: "all" });
   const eventsQuery = useEvents(orgId, { from: new Date().toISOString(), limit: 5 });
 
-  const isLoading = teamsQuery.isLoading || playersQuery.isLoading || eventsQuery.isLoading;
-  const isError = teamsQuery.isError || playersQuery.isError || eventsQuery.isError;
+  const calendarRange = useMemo(() => {
+    if (calendarView === "week") {
+      return { start: startOfWeek(calendarDate), end: endOfWeek(calendarDate) };
+    }
+    return { start: startOfMonth(calendarDate), end: endOfMonth(calendarDate) };
+  }, [calendarDate, calendarView]);
+
+  const calendarEventsQuery = useEvents(orgId, {
+    from: calendarRange.start.toISOString(),
+    to: calendarRange.end.toISOString(),
+  });
 
   const stats = useMemo(() => {
     return [
-      { label: "Teams", value: teamsQuery.data?.length ?? 0 },
-      { label: "Players", value: playersQuery.data?.length ?? 0 },
-      { label: "Upcoming events", value: eventsQuery.data?.length ?? 0 },
+      { label: "Teams", value: teamsQuery.data?.length ?? 0, loading: teamsQuery.isLoading },
+      { label: "Players", value: playersQuery.data?.length ?? 0, loading: playersQuery.isLoading },
+      { label: "Upcoming events", value: eventsQuery.data?.length ?? 0, loading: eventsQuery.isLoading },
     ];
-  }, [teamsQuery.data, playersQuery.data, eventsQuery.data]);
+  }, [teamsQuery.data, teamsQuery.isLoading, playersQuery.data, playersQuery.isLoading, eventsQuery.data, eventsQuery.isLoading]);
 
   const eventsList = eventsQuery.data ?? [];
+  const teamLookup = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const team of teamsQuery.data ?? []) {
+      map[team.id] = team.name;
+    }
+    return map;
+  }, [teamsQuery.data]);
 
   return (
     <div className="space-y-8">
@@ -43,20 +63,29 @@ export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
         <Button onClick={() => router.push("/app/schedule")}>Create event</Button>
       </div>
 
-      {isLoading ? (
-        <LoadingState message="Loading club overview" />
-      ) : isError ? (
-        <ErrorState message="Unable to load dashboard" onRetry={() => {
-          teamsQuery.refetch();
-          playersQuery.refetch();
-          eventsQuery.refetch();
-        }} />
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-[3fr,1fr]">
+        <DashboardCalendar
+          events={calendarEventsQuery.data ?? []}
+          view={calendarView}
+          currentDate={calendarDate}
+          onNavigate={setCalendarDate}
+          onNavigateToday={() => setCalendarDate(new Date())}
+          onViewChange={setCalendarView}
+          isLoading={calendarEventsQuery.isLoading}
+          isError={calendarEventsQuery.isError}
+          teamLookup={teamLookup}
+        />
+
+        <div className="space-y-4">
+          {(teamsQuery.isError || playersQuery.isError) && (
+            <div className="rounded-2xl border border-[var(--color-red-200)] bg-[var(--color-red-100)] px-4 py-3 text-sm text-[var(--color-red-700)]">
+              Unable to load club stats right now. Try reloading the page.
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             {stats.map((stat) => (
               <Card key={stat.label}>
-                <CardTitle>{stat.value}</CardTitle>
+                <CardTitle>{stat.loading ? "—" : stat.value}</CardTitle>
                 <CardDescription>{stat.label}</CardDescription>
               </Card>
             ))}
@@ -69,7 +98,11 @@ export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
                 View schedule
               </Link>
             </div>
-            {!eventsList.length ? (
+            {eventsQuery.isLoading ? (
+              <p className="text-sm text-[var(--color-navy-500)]">Loading upcoming events…</p>
+            ) : eventsQuery.isError ? (
+              <p className="text-sm text-[var(--color-red-500)]">Unable to load upcoming events. Please refresh.</p>
+            ) : !eventsList.length ? (
               <p className="text-sm text-[var(--color-navy-500)]">
                 No upcoming events. <Link href="/app/schedule" className="text-[var(--color-blue-600)]">Create one</Link> to get started.
               </p>
@@ -94,8 +127,8 @@ export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
               </div>
             )}
           </Card>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

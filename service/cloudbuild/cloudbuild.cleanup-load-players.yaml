@@ -1,0 +1,27 @@
+steps:
+  - name: gcr.io/cloud-builders/npm
+    dir: service
+    entrypoint: bash
+    secretEnv:
+      - STAGING_DATABASE_URL
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        npm ci --omit=dev
+        curl -s -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.9.0/cloud-sql-proxy.linux.amd64
+        chmod +x cloud-sql-proxy
+        ./cloud-sql-proxy --port 5432 "$PROJECT_ID:us-central1:apex-staging-sql" &
+        PROXY_PID=$!
+        trap 'kill $${PROXY_PID}' EXIT
+        sleep 5
+        export DB_SECRET="$$STAGING_DATABASE_URL"
+        export DATABASE_URL="$(python3 -c 'import os, urllib.parse as up; s=os.environ["DB_SECRET"]; p=up.urlparse(s); user=p.username; password=p.password; db=p.path.lstrip("/"); print(f"postgresql://{user}:{password}@127.0.0.1:5432/{db}")')"
+        unset DB_SECRET
+        LOAD_PLAYER_PREFIX=load node scripts/remove_load_players.js
+options:
+  logging: CLOUD_LOGGING_ONLY
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/apex-staging-database-url/versions/latest
+      env: STAGING_DATABASE_URL

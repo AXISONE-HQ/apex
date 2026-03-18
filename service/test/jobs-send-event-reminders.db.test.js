@@ -35,16 +35,35 @@ test("POST /jobs/send-event-reminders logs upcoming events (DB)", async (t) => {
     [teamId, orgId, "Team A"]
   );
 
-  const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  const later = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  const now = Date.now();
+  const soonStart = new Date(now + 60 * 60 * 1000);
+  const soonEnd = new Date(soonStart.getTime() + 60 * 60 * 1000);
+  const laterStart = new Date(now + 72 * 60 * 60 * 1000);
+  const laterEnd = new Date(laterStart.getTime() + 60 * 60 * 1000);
 
   const e1 = await query(
-    "INSERT INTO events (org_id, team_id, type, starts_at, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id",
-    [orgId, teamId, "practice", soon, userId]
+    "INSERT INTO events (org_id, team_id, type, title, starts_at, ends_at, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+    [
+      orgId,
+      teamId,
+      "practice",
+      "Reminder Window Event",
+      soonStart.toISOString(),
+      soonEnd.toISOString(),
+      userId
+    ]
   );
   await query(
-    "INSERT INTO events (org_id, team_id, type, starts_at, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id",
-    [orgId, teamId, "practice", later, userId]
+    "INSERT INTO events (org_id, team_id, type, title, starts_at, ends_at, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [
+      orgId,
+      teamId,
+      "practice",
+      "Outside Window Event",
+      laterStart.toISOString(),
+      laterEnd.toISOString(),
+      userId
+    ]
   );
 
   const server = app.listen(0);

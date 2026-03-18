@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { uniqueName } from "./helpers/nameUtils.js";
 
 process.env.NODE_ENV ||= "test";
 process.env.INVITE_TOKEN_PEPPER ||= "test-pepper";
@@ -14,6 +15,8 @@ const ORG_2 = "00000000-0000-0000-0000-000000000b02";
 const USER_ORGADMIN_1 = "00000000-0000-0000-0000-000000006001";
 const USER_ORGADMIN_2 = "00000000-0000-0000-0000-000000006002";
 const USER_PLATFORM = "00000000-0000-0000-0000-000000009994";
+
+const externalUid = (label, id) => `${label}-${id}`;
 
 function xUser({ id, roles = [], orgScopes = [], isPlatformAdmin = false }) {
   return {
@@ -49,35 +52,43 @@ async function seedDb() {
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_1, "Attendance Org One", "attendance-org-one"]
   );
 
   await query(
     `INSERT INTO organizations (id, name, slug)
      VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [ORG_2, "Attendance Org Two", "attendance-org-two"]
   );
 
   await query(
     `INSERT INTO users (id, external_uid, email, name)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT DO NOTHING`,
     [
       USER_PLATFORM,
-      'attendance-platform-admin',
+      externalUid('attendance-platform-admin', USER_PLATFORM),
       'attendance-platform-admin@example.com',
       'Attendance Platform Admin'
     ]
   );
 }
 
-async function createTeamForOrg(orgId, name = "Attendance Team") {
+async function createTeamForOrg(orgId, namePrefix = "Attendance Team") {
   const res = await fetch(`${baseUrl}/admin/clubs/${orgId}/teams`, {
     method: "POST",
     headers: headersForOrgAdmin(orgId),
-    body: JSON.stringify({ name, season_year: 2026 }),
+    body: JSON.stringify({
+      name: uniqueName(namePrefix),
+      season_year: 2026,
+      season_label: "2026 Outdoor",
+      sport: "soccer",
+      team_level: "club",
+      competition_level: "club",
+      age_category: "U18",
+    }),
   });
   if (res.status !== 201) {
     throw new Error(`Failed to create team for org ${orgId}: ${res.status}`);
@@ -98,6 +109,7 @@ async function createEvent(orgId, name = "Test Event") {
   const event = await repoCreateEvent({
     orgId,
     teamId: team.id,
+    title: name,
     type: "practice",
     startsAt: new Date().toISOString(),
     location: name,

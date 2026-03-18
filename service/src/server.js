@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import authInvitesRoutes from "./routes/authInvites.js";
 import teamsRoutes from "./routes/domain/teams.js";
+import { setEvaluationAISuggestionProvider } from "./services/evaluationAIService.js";
+import { createOpenAISuggestionProvider } from "./providers/openAiEvaluationSuggestions.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
 import eventsRoutes from "./routes/domain/events.js";
@@ -16,12 +18,30 @@ import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
 import { getUserById } from "./repositories/usersRepo.js";
+import { resolveAuthzForUser } from "./repositories/authzRepo.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedRbac } from "./db/seedRbac.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { hasDatabase, query } from "./db/client.js";
 
 const app = express();
+
+if (process.env.OPENAI_API_KEY) {
+  try {
+    const provider = createOpenAISuggestionProvider({
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL,
+      apiUrl: process.env.OPENAI_API_URL,
+    });
+    setEvaluationAISuggestionProvider(provider);
+    console.log("[evaluation-ai] OpenAI suggestion provider enabled");
+  } catch (err) {
+    console.error("[evaluation-ai] failed to init OpenAI provider", err);
+  }
+} else {
+  console.log("[evaluation-ai] OpenAI provider not configured; using fallback suggestions");
+}
+
 
 // [SECURITY] Emergency fallback guard (default OFF).
 // If enabled, require an explicit allowlist and warn loudly.
@@ -109,24 +129,27 @@ app.use(async (req, _res, next) => {
     if (session) {
       const user = await getUserById(session.userId);
       if (user) {
-        const platformAdmin = !!session.platformAdmin;
-        const orgScopes = (session.orgScopes && session.orgScopes.length ? session.orgScopes : []).map(String);
-        const validOrgId = session.activeOrgId && (platformAdmin || orgScopes.includes(String(session.activeOrgId)))
-          ? session.activeOrgId
+        const authz = await resolveAuthzForUser({ userId: session.userId, orgId: session.activeOrgId || null });
+        const roles = (authz.roles && authz.roles.length ? authz.roles : session.roles || []).map(String);
+        const permissions = authz.permissions && authz.permissions.length ? authz.permissions : session.permissions || [];
+        const orgScopes = (authz.orgScopes && authz.orgScopes.length ? authz.orgScopes : []).map(String);
+        const platformAdmin = !!session.platformAdmin || Boolean(user.isPlatformAdmin);
+        const candidateOrgId = authz.activeOrgId || session.activeOrgId || null;
+        const activeOrgId = candidateOrgId && (platformAdmin || orgScopes.includes(String(candidateOrgId)))
+          ? candidateOrgId
           : orgScopes[0] || null;
 
         req.user = {
           id: user.id,
           email: user.email,
           name: user.name,
-          roles: session.roles,
-          permissions: session.permissions,
-          activeOrgId: validOrgId,
+          roles,
+          permissions,
+          activeOrgId,
           orgScopes,
           teamScopes: session.teamScopes || [],
           playerScopes: session.playerScopes || [],
-          // Canonical normalized flag: used by requirePlatformAdmin + policy checks.
-          isPlatformAdmin: platformAdmin || Boolean(user.isPlatformAdmin)
+          isPlatformAdmin: platformAdmin,
         };
       }
     }
