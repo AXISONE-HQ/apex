@@ -27,7 +27,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-[var(--color-navy-200)] bg-white px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-[var(--color-navy-200)] bg-white px-4 sm:px-6">
       <button
         type="button"
         className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-navy-200)] text-[var(--color-navy-600)] lg:hidden"
@@ -36,8 +36,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       >
         ☰
       </button>
-      <div className="flex-1">
-        <Input className="max-w-md" placeholder="Search players, teams, guardians" />
+      <div className="hidden flex-1 md:block">
+        <Input className="w-full max-w-md" placeholder="Search players, teams, guardians" />
       </div>
       <div className="relative" ref={menuRef}>
         <button
