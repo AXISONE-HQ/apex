@@ -67,3 +67,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Added real sign-out (Firebase + cookie + store/sessionStorage clears) and tightened AuthGuard/session bootstrap token refresh — fix applied: bd5ba40
+
+## Auth Flow (Drop C polish)
+Status: MATCH
+Deviations:
+- Session expiry UX — surfaced toast-equivalent messaging + login banner, polished password reset feedback per prototype — fix applied: 29ef3b6
