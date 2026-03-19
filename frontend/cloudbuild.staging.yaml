@@ -6,6 +6,18 @@ steps:
       - frontend/Dockerfile
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBFXmdhpBU6IdO6QwELA0oMEbiwla78jf0
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=apex-v1-488611.firebaseapp.com
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=apex-v1-488611
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=apex-v1-488611.firebasestorage.app
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=153079040450
+      - --build-arg
+      - NEXT_PUBLIC_FIREBASE_APP_ID=1:153079040450:web:29703c6476b450c7f62e5b
       - frontend
   - name: gcr.io/cloud-builders/docker
     args:
@@ -24,7 +36,7 @@ steps:
       - --service-account
       - 153079040450-compute@developer.gserviceaccount.com
       - --set-env-vars
-      - NEXT_PUBLIC_API_BASE_URL=https://api.staging.axisone.ca,NEXT_PUBLIC_ENABLE_DEMO_SESSION=true,NEXT_PUBLIC_DEMO_ID_TOKEN=test:demo@apex.dev,NEXT_PUBLIC_ORG_ID=32a6caf1-a200-408e-9a1f-4a56e7827d77
+      - NEXT_PUBLIC_API_BASE_URL=https://api.staging.axisone.ca,NEXT_PUBLIC_ENABLE_DEMO_SESSION=true,NEXT_PUBLIC_DEMO_ID_TOKEN=test:demo@apex.dev,NEXT_PUBLIC_ORG_ID=32a6caf1-a200-408e-9a1f-4a56e7827d77,NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBFXmdhpBU6IdO6QwELA0oMEbiwla78jf0,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=apex-v1-488611.firebaseapp.com,NEXT_PUBLIC_FIREBASE_PROJECT_ID=apex-v1-488611,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=apex-v1-488611.firebasestorage.app,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=153079040450,NEXT_PUBLIC_FIREBASE_APP_ID=1:153079040450:web:29703c6476b450c7f62e5b
       - --allow-unauthenticated
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/apex-staging/apex-web:$SHORT_SHA
