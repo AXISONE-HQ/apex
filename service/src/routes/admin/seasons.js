@@ -12,6 +12,10 @@ const router = Router({ mergeParams: true });
 const POST_FIELDS = new Set(["label", "year", "starts_on", "ends_on", "status"]);
 const PATCH_FIELDS = POST_FIELDS;
 
+function isDateRangeConstraint(err) {
+  return err?.code === "23514" && err?.constraint === "seasons_date_range_check";
+}
+
 function allowSeasonsAdmin(req, orgId) {
   if (req.user?.isPlatformAdmin) return true;
   const roles = new Set((req.user?.roles || []).map(String));
@@ -114,7 +118,7 @@ router.post("/:orgId/seasons", requireSession, async (req, res) => {
     if (err.message === "invalid_status") {
       return badRequest(res, "status must be one of: draft, active, completed, archived");
     }
-    if (err.message === "invalid_date_range") {
+    if (err.message === "invalid_date_range" || isDateRangeConstraint(err)) {
       return badRequest(res, "ends_on must be on or after starts_on");
     }
     if (err.code === "23505") {
@@ -191,7 +195,7 @@ router.patch("/:orgId/seasons/:seasonId", requireSession, async (req, res) => {
     if (err.message === "invalid_status") {
       return badRequest(res, "status must be one of: draft, active, completed, archived");
     }
-    if (err.message === "invalid_date_range") {
+    if (err.message === "invalid_date_range" || isDateRangeConstraint(err)) {
       return badRequest(res, "ends_on must be on or after starts_on");
     }
     if (err.code === "INVALID_STATUS") {
