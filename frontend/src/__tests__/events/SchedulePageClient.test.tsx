@@ -39,6 +39,12 @@ vi.mock("@/queries/events", () => ({
     isError: false,
     refetch: vi.fn(),
   }),
+  useEvent: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
 }));
 
 vi.mock("@/queries/teams", () => ({
@@ -74,7 +80,7 @@ test("filters events by event type and updates URL params", async () => {
 
   expect(screen.getByTestId("calendar-mock")).toHaveTextContent("2 events");
 
-  await userEvent.selectOptions(screen.getByLabelText(/Event type/i), "practice");
+  await userEvent.click(screen.getByRole("button", { name: /^practice$/i }));
 
   await waitFor(() => {
     expect(screen.getByTestId("calendar-mock")).toHaveTextContent("1 events");
