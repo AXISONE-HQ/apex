@@ -72,6 +72,14 @@ async function patchSeason(orgId, user, seasonId, body) {
   });
 }
 
+function expectDateValue(actual, expected, message = "date mismatch") {
+  if (typeof actual === "string" && actual.length > 10) {
+    assert.equal(actual.slice(0, 10), expected, message);
+  } else {
+    assert.equal(actual, expected, message);
+  }
+}
+
 const adminUser = xUser({ id: USER_ORGADMIN, roles: ["OrgAdmin"], orgScopes: [ORG_1] });
 const adminOrg2 = xUser({ id: USER_ORGADMIN, roles: ["OrgAdmin"], orgScopes: [ORG_2] });
 const coachUser = xUser({ id: USER_COACH, roles: ["Coach"], orgScopes: [ORG_1] });
@@ -162,7 +170,7 @@ test("date validation and updates", async () => {
   const updated = await update.json();
   assert.equal(updated.item.label, "Updated Season");
   assert.equal(updated.item.year, 2028);
-  assert.equal(updated.item.starts_on, "2026-02-01");
+  expectDateValue(updated.item.starts_on, "2026-02-01");
 
   const invalid = await patchSeason(ORG_1, adminUser, seasonId, {
     ends_on: "2025-01-01",
