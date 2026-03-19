@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api-client";
 import { useSessionInfo } from "@/queries/session";
 import { useSessionStore } from "@/stores/sessionStore";
+import { SESSION_FLAG_KEY } from "@/lib/session";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const setSession = useSessionStore((state) => state.setSession);
+  const resetSession = useSessionStore((state) => state.resetSession);
   const sessionQuery = useSessionInfo();
   const isUnauthorized =
     sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401;
@@ -32,10 +34,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (isUnauthorized) {
+      resetSession();
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(SESSION_FLAG_KEY);
+      }
       const nextPath = encodeURIComponent(pathname || "/app/dashboard");
       router.replace(`/login?next=${nextPath}`);
     }
-  }, [isUnauthorized, pathname, router]);
+  }, [isUnauthorized, pathname, resetSession, router]);
 
   if (sessionQuery.isPending) {
     return (
