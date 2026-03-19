@@ -72,7 +72,11 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
         setLinkModalOpen(false);
       }
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Unable to link guardian");
+      if (err instanceof ApiError && err.status === 409) {
+        setActionError("That guardian is already linked to this player.");
+      } else {
+        setActionError(err instanceof ApiError ? err.message : "Unable to link guardian");
+      }
     }
   };
 
@@ -130,7 +134,10 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
     setDirectoryPage((current) => Math.min(current + 1, totalPages));
   };
 
-  const isMutating = linkGuardian.isPending || unlinkGuardian.isPending;
+  const isLinking = linkGuardian.isPending;
+  const isUnlinking = unlinkGuardian.isPending;
+  const isMutating = isLinking || isUnlinking;
+  const currentStatusMessage = isLinking ? "Linking guardian…" : "Updating guardian links…";
 
   return (
     <Card className="space-y-4 border-[var(--color-navy-100)] bg-[var(--color-muted)] p-5 sm:p-6">
@@ -154,10 +161,25 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
               {actionError}
             </div>
           ) : null}
+          {isMutating ? (
+            <div className="rounded-xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-2 text-sm text-[var(--color-blue-700)]">
+              {currentStatusMessage}
+            </div>
+          ) : null}
           <div className="space-y-2">
             <p className="text-sm font-medium text-[var(--color-navy-700)]">Linked guardians</p>
             {linkedGuardians.length === 0 ? (
-              <p className="text-sm text-[var(--color-navy-500)]">No guardians linked yet.</p>
+              <div className="rounded-2xl border border-dashed border-[var(--color-navy-200)] bg-white/70 px-4 py-5 text-sm text-[var(--color-navy-600)]">
+                <p>No guardians linked yet.</p>
+                <Button
+                  type="button"
+                  className="mt-3 w-full sm:w-auto"
+                  onClick={openLinkModal}
+                  disabled={guardiansDirectory.isLoading}
+                >
+                  Link guardian
+                </Button>
+              </div>
             ) : (
               <ul className="space-y-3">
                 {linkedGuardians.map((guardian) => (
@@ -193,6 +215,9 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
         <p className="text-sm text-[var(--color-navy-600)]">
           {pendingUnlink ? `Remove ${pendingUnlink.guardianName} from this player?` : ""}
         </p>
+        {isUnlinking ? (
+          <p className="text-xs text-[var(--color-blue-600)]">Unlinking guardian…</p>
+        ) : null}
         <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" onClick={closeUnlinkModal} disabled={isMutating}>
             Cancel
@@ -204,6 +229,11 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
       </Modal>
       <Modal open={isLinkModalOpen} onClose={closeLinkModal} title="Link guardian">
         <div className="space-y-4">
+          {isLinkModalOpen && actionError ? (
+            <div className="rounded-xl border border-[var(--color-red-200)] bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]">
+              {actionError}
+            </div>
+          ) : null}
           <div>
             <Input
               placeholder="Search by name or email"
@@ -283,6 +313,9 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
           <p className="text-xs text-[var(--color-navy-500)]">
             Need someone new? <Link className="font-semibold text-[var(--color-blue-600)]" href="/app/guardians">Create a guardian</Link>.
           </p>
+          {isLinking ? (
+            <p className="text-xs text-[var(--color-blue-600)]">Linking guardian…</p>
+          ) : null}
           <div className="flex justify-end">
             <Button type="button" variant="ghost" onClick={closeLinkModal} disabled={isMutating}>
               Close
