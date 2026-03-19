@@ -30,3 +30,9 @@ Status: MATCH
 Deviations:
 - Hero/control bar — added the prototype hero stats + CTA treatment and pill subnav for view toggles — fix applied: 83c3492
 - Filter row — search, event-type chips, and date/team inputs now match the proto spacing/state behavior — fix applied: 83c3492
+
+## Page: /app/schedule (Event cards + drawer)
+Status: MATCH
+Deviations:
+- Event cards — calendar grid/week/mobile cards now use the prototype badges, colors, and typography — fix applied: 5d6c4f8
+- Quick view drawer — clicking an event opens the right-side drawer with detail panel per design — fix applied: 5d6c4f8
