@@ -82,3 +82,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Filter labels/search aria + table focus/hover states aligned to prototype spec — fix applied: 19341a6
+
+## Page: /app/schedule + guardians + auth (final audit)
+Status: MATCH
+Deviations:
+- Schedule filters/event chips + guardian create modal + login banners brought to spec — fix applied: 7226c94
