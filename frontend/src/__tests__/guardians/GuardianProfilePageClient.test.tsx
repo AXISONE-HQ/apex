@@ -111,14 +111,14 @@ it("links a selected player", async () => {
   expect(linkMutate).toHaveBeenCalledWith("player-available");
 });
 
-it("confirms before unlinking a player", async () => {
-  const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
+it("unlinks a player via confirmation modal", async () => {
   render(<GuardianProfilePageClient orgId="club-1" guardianId="guardian-1" />);
 
   await userEvent.click(screen.getByRole("button", { name: /unlink/i }));
 
-  expect(confirmSpy).toHaveBeenCalled();
+  expect(await screen.findByText(/Remove Riley Stone/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Unlink player/i }));
+
   expect(unlinkMutate).toHaveBeenCalledWith("player-linked");
-  confirmSpy.mockRestore();
 });

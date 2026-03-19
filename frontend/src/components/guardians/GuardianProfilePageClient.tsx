@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { StatusVariant } from "@/components/ui/StatusPill";
 import { ErrorState, LoadingState } from "@/components/ui/State";
@@ -32,6 +33,7 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
 
   const [searchTerm, setSearchTerm] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingUnlink, setPendingUnlink] = useState<{ playerId: string; playerName: string } | null>(null);
 
   if (guardianQuery.isLoading) {
     return <LoadingState message="Loading guardian" />;
@@ -79,17 +81,27 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
     }
   };
 
-  const handleUnlink = async (playerId: string) => {
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm("Unlink this player from the guardian?");
-      if (!confirmed) return;
-    }
+  const requestUnlink = (player: Player) => {
+    setPendingUnlink({
+      playerId: player.id,
+      playerName: formatPlayerName(player),
+    });
+  };
+
+  const confirmUnlink = async () => {
+    if (!pendingUnlink) return;
     setActionError(null);
     try {
-      await unlinkMutation.mutateAsync(playerId);
+      await unlinkMutation.mutateAsync(pendingUnlink.playerId);
+      setPendingUnlink(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Unable to unlink player");
     }
+  };
+
+  const closeUnlinkModal = () => {
+    if (unlinkMutation.isPending) return;
+    setPendingUnlink(null);
   };
 
   return (
@@ -144,7 +156,7 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
             playersQuery.isError,
             linkedPlayers,
             () => playersQuery.refetch(),
-            handleUnlink,
+            requestUnlink,
             isMutating
           )}
 
@@ -170,6 +182,24 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
           </div>
         </Card>
       </div>
+      <Modal open={Boolean(pendingUnlink)} onClose={closeUnlinkModal} title="Unlink player">
+        <p className="text-sm text-[var(--color-navy-600)]">
+          {pendingUnlink ? `Remove ${pendingUnlink.playerName} from this guardian?` : ""}
+        </p>
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={closeUnlinkModal} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={confirmUnlink}
+            disabled={isMutating || !pendingUnlink}
+          >
+            Unlink player
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -179,7 +209,7 @@ function renderPlayersSection(
   isError: boolean,
   players: Player[],
   onRetry: () => void,
-  onUnlink: (playerId: string) => void,
+  onUnlink: (player: Player) => void,
   disabled: boolean
 ) {
   if (isLoading) {
@@ -230,7 +260,7 @@ function renderPlayersSection(
             >
               View player
             </Link>
-            <Button variant="ghost" size="sm" onClick={() => onUnlink(player.id)} disabled={disabled}>
+            <Button variant="ghost" size="sm" onClick={() => onUnlink(player)} disabled={disabled}>
               Unlink
             </Button>
           </div>
