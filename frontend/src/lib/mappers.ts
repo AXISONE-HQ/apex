@@ -88,6 +88,14 @@ export function mapPlayer(api: ApiPlayer): Player {
   };
 }
 
+export function mapGuardianLinkedPlayer(api: ApiPlayer & { linked_at?: string | null }): Player {
+  const player = mapPlayer(api);
+  return {
+    ...player,
+    linkedAt: api.linked_at ?? null,
+  };
+}
+
 export function mapGuardian(api: ApiGuardian): Guardian {
   return {
     id: api.id,

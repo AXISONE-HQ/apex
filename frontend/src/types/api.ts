@@ -140,6 +140,10 @@ export interface PlayerGuardiansResponse {
   guardians: ApiGuardian[];
 }
 
+export interface GuardianPlayersResponse {
+  players: Array<ApiPlayer & { linked_at?: string | null }>;
+}
+
 export interface CoachesResponse {
   coaches: ApiCoach[];
 }

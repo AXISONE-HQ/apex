@@ -16,6 +16,7 @@ export interface Team {
   playerCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  linkedAt?: string | null;
 }
 
 export interface ClubSummary {
