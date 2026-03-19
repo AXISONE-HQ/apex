@@ -359,6 +359,9 @@ export async function submitPlayerScoreForSession({
   const player = await ensurePlayerOnSessionTeam(orgId, session, playerId);
   const normalizedScore = normalizeScoreForBlock(block, score);
   const normalizedNotes = normalizeNotes(notes);
+  const sessionEventId = session.event_id ?? session.eventId ?? null;
+  const rawTitle = typeof block?.name === "string" ? block.name.trim() : "";
+  const evaluationTitle = rawTitle ? rawTitle.slice(0, 160) : "Session score";
 
   let evaluation = await getSessionPlayerEvaluation({ orgId, sessionId, playerId, blockId });
   if (evaluation) {
@@ -387,6 +390,9 @@ export async function submitPlayerScoreForSession({
       blockId,
       score: normalizedScore,
       notes: normalizedNotes ?? null,
+      title: evaluationTitle,
+      eventId: sessionEventId,
+      authorUserId: actorUserId ?? null,
     });
     return formatScoreResponse(created, player, block);
   } catch (err) {
