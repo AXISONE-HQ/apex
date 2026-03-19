@@ -57,3 +57,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Empty/loading states — styled empty callout + link/unlink loading banners per proto — fix applied: fa4eecc
+
+## Page: /app/login (Demo mode removal)
+Status: MATCH
+Deviations:
+- Session bootstrap — removed demo overrides so only real Firebase auth is used — fix applied: b9ce660
