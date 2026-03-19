@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -41,12 +41,19 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
   const [actionError, setActionError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [formValues, setFormValues] = useState({
     label: "",
     year: "",
     startsOn: "",
     endsOn: "",
   });
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timeout = setTimeout(() => setSuccessMessage(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [successMessage]);
 
   if (isLoading) {
     return <LoadingState message="Loading season" />;
@@ -87,6 +94,10 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
       setEditError("Season name is required");
       return;
     }
+    if (formValues.startsOn && formValues.endsOn && formValues.endsOn < formValues.startsOn) {
+      setEditError("End date must be on or after start date");
+      return;
+    }
 
     const body = {
       label: formValues.label.trim(),
@@ -98,6 +109,7 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
     try {
       await updateSeason({ seasonId: season.id, body });
       setIsEditOpen(false);
+      setSuccessMessage("Season updated");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to save changes";
       setEditError(message);
@@ -131,6 +143,11 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
           ))}
         </div>
       </div>
+      {successMessage ? (
+        <div className="rounded-md border border-[var(--color-green-200)] bg-[var(--color-green-50)] px-4 py-3 text-sm text-[var(--color-green-700)]" role="status">
+          {successMessage}
+        </div>
+      ) : null}
       {actionError ? (
         <div className="rounded-md border border-[var(--color-red-200)] bg-[var(--color-red-50)] px-4 py-3 text-sm text-[var(--color-red-700)]" role="alert">
           {actionError}

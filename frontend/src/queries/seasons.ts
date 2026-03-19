@@ -90,14 +90,16 @@ export function useSeasonStatusMutation(orgId: string) {
   });
 }
 
+interface MutationSeasonBody {
+  label?: string | null;
+  year?: number | null;
+  starts_on?: string | null;
+  ends_on?: string | null;
+}
+
 interface UpdateSeasonDetailsPayload {
   seasonId: string;
-  body: {
-    label?: string | null;
-    year?: number | null;
-    starts_on?: string | null;
-    ends_on?: string | null;
-  };
+  body: MutationSeasonBody;
 }
 
 export function useSeasonUpdateMutation(orgId: string) {
@@ -113,6 +115,31 @@ export function useSeasonUpdateMutation(orgId: string) {
     onSuccess: (item) => {
       const updated = mapSeason(item);
       syncSeasonCaches(queryClient, orgId, updated);
+    },
+  });
+}
+
+interface CreateSeasonPayload {
+  body: MutationSeasonBody & { label: string };
+}
+
+export function useSeasonCreateMutation(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ body }: CreateSeasonPayload) => {
+      const response = await apiClient<{ item: ApiSeason }>(`/admin/clubs/${orgId}/seasons`, {
+        method: "POST",
+        body,
+      });
+      return response.item;
+    },
+    onSuccess: (item) => {
+      const created = mapSeason(item);
+      queryClient.setQueryData<Season[]>(queryKeys.seasons(orgId), (prev) => {
+        if (!prev) return [created];
+        return [created, ...prev];
+      });
+      queryClient.setQueryData(queryKeys.season(orgId, created.id), created);
     },
   });
 }
