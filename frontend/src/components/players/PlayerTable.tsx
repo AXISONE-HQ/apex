@@ -1,3 +1,4 @@
+import { KeyboardEvent } from "react";
 import { Player } from "@/types/domain";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -10,6 +11,14 @@ interface PlayerTableProps {
 }
 
 export function PlayerTable({ players, teamLookup = {}, onSelectPlayer }: PlayerTableProps) {
+  const handleRowKeyDown = (playerId: string) => (event: KeyboardEvent<HTMLTableRowElement>) => {
+    if (!onSelectPlayer) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelectPlayer(playerId);
+    }
+  };
+
   return (
     <Table>
       <TableHead>
@@ -26,8 +35,12 @@ export function PlayerTable({ players, teamLookup = {}, onSelectPlayer }: Player
           return (
             <TableRow
               key={player.id}
-              className={onSelectPlayer ? "cursor-pointer hover:bg-[var(--color-muted)]" : undefined}
+              className={onSelectPlayer ? "cursor-pointer hover:bg-[var(--color-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-blue-500)]" : undefined}
               onClick={() => onSelectPlayer?.(player.id)}
+              onKeyDown={handleRowKeyDown(player.id)}
+              role={onSelectPlayer ? "button" : undefined}
+              tabIndex={onSelectPlayer ? 0 : undefined}
+              aria-label={onSelectPlayer ? `View ${player.firstName} ${player.lastName}` : undefined}
             >
               <TableCell>
                 <div className="flex items-center justify-between gap-4">

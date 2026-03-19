@@ -82,6 +82,7 @@ export function PlayersPageClient({ orgId }: PlayersPageClientProps) {
       <div className="flex flex-col gap-4 rounded-2xl border border-[var(--color-navy-100)] bg-white p-4 shadow-sm lg:flex-row">
         <Input
           placeholder="Search players"
+          aria-label="Search players"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
           className="w-full lg:max-w-xs"
@@ -100,7 +101,7 @@ export function PlayersPageClient({ orgId }: PlayersPageClientProps) {
             </select>
           </label>
           <label className="text-sm font-medium text-[var(--color-navy-700)]">
-            Team
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-400)]">Team</span>
             <select
               className="mt-1 w-full rounded-md border border-[var(--color-navy-200)] bg-white px-3 py-2 text-sm"
               value={teamFilter}
