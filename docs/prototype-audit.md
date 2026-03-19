@@ -87,3 +87,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Schedule filters/event chips + guardian create modal + login banners brought to spec — fix applied: 7226c94
+
+## Cross-page responsive sweep
+Status: MATCH
+Deviations:
+- Sidebar/topbar/AppShell spacing + responsive behavior unified across breakpoints — fix applied: 257166f
