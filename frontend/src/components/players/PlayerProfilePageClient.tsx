@@ -7,10 +7,10 @@ import { useEvents } from "@/queries/events";
 import { LoadingState, ErrorState } from "@/components/ui/State";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { Tabs } from "@/components/ui/Tabs";
 import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
 import { PlayerGuardiansCard } from "@/components/players/PlayerGuardiansCard";
 import { CalendarView, endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "@/lib/date-utils";
+import { formatPercentage } from "@/lib/formatters";
 
 interface PlayerProfilePageClientProps {
   orgId: string;
@@ -19,9 +19,9 @@ interface PlayerProfilePageClientProps {
 
 export function PlayerProfilePageClient({ orgId, playerId }: PlayerProfilePageClientProps) {
   const { data, isLoading, isError, refetch } = usePlayer(orgId, playerId);
-
   const [calendarView, setCalendarView] = useState<CalendarView>("week");
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState("overview");
 
   const calendarRange = useMemo(() => {
     if (calendarView === "week") {
@@ -113,8 +113,6 @@ export function PlayerProfilePageClient({ orgId, playerId }: PlayerProfilePageCl
           No attendance data yet. Once weekly practices/games are logged, this card will summarize rates and trends for quick reference.
         </div>
       </Card>
-      <PlayerGuardiansCard orgId={orgId} playerId={playerId} />
-      {calendarCard}
     </div>
   );
 
@@ -140,14 +138,58 @@ export function PlayerProfilePageClient({ orgId, playerId }: PlayerProfilePageCl
     { id: "performance", label: "Performance plan", content: performanceContent },
   ];
 
+  const activeContent = tabs.find((tab) => tab.id === activeTab)?.content ?? null;
+
+  const stats = [
+    {
+      label: "Status",
+      value: <StatusPill variant={statusVariant(player.status)}>{formatStatus(player.status)}</StatusPill>,
+    },
+    {
+      label: "Team",
+      value: team ? (
+        <Link href={`/app/teams/${team.id}`} className="text-[var(--color-blue-600)]">
+          {team.name}
+        </Link>
+      ) : (
+        "Unassigned"
+      ),
+    },
+    {
+      label: "Attendance",
+      value: formatPercentage(player.attendanceRate),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">{name}</h1>
-        <p className="text-sm text-[var(--color-navy-500)]">{subtitle}</p>
-      </div>
+      <header className="rounded-3xl border border-[var(--color-navy-100)] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-navy-400)]">Player profile</p>
+            <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">{name}</h1>
+            <p className="text-sm text-[var(--color-navy-500)]">{subtitle}</p>
+          </div>
+          <div className="grid w-full gap-4 sm:grid-cols-3 lg:w-auto">
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-[var(--color-navy-100)] bg-[var(--color-muted)] px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">{stat.label}</p>
+                <div className="mt-1 text-base font-semibold text-[var(--color-navy-900)]">{stat.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </header>
 
-      <Tabs tabs={tabs} defaultTab="overview" />
+      <Subnav tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
+
+      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <div className="space-y-6">{activeContent}</div>
+        <div className="space-y-6">
+          <PlayerGuardiansCard orgId={orgId} playerId={playerId} />
+          {calendarCard}
+        </div>
+      </div>
     </div>
   );
 }
@@ -158,6 +200,38 @@ function Metadata({ label, children }: { label: string; children: ReactNode }) {
       <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">{label}</p>
       <p className="text-sm font-medium text-[var(--color-navy-900)]">{children}</p>
     </div>
+  );
+}
+
+function Subnav({
+  tabs,
+  activeTab,
+  onSelect,
+}: {
+  tabs: { id: string; label: string }[];
+  activeTab: string;
+  onSelect: (tabId: string) => void;
+}) {
+  return (
+    <nav className="flex flex-wrap gap-2 rounded-full border border-[var(--color-navy-100)] bg-white p-1 shadow-sm">
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onSelect(tab.id)}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-[var(--color-navy-900)] text-white"
+                : "text-[var(--color-navy-600)] hover:bg-[var(--color-muted)]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
