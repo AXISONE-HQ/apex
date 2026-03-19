@@ -134,6 +134,12 @@ export async function createEvent({
   createdBy = null,
   gameDetails = null,
 }) {
+  if (!teamId) {
+    const err = new Error("team_id is required to create an event");
+    err.code = "VALIDATION";
+    throw err;
+  }
+
   if (!hasDatabase()) {
     const event = {
       id: `event_${demoEvents.length + 1}`,
