@@ -101,4 +101,4 @@ Deviations:
 ## Service: evaluation session guardrails
 Status: MATCH
 Deviations:
-- Evaluation session tests now salt team fixtures, reorder plan blocks atomically, and guard event creation/team validation to mirror prototype flows — fix applied: 935105d
+- Evaluation session tests now salt team fixtures, reorder plan blocks atomically, and guard event creation/team validation to mirror prototype flows — fix applied: 935105d/3f4050f

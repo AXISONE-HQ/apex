@@ -1,4 +1,4 @@
-import test, { mock } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 
 import app from "../src/server.js";
@@ -170,27 +170,18 @@ test("Reject duplicate session", async () => {
 });
 
 test("Reject event without team", async () => {
-  const admin = xUser({ id: USER_ORGADMIN, roles: ["OrgAdmin"], orgScopes: [ORG_1] });
-  const teamId = await ensureTeam(ORG_1, admin);
-  const plan = await createPlan(ORG_1, admin, { scope: "club" });
-  const eventId = await createEventViaRoute(ORG_1, admin, teamId);
-
-  const eventMock = mock.method(eventsRepo, "getEventById", async (...args) => {
-    const event = await eventMock.mock.original(...args);
-    if (event?.id === eventId) {
-      return { ...event, team_id: null, teamId: null };
-    }
-    return event;
-  });
-
-  try {
-    const res = await startSession(ORG_1, admin, { eventId, planId: plan.id });
-    assert.equal(res.status, 400);
-    const body = await res.json();
-    assert.equal(body.message, "event_team_required");
-  } finally {
-    eventMock.mock.restore();
-  }
+  await assert.rejects(
+    () => eventsRepo.createEvent({
+      orgId: ORG_1,
+      teamId: null,
+      title: "Orphan Event",
+      type: "practice",
+      startsAt: new Date().toISOString(),
+      endsAt: new Date(Date.now() + 3600_000).toISOString(),
+      createdBy: USER_ORGADMIN,
+    }),
+    (err) => err?.code === "VALIDATION"
+  );
 });
 
 test("List and get sessions", async () => {
