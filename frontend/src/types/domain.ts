@@ -60,6 +60,7 @@ export interface Player {
   notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  linkedAt?: string | null;
 }
 
 export interface Guardian {
