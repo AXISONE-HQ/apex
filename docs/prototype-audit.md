@@ -92,3 +92,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Sidebar/topbar/AppShell spacing + responsive behavior unified across breakpoints — fix applied: 257166f
+
+## Service: evaluation metadata parity
+Status: MATCH
+Deviations:
+- Service test harness seeds canonical Firebase user fixtures so evaluation blocks/plans/sessions keep prototype metadata in DB-backed runs — fix applied: ce1c512
