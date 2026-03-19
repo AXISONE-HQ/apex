@@ -159,9 +159,9 @@ export function DashboardPageClient({ orgId }: DashboardPageClientProps) {
               <ul className="space-y-3">
                 {activityItems.map((event) => (
                   <li
-                key={`activity-${event.id}`}
-                className="flex items-center justify-between rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-3 text-sm text-[var(--color-navy-600)] transition hover:border-[var(--color-blue-200)] hover:bg-[var(--color-blue-50)]"
-              >
+                    key={`activity-${event.id}`}
+                    className="flex items-center justify-between rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-3 text-sm text-[var(--color-navy-600)] transition hover:border-[var(--color-blue-200)] hover:bg-[var(--color-blue-50)]"
+                  >
                     <div>
                       <p className="font-medium text-[var(--color-navy-900)]">{event.title}</p>
                       <p className="text-xs text-[var(--color-navy-500)]">{teamLookup[event.teamId ?? ""] ?? "All teams"}</p>
