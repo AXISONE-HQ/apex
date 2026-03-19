@@ -9,10 +9,10 @@ interface SessionState {
 }
 
 const DEFAULT_STATE: Omit<SessionState, "setSession"> = {
-  orgId: "00000000-0000-0000-0000-000000000001",
-  userName: "Alex Morgan",
-  email: "alex@apex.dev",
-  role: "org-admin",
+  orgId: "",
+  userName: "",
+  email: "",
+  role: "",
 };
 
 export const useSessionStore = create<SessionState>((set) => ({

@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/Input";
 import { firebaseAuth } from "@/lib/firebase";
 import { getApiBaseUrl } from "@/lib/config";
 
-const DEMO_SESSION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_SESSION === "true";
 
 export function LoginPage() {
   const router = useRouter();
@@ -39,11 +38,6 @@ export function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (DEMO_SESSION_ENABLED) {
-      setError("Login is disabled while demo mode is enabled.");
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
     setStatusMessage(null);
@@ -114,11 +108,6 @@ export function LoginPage() {
             <p className="text-sm text-[var(--color-navy-500)]">
               Use your club admin email address and password.
             </p>
-            {DEMO_SESSION_ENABLED ? (
-              <p className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-xs text-[var(--color-navy-600)]">
-                Demo mode is enabled — refresh the page to use the built-in session.
-              </p>
-            ) : null}
           </div>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <label className="text-sm font-medium text-[var(--color-navy-700)]">
