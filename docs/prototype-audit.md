@@ -97,3 +97,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Service test harness seeds canonical Firebase user fixtures so evaluation blocks/plans/sessions keep prototype metadata in DB-backed runs — fix applied: ce1c512
+
+## Service: evaluation session guardrails
+Status: MATCH
+Deviations:
+- Evaluation session tests now salt team fixtures, reorder plan blocks atomically, and guard event creation/team validation to mirror prototype flows — fix applied: 935105d
