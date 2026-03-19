@@ -42,3 +42,8 @@ Status: MATCH
 Deviations:
 - Responsive grid — overflow wrappers + tablet scroll tuned for the month/week grids — fix applied: 31f656a
 - Empty/loading states — added filter-aware empty state and live refresh indicator per prototype — fix applied: 31f656a
+
+## Page: /app/players (Guardian unlink)
+Status: MATCH
+Deviations:
+- Guardian list — wired unlink action with confirmation + optimistic cache updates — fix applied: c0fe1e8
