@@ -31,7 +31,7 @@ function headersFor(user) {
 
 async function createTeamRecord(orgId, user) {
   const payload = {
-    name: `Team ${teamCounter++}`,
+    name: `Team ${Date.now().toString(36)}-${teamCounter++}`,
     season_year: 2026,
     season_label: "2026 Outdoor",
     sport: "soccer",
@@ -227,8 +227,8 @@ test.before(async () => {
       [ORG_2, "Org Two", "org-two", "Ontario", "Canada", 50]
     );
     const userSeeds = [
-      { id: USER_ORGADMIN, external: "ext-admin", email: "orgadmin@example.com", name: "Org Admin" },
-      { id: USER_COACH, external: "ext-coach", email: "coach@example.com", name: "Coach" },
+      { id: USER_ORGADMIN, external: "ext-admin-1", email: "admin1@example.com", name: "Admin 1" },
+      { id: USER_COACH, external: "ext-coach-1", email: "coach1@example.com", name: "Coach 1" },
     ];
     for (const seed of userSeeds) {
       await query(
