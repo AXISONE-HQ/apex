@@ -47,3 +47,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Guardian list — wired unlink action with confirmation + optimistic cache updates — fix applied: c0fe1e8
+
+## Page: /app/players (Guardian link flow)
+Status: MATCH
+Deviations:
+- Link guardian CTA — new modal-based search + pagination per prototype, including create-new guardrail copy — fix applied: 6822e39
