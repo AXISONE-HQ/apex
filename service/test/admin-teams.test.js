@@ -58,13 +58,23 @@ test.before(async () => {
     await query(
       `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         slug = EXCLUDED.slug,
+         state_province = EXCLUDED.state_province,
+         country = EXCLUDED.country,
+         pulse_score = EXCLUDED.pulse_score`,
       [ORG_1, "Org One", "org-one", "Ontario", "Canada", 50]
     );
     await query(
       `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         slug = EXCLUDED.slug,
+         state_province = EXCLUDED.state_province,
+         country = EXCLUDED.country,
+         pulse_score = EXCLUDED.pulse_score`,
       [ORG_2, "Org Two", "org-two", "Ontario", "Canada", 50]
     );
 

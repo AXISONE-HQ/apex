@@ -316,12 +316,12 @@ export async function listEvaluationPlanBlocks({ planId }) {
 
   const result = await query(
     `SELECT
-       epb.id,
-       epb.plan_id,
-       epb.block_id,
-       epb.position,
-       epb.created_at,
-       to_jsonb(block_data) AS block_json
+       block_rows.id,
+       block_rows.plan_id,
+       block_rows.block_id,
+       block_rows.position,
+       block_rows.created_at,
+       to_jsonb(block_rows.block_data) AS block_json
      FROM (
        SELECT
          epb.id,
@@ -355,7 +355,7 @@ export async function listEvaluationPlanBlocks({ planId }) {
        WHERE epb.plan_id = $1
        GROUP BY epb.id, eb.id
      ) AS block_rows
-     ORDER BY position ASC`,
+     ORDER BY block_rows.position ASC`,
     [planId]
   );
 
