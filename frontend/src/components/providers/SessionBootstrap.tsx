@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { onIdTokenChanged } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
 import { getApiBaseUrl } from "@/lib/config";
-import { SESSION_FLAG_KEY } from "@/lib/session";
+import { SESSION_FLAG_KEY, SESSION_MESSAGE_KEY } from "@/lib/session";
 
 export function SessionBootstrap() {
   const firebasePendingRef = useRef(false);
@@ -15,16 +15,20 @@ export function SessionBootstrap() {
 
     const controller = new AbortController();
     const unsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
+      const hadSession = window.sessionStorage.getItem(SESSION_FLAG_KEY) === "true";
+
       if (!user) {
         firebasePendingRef.current = false;
+        if (hadSession) {
+          window.sessionStorage.setItem(SESSION_MESSAGE_KEY, "Session expired — please log in again.");
+          window.location.replace("/login");
+        }
         window.sessionStorage.removeItem(SESSION_FLAG_KEY);
         return;
       }
 
       if (firebasePendingRef.current) return;
       firebasePendingRef.current = true;
-
-      const hadSession = window.sessionStorage.getItem(SESSION_FLAG_KEY) === "true";
 
       try {
         const idToken = await user.getIdToken();
@@ -59,10 +63,19 @@ export function SessionBootstrap() {
         } else {
           firebasePendingRef.current = false;
           window.sessionStorage.removeItem(SESSION_FLAG_KEY);
+          if (hadSession) {
+            window.sessionStorage.setItem(SESSION_MESSAGE_KEY, "Session expired — please log in again.");
+            window.location.replace("/login");
+          }
         }
       } catch (error) {
         if (controller.signal.aborted) return;
         firebasePendingRef.current = false;
+        window.sessionStorage.removeItem(SESSION_FLAG_KEY);
+        if (hadSession) {
+          window.sessionStorage.setItem(SESSION_MESSAGE_KEY, "Session expired — please log in again.");
+          window.location.replace("/login");
+        }
         console.error("Firebase session bootstrap error", error);
       }
     });

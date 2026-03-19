@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { firebaseAuth } from "@/lib/firebase";
 import { getApiBaseUrl } from "@/lib/config";
+import { SESSION_MESSAGE_KEY } from "@/lib/session";
 
 
 export function LoginPage() {
@@ -19,7 +20,16 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusBanner, setStatusBanner] = useState<{ message: string; tone: "info" | "success" | "error" } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedMessage = window.sessionStorage.getItem(SESSION_MESSAGE_KEY);
+    if (storedMessage) {
+      setStatusBanner({ message: storedMessage, tone: "info" });
+      window.sessionStorage.removeItem(SESSION_MESSAGE_KEY);
+    }
+  }, []);
+
   const [isSubmitting, setSubmitting] = useState(false);
   const [isResetting, setResetting] = useState(false);
 
@@ -40,7 +50,7 @@ export function LoginPage() {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    setStatusMessage(null);
+    setStatusBanner(null);
 
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
@@ -67,20 +77,20 @@ export function LoginPage() {
 
   const handlePasswordReset = async () => {
     if (!email.trim()) {
-      setStatusMessage("Enter your email above first.");
+      setStatusBanner({ message: "Enter your email above first.", tone: "info" });
       return;
     }
 
     setResetting(true);
-    setStatusMessage(null);
+    setStatusBanner(null);
     setError(null);
 
     try {
       await sendPasswordResetEmail(firebaseAuth, email.trim());
-      setStatusMessage("Password reset email sent. Check your inbox.");
+      setStatusBanner({ message: "Password reset email sent. Check your inbox.", tone: "success" });
     } catch (err) {
       console.error("Password reset error", err);
-      setStatusMessage(formatError(err));
+      setStatusBanner({ message: formatError(err), tone: "error" });
     } finally {
       setResetting(false);
     }
@@ -139,8 +149,18 @@ export function LoginPage() {
                 {error}
               </p>
             ) : null}
-            {statusMessage ? (
-              <p className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-xs text-[var(--color-navy-600)]">{statusMessage}</p>
+            {statusBanner ? (
+              <p
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  statusBanner.tone === "success"
+                    ? "bg-[var(--color-green-100)] text-[var(--color-green-700)]"
+                    : statusBanner.tone === "error"
+                    ? "bg-[var(--color-red-50)] text-[var(--color-red-600)]"
+                    : "bg-[var(--color-muted)] text-[var(--color-navy-600)]"
+                }`}
+              >
+                {statusBanner.message}
+              </p>
             ) : null}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in…" : "Sign in"}
