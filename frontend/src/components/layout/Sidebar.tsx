@@ -47,7 +47,7 @@ export function Sidebar({ className = "", onNavigate, hiddenOnMobile = true }: S
           />
         </div>
       </div>
-      <nav className="flex flex-1 flex-col gap-2">
+      <nav className="flex flex-1 flex-col gap-2" aria-label="Primary">
         {NAV_ITEMS.map((item) => {
           const isActive = item.matchPrefix
             ? pathname?.startsWith(item.matchPrefix)
@@ -57,6 +57,7 @@ export function Sidebar({ className = "", onNavigate, hiddenOnMobile = true }: S
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "border-l-4 border-transparent px-4 py-2 text-sm font-medium transition-colors",
                 isActive

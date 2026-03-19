@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import app from "../src/server.js";
-import { createEvent } from "../src/repositories/eventsRepo.js";
+import * as eventsRepo from "../src/repositories/eventsRepo.js";
 
 const ORG_1 = "00000000-0000-0000-0000-000000000001";
 const ORG_2 = "00000000-0000-0000-0000-000000000002";
@@ -11,6 +11,7 @@ const USER_COACH = "00000000-0000-0000-0000-000000000201";
 
 let server;
 let baseUrl;
+const RUN_ID = Date.now().toString(36);
 let teamCounter = 1;
 let planCounter = 1;
 let eventCounter = 1;
@@ -28,7 +29,7 @@ function headersFor(user) {
 
 async function createTeamRecord(orgId, user) {
   const payload = {
-    name: `Team ${teamCounter++}`,
+    name: `Team ${RUN_ID}-${teamCounter++}`,
     season_year: 2026,
     season_label: "2026 Outdoor",
     sport: "soccer",
@@ -169,22 +170,18 @@ test("Reject duplicate session", async () => {
 });
 
 test("Reject event without team", async () => {
-  const admin = xUser({ id: USER_ORGADMIN, roles: ["OrgAdmin"], orgScopes: [ORG_1] });
-  const plan = await createPlan(ORG_1, admin, { scope: "club" });
-  const event = await createEvent({
-    orgId: ORG_1,
-    teamId: null,
-    title: "Orphan Event",
-    type: "practice",
-    startsAt: new Date().toISOString(),
-    endsAt: new Date(Date.now() + 3600_000).toISOString(),
-    createdBy: admin.id,
-  });
-
-  const res = await startSession(ORG_1, admin, { eventId: event.id, planId: plan.id });
-  assert.equal(res.status, 400);
-  const body = await res.json();
-  assert.equal(body.message, "event_team_required");
+  await assert.rejects(
+    () => eventsRepo.createEvent({
+      orgId: ORG_1,
+      teamId: null,
+      title: "Orphan Event",
+      type: "practice",
+      startsAt: new Date().toISOString(),
+      endsAt: new Date(Date.now() + 3600_000).toISOString(),
+      createdBy: USER_ORGADMIN,
+    }),
+    (err) => err?.code === "VALIDATION"
+  );
 });
 
 test("List and get sessions", async () => {

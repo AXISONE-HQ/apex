@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { firebaseAuth } from "@/lib/firebase";
 import { getApiBaseUrl } from "@/lib/config";
+import { SESSION_MESSAGE_KEY } from "@/lib/session";
 
-const DEMO_SESSION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_SESSION === "true";
 
 export function LoginPage() {
   const router = useRouter();
@@ -20,7 +20,16 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusBanner, setStatusBanner] = useState<{ message: string; tone: "info" | "success" | "error" } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedMessage = window.sessionStorage.getItem(SESSION_MESSAGE_KEY);
+    if (storedMessage) {
+      setStatusBanner({ message: storedMessage, tone: "info" });
+      window.sessionStorage.removeItem(SESSION_MESSAGE_KEY);
+    }
+  }, []);
+
   const [isSubmitting, setSubmitting] = useState(false);
   const [isResetting, setResetting] = useState(false);
 
@@ -39,14 +48,9 @@ export function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (DEMO_SESSION_ENABLED) {
-      setError("Login is disabled while demo mode is enabled.");
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
-    setStatusMessage(null);
+    setStatusBanner(null);
 
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
@@ -73,20 +77,20 @@ export function LoginPage() {
 
   const handlePasswordReset = async () => {
     if (!email.trim()) {
-      setStatusMessage("Enter your email above first.");
+      setStatusBanner({ message: "Enter your email above first.", tone: "info" });
       return;
     }
 
     setResetting(true);
-    setStatusMessage(null);
+    setStatusBanner(null);
     setError(null);
 
     try {
       await sendPasswordResetEmail(firebaseAuth, email.trim());
-      setStatusMessage("Password reset email sent. Check your inbox.");
+      setStatusBanner({ message: "Password reset email sent. Check your inbox.", tone: "success" });
     } catch (err) {
       console.error("Password reset error", err);
-      setStatusMessage(formatError(err));
+      setStatusBanner({ message: formatError(err), tone: "error" });
     } finally {
       setResetting(false);
     }
@@ -114,17 +118,13 @@ export function LoginPage() {
             <p className="text-sm text-[var(--color-navy-500)]">
               Use your club admin email address and password.
             </p>
-            {DEMO_SESSION_ENABLED ? (
-              <p className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-xs text-[var(--color-navy-600)]">
-                Demo mode is enabled — refresh the page to use the built-in session.
-              </p>
-            ) : null}
           </div>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <label className="text-sm font-medium text-[var(--color-navy-700)]">
               Email
               <Input
                 type="email"
+                autoComplete="username"
                 className="mt-1"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -137,6 +137,7 @@ export function LoginPage() {
               Password
               <Input
                 type="password"
+                autoComplete="current-password"
                 className="mt-1"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -146,12 +147,22 @@ export function LoginPage() {
               />
             </label>
             {error ? (
-              <p className="rounded-lg bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]" role="alert">
+              <p className="rounded-lg bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]" role="alert" aria-live="assertive">
                 {error}
               </p>
             ) : null}
-            {statusMessage ? (
-              <p className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-xs text-[var(--color-navy-600)]">{statusMessage}</p>
+            {statusBanner ? (
+              <p
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  statusBanner.tone === "success"
+                    ? "bg-[var(--color-green-100)] text-[var(--color-green-700)]"
+                    : statusBanner.tone === "error"
+                    ? "bg-[var(--color-red-50)] text-[var(--color-red-600)]"
+                    : "bg-[var(--color-muted)] text-[var(--color-navy-600)]"
+                }`}
+              >
+                {statusBanner.message}
+              </p>
             ) : null}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in…" : "Sign in"}

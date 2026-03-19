@@ -316,12 +316,12 @@ export async function listEvaluationPlanBlocks({ planId }) {
 
   const result = await query(
     `SELECT
-       epb.id,
-       epb.plan_id,
-       epb.block_id,
-       epb.position,
-       epb.created_at,
-       to_jsonb(block_data) AS block_json
+       block_rows.id,
+       block_rows.plan_id,
+       block_rows.block_id,
+       block_rows.position,
+       block_rows.created_at,
+       to_jsonb(block_rows.block_data) AS block_json
      FROM (
        SELECT
          epb.id,
@@ -355,7 +355,7 @@ export async function listEvaluationPlanBlocks({ planId }) {
        WHERE epb.plan_id = $1
        GROUP BY epb.id, eb.id
      ) AS block_rows
-     ORDER BY position ASC`,
+     ORDER BY block_rows.position ASC`,
     [planId]
   );
 
@@ -488,17 +488,32 @@ export async function setEvaluationPlanBlockPositions({ planId, orderedIds = [] 
     return true;
   }
 
-  await query(
-    `WITH ordered AS (
-       SELECT value::uuid AS plan_block_id, row_number() OVER () AS rn
-       FROM unnest($2::uuid[]) WITH ORDINALITY AS t(value, ord)
-       ORDER BY ord
-     )
-     UPDATE evaluation_plan_blocks epb
-     SET position = ordered.rn
-     FROM ordered
-     WHERE epb.plan_id = $1 AND epb.id = ordered.plan_block_id`,
-    [planId, orderedIds]
-  );
+  await query("BEGIN");
+  try {
+    await query(
+      `UPDATE evaluation_plan_blocks
+       SET position = position + 10000
+       WHERE plan_id = $1`,
+      [planId]
+    );
+
+    await query(
+      `WITH ordered AS (
+         SELECT value::uuid AS plan_block_id, row_number() OVER () AS rn
+         FROM unnest($2::uuid[]) WITH ORDINALITY AS t(value, ord)
+         ORDER BY ord
+       )
+       UPDATE evaluation_plan_blocks epb
+       SET position = ordered.rn
+       FROM ordered
+       WHERE epb.plan_id = $1 AND epb.id = ordered.plan_block_id`,
+      [planId, orderedIds]
+    );
+
+    await query("COMMIT");
+  } catch (error) {
+    await query("ROLLBACK");
+    throw error;
+  }
   return true;
 }

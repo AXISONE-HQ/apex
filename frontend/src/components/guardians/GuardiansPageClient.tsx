@@ -153,7 +153,9 @@ export function GuardiansPageClient({ orgId }: GuardiansPageClientProps) {
               disabled={createGuardian.isPending}
             />
           </FormField>
-          {formError ? <p className="text-sm text-[var(--color-red-600)]">{formError}</p> : null}
+          {formError ? (
+            <p className="text-sm text-[var(--color-red-600)]" role="alert" aria-live="assertive">{formError}</p>
+          ) : null}
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"

@@ -232,9 +232,16 @@ export async function createSessionPlayerEvaluation({
   blockId,
   score,
   notes = null,
+  title,
+  eventId = null,
+  authorUserId = null,
 }) {
   if (!orgId || !sessionId || !playerId || !blockId) {
     throw new Error("missing_fields");
+  }
+  const safeTitle = typeof title === "string" ? title.trim() : "";
+  if (!safeTitle) {
+    throw new Error("title required");
   }
 
   if (!hasDatabase()) {
@@ -257,6 +264,9 @@ export async function createSessionPlayerEvaluation({
       block_id: blockId,
       score,
       notes,
+      title: safeTitle,
+      event_id: eventId ?? null,
+      author_user_id: authorUserId ?? null,
       created_at: now,
       updated_at: now,
     };
@@ -272,11 +282,14 @@ export async function createSessionPlayerEvaluation({
          player_id,
          block_id,
          score,
-         notes
+         notes,
+         title,
+         event_id,
+         author_user_id
        )
-       VALUES ($1,$2,$3,$4,$5,$6)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, org_id, session_id, player_id, block_id, score, notes, created_at, updated_at`,
-      [orgId, sessionId, playerId, blockId, score, notes]
+      [orgId, sessionId, playerId, blockId, score, notes, safeTitle, eventId ?? null, authorUserId ?? null]
     );
     return makeSessionRow(result.rows[0]);
   } catch (err) {

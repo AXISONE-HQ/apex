@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+
+import { ChangeEvent, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { ErrorState, LoadingState } from "@/components/ui/State";
-import { useGuardians } from "@/queries/guardians";
-import { useLinkGuardian, usePlayerGuardians, useUnlinkGuardian } from "@/queries/players";
+import { useGuardians, useUnlinkPlayerFromGuardian } from "@/queries/guardians";
+import { useLinkGuardian, usePlayerGuardians } from "@/queries/players";
 import { ApiError } from "@/lib/api-client";
+import { queryKeys } from "@/lib/queryKeys";
 import { Guardian } from "@/types/domain";
 
 interface PlayerGuardiansCardProps {
@@ -15,22 +20,32 @@ interface PlayerGuardiansCardProps {
   playerId: string;
 }
 
+interface PendingUnlink {
+  guardianId: string;
+  guardianName: string;
+}
+
+const DIRECTORY_PAGE_SIZE = 6;
+
 export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingUnlink, setPendingUnlink] = useState<PendingUnlink | null>(null);
+  const [isLinkModalOpen, setLinkModalOpen] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [directoryPage, setDirectoryPage] = useState(1);
 
   const playerGuardiansQuery = usePlayerGuardians(orgId, playerId);
   const guardiansDirectory = useGuardians(orgId);
   const linkGuardian = useLinkGuardian(orgId, playerId);
-  const unlinkGuardian = useUnlinkGuardian(orgId, playerId);
+  const unlinkGuardian = useUnlinkPlayerFromGuardian(orgId, pendingUnlink?.guardianId ?? "");
 
   const linkedGuardians = useMemo(() => playerGuardiansQuery.data ?? [], [playerGuardiansQuery.data]);
-
   const linkedIds = useMemo(() => new Set(linkedGuardians.map((guardian) => guardian.id)), [linkedGuardians]);
 
   const filteredDirectory = useMemo(() => {
     if (!guardiansDirectory.data) return [] as Guardian[];
-    const term = searchTerm.trim().toLowerCase();
+    const term = directorySearch.trim().toLowerCase();
     return guardiansDirectory.data
       .filter((guardian) => !linkedIds.has(guardian.id))
       .filter((guardian) => {
@@ -38,36 +53,102 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
         const fullName = `${guardian.firstName} ${guardian.lastName}`.toLowerCase();
         const email = guardian.email?.toLowerCase() ?? "";
         return fullName.includes(term) || email.includes(term);
-      })
-      .slice(0, 5);
-  }, [guardiansDirectory.data, linkedIds, searchTerm]);
+      });
+  }, [guardiansDirectory.data, linkedIds, directorySearch]);
 
-  const handleLink = async (guardianId: string) => {
+  const totalPages = Math.max(1, Math.ceil(filteredDirectory.length / DIRECTORY_PAGE_SIZE));
+  const effectiveDirectoryPage = Math.min(directoryPage, totalPages);
+  const pageStart = (effectiveDirectoryPage - 1) * DIRECTORY_PAGE_SIZE;
+  const pagedDirectory = filteredDirectory.slice(pageStart, pageStart + DIRECTORY_PAGE_SIZE);
+  const canPageBackward = effectiveDirectoryPage > 1;
+  const canPageForward = effectiveDirectoryPage < totalPages;
+
+  const handleLink = async (guardianId: string, { closeModal }: { closeModal?: boolean } = {}) => {
     setActionError(null);
     try {
       await linkGuardian.mutateAsync(guardianId);
-      setSearchTerm("");
+      if (closeModal) {
+        resetDirectoryState();
+        setLinkModalOpen(false);
+      }
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Unable to link guardian");
+      if (err instanceof ApiError && err.status === 409) {
+        setActionError("That guardian is already linked to this player.");
+      } else {
+        setActionError(err instanceof ApiError ? err.message : "Unable to link guardian");
+      }
     }
   };
 
-  const handleUnlink = async (guardianId: string) => {
+  const requestUnlink = (guardian: Guardian) => {
+    setPendingUnlink({ guardianId: guardian.id, guardianName: formatGuardianName(guardian) });
+  };
+
+  const confirmUnlink = async () => {
+    if (!pendingUnlink) return;
     setActionError(null);
     try {
-      await unlinkGuardian.mutateAsync(guardianId);
+      await unlinkGuardian.mutateAsync(playerId);
+      queryClient.setQueryData<Guardian[] | undefined>(
+        queryKeys.playerGuardians(orgId, playerId),
+        (current) => current?.filter((guardian) => guardian.id !== pendingUnlink.guardianId)
+      );
+      setPendingUnlink(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Unable to unlink guardian");
     }
   };
 
-  const isMutating = linkGuardian.isPending || unlinkGuardian.isPending;
+  const closeUnlinkModal = () => {
+    if (unlinkGuardian.isPending) return;
+    setPendingUnlink(null);
+  };
+
+  const resetDirectoryState = () => {
+    setDirectorySearch("");
+    setDirectoryPage(1);
+  };
+
+  const openLinkModal = () => {
+    setActionError(null);
+    resetDirectoryState();
+    setLinkModalOpen(true);
+  };
+
+  const closeLinkModal = () => {
+    if (linkGuardian.isPending) return;
+    setLinkModalOpen(false);
+    resetDirectoryState();
+  };
+
+  const handleDirectorySearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setDirectorySearch(event.target.value);
+    setDirectoryPage(1);
+  };
+
+  const goToPreviousPage = () => {
+    setDirectoryPage((current) => Math.max(Math.min(current, totalPages) - 1, 1));
+  };
+
+  const goToNextPage = () => {
+    setDirectoryPage((current) => Math.min(current + 1, totalPages));
+  };
+
+  const isLinking = linkGuardian.isPending;
+  const isUnlinking = unlinkGuardian.isPending;
+  const isMutating = isLinking || isUnlinking;
+  const currentStatusMessage = isLinking ? "Linking guardian…" : "Updating guardian links…";
 
   return (
     <Card className="space-y-4 border-[var(--color-navy-100)] bg-[var(--color-muted)] p-5 sm:p-6">
-      <div>
-        <CardTitle>Guardians</CardTitle>
-        <CardDescription>Link existing guardians to this player for communications and RSVPs.</CardDescription>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>Guardians</CardTitle>
+          <CardDescription>Link existing guardians to this player for communications and RSVPs.</CardDescription>
+        </div>
+        <Button type="button" onClick={openLinkModal} disabled={guardiansDirectory.isLoading}>
+          Link guardian
+        </Button>
       </div>
       {playerGuardiansQuery.isLoading ? (
         <LoadingState message="Loading linked guardians" />
@@ -80,10 +161,25 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
               {actionError}
             </div>
           ) : null}
+          {isMutating ? (
+            <div className="rounded-xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-2 text-sm text-[var(--color-blue-700)]">
+              {currentStatusMessage}
+            </div>
+          ) : null}
           <div className="space-y-2">
             <p className="text-sm font-medium text-[var(--color-navy-700)]">Linked guardians</p>
             {linkedGuardians.length === 0 ? (
-              <p className="text-sm text-[var(--color-navy-500)]">No guardians linked yet.</p>
+              <div className="rounded-2xl border border-dashed border-[var(--color-navy-200)] bg-white/70 px-4 py-5 text-sm text-[var(--color-navy-600)]">
+                <p>No guardians linked yet.</p>
+                <Button
+                  type="button"
+                  className="mt-3 w-full sm:w-auto"
+                  onClick={openLinkModal}
+                  disabled={guardiansDirectory.isLoading}
+                >
+                  Link guardian
+                </Button>
+              </div>
             ) : (
               <ul className="space-y-3">
                 {linkedGuardians.map((guardian) => (
@@ -103,7 +199,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleUnlink(guardian.id)}
+                      onClick={() => requestUnlink(guardian)}
                       disabled={isMutating}
                     >
                       Unlink
@@ -113,29 +209,60 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
               </ul>
             )}
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--color-navy-700)]" htmlFor="guardian-search">
-              Search existing guardians
-            </label>
+        </div>
+      )}
+      <Modal open={Boolean(pendingUnlink)} onClose={closeUnlinkModal} title="Unlink guardian">
+        <p className="text-sm text-[var(--color-navy-600)]">
+          {pendingUnlink ? `Remove ${pendingUnlink.guardianName} from this player?` : ""}
+        </p>
+        {isUnlinking ? (
+          <p className="text-xs text-[var(--color-blue-600)]">Unlinking guardian…</p>
+        ) : null}
+        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={closeUnlinkModal} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button type="button" variant="danger" onClick={confirmUnlink} disabled={isMutating || !pendingUnlink}>
+            Unlink guardian
+          </Button>
+        </div>
+      </Modal>
+      <Modal open={isLinkModalOpen} onClose={closeLinkModal} title="Link guardian">
+        <div className="space-y-4">
+          {isLinkModalOpen && actionError ? (
+            <div className="rounded-xl border border-[var(--color-red-200)] bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]">
+              {actionError}
+            </div>
+          ) : null}
+          <div>
             <Input
-              id="guardian-search"
               placeholder="Search by name or email"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              value={directorySearch}
+              onChange={handleDirectorySearchChange}
               disabled={guardiansDirectory.isLoading || guardiansDirectory.isError || isMutating}
             />
-            {guardiansDirectory.isLoading ? (
-              <p className="text-xs text-[var(--color-navy-500)]">Loading guardian directory…</p>
-            ) : guardiansDirectory.isError ? (
-              <p className="text-xs text-[var(--color-red-500)]">Unable to load guardian directory.</p>
-            ) : filteredDirectory.length === 0 ? (
-              <p className="text-xs text-[var(--color-navy-500)]">No matching guardians.</p>
-            ) : (
+            <p className="mt-2 text-xs text-[var(--color-navy-500)]">
+              Selecting a guardian immediately grants them access to this player.
+            </p>
+          </div>
+          {guardiansDirectory.isLoading ? (
+            <p className="text-sm text-[var(--color-navy-500)]">Loading guardian directory…</p>
+          ) : guardiansDirectory.isError ? (
+            <div className="space-y-3 text-sm text-[var(--color-red-600)]">
+              <p>Unable to load guardians.</p>
+              <Button type="button" variant="secondary" size="sm" onClick={() => guardiansDirectory.refetch()}>
+                Retry
+              </Button>
+            </div>
+          ) : filteredDirectory.length === 0 ? (
+            <p className="text-sm text-[var(--color-navy-500)]">No available guardians match this search.</p>
+          ) : (
+            <>
               <ul className="space-y-2">
-                {filteredDirectory.map((guardian) => (
+                {pagedDirectory.map((guardian) => (
                   <li
                     key={guardian.id}
-                    className="flex items-center justify-between rounded-xl border border-[var(--color-navy-100)] bg-white px-3 py-2 shadow-sm"
+                    className="flex items-center justify-between rounded-2xl border border-[var(--color-navy-100)] bg-white px-3 py-2 shadow-sm"
                   >
                     <div>
                       <p className="text-sm font-medium text-[var(--color-navy-900)]">
@@ -146,7 +273,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => handleLink(guardian.id)}
+                      onClick={() => handleLink(guardian.id, { closeModal: true })}
                       disabled={isMutating}
                     >
                       Link
@@ -154,10 +281,52 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
                   </li>
                 ))}
               </ul>
-            )}
+              {filteredDirectory.length > DIRECTORY_PAGE_SIZE ? (
+                <div className="flex items-center justify-between text-xs text-[var(--color-navy-500)]">
+                  <span>
+                    Page {effectiveDirectoryPage} of {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={goToPreviousPage}
+                      disabled={!canPageBackward}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={goToNextPage}
+                      disabled={!canPageForward}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+          <p className="text-xs text-[var(--color-navy-500)]">
+            Need someone new? <Link className="font-semibold text-[var(--color-blue-600)]" href="/app/guardians">Create a guardian</Link>.
+          </p>
+          {isLinking ? (
+            <p className="text-xs text-[var(--color-blue-600)]">Linking guardian…</p>
+          ) : null}
+          <div className="flex justify-end">
+            <Button type="button" variant="ghost" onClick={closeLinkModal} disabled={isMutating}>
+              Close
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </Card>
   );
+}
+
+function formatGuardianName(guardian: Guardian) {
+  return `${guardian.firstName} ${guardian.lastName}`.trim();
 }

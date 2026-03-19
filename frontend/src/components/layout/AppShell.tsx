@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex flex-1 flex-col">
         <Topbar onMenuClick={() => setMobileNavOpen(true)} />
-        <main className="flex-1 px-6 py-6">{children}</main>
+        <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>
       {isMobileNavOpen ? (
         <div className="fixed inset-0 z-50 bg-black/40 lg:hidden" onClick={() => setMobileNavOpen(false)}>

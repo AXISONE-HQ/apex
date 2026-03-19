@@ -8,6 +8,7 @@ const ORG_1 = "00000000-0000-0000-0000-000000000001";
 const ORG_2 = "00000000-0000-0000-0000-000000000002";
 const USER_ORGADMIN = "00000000-0000-0000-0000-000000000101";
 const USER_COACH = "00000000-0000-0000-0000-000000000201";
+const DB_ENABLED = Boolean(process.env.DATABASE_URL);
 
 let server;
 let baseUrl;
@@ -30,7 +31,7 @@ function headersFor(user) {
 
 async function createTeamRecord(orgId, user) {
   const payload = {
-    name: `Team ${teamCounter++}`,
+    name: `Team ${Date.now().toString(36)}-${teamCounter++}`,
     season_year: 2026,
     season_label: "2026 Outdoor",
     sport: "soccer",
@@ -201,6 +202,46 @@ function assertScoreItem(item) {
 }
 
 test.before(async () => {
+  if (DB_ENABLED) {
+    const { query } = await import("../src/db/client.js");
+    await query(
+      `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         slug = EXCLUDED.slug,
+         state_province = EXCLUDED.state_province,
+         country = EXCLUDED.country,
+         pulse_score = EXCLUDED.pulse_score`,
+      [ORG_1, "Org One", "org-one", "Ontario", "Canada", 50]
+    );
+    await query(
+      `INSERT INTO organizations (id, name, slug, state_province, country, pulse_score)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         slug = EXCLUDED.slug,
+         state_province = EXCLUDED.state_province,
+         country = EXCLUDED.country,
+         pulse_score = EXCLUDED.pulse_score`,
+      [ORG_2, "Org Two", "org-two", "Ontario", "Canada", 50]
+    );
+    const userSeeds = [
+      { id: USER_ORGADMIN, external: "ext-admin-1", email: "admin1@example.com", name: "Admin 1" },
+      { id: USER_COACH, external: "ext-coach-1", email: "coach1@example.com", name: "Coach 1" },
+    ];
+    for (const seed of userSeeds) {
+      await query(
+        `INSERT INTO users (id, external_uid, email, name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET
+           external_uid = EXCLUDED.external_uid,
+           email = EXCLUDED.email,
+           name = EXCLUDED.name`,
+        [seed.id, seed.external, seed.email, seed.name]
+      );
+    }
+  }
   server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address();
