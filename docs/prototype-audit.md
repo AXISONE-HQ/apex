@@ -24,3 +24,9 @@ Status: MATCH
 Deviations:
 - Header/subnav — prototype shows hero stats + custom subnav, now implemented — fix applied: d80b22b
 - Guardian/schedule column — stacked panels with rounded treatment to match design — fix applied: d80b22b
+
+## Page: /app/schedule (Header + filters)
+Status: MATCH
+Deviations:
+- Hero/control bar — added the prototype hero stats + CTA treatment and pill subnav for view toggles — fix applied: 83c3492
+- Filter row — search, event-type chips, and date/team inputs now match the proto spacing/state behavior — fix applied: 83c3492
