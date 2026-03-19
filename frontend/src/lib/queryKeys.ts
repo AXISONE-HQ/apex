@@ -1,6 +1,7 @@
 const serialize = (value: unknown) => (value ? JSON.stringify(value) : null);
 
 export const queryKeys = {
+  seasons: (orgId: string) => ["seasons", orgId] as const,
   teams: (orgId: string) => ["teams", orgId] as const,
   team: (orgId: string, teamId: string) => ["team", orgId, teamId] as const,
   players: (orgId: string, filters?: unknown) => [
