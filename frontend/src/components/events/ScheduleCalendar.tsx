@@ -84,8 +84,8 @@ export function ScheduleCalendar({
   }, [events.length, eventsInRange.length, view]);
 
   return (
-    <div className="rounded-2xl border border-[var(--color-navy-200)] bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-[var(--color-navy-100)] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="rounded-3xl border border-[var(--color-navy-100)] bg-white shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-[var(--color-navy-100)] p-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm text-[var(--color-navy-500)]">
             {view === "week" ? formatWeekRangeLabel(currentDate) : formatMonthLabel(currentDate)}
@@ -93,47 +93,49 @@ export function ScheduleCalendar({
           <h2 className="text-2xl font-semibold text-[var(--color-navy-900)]">Club calendar</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex overflow-hidden rounded-full border border-[var(--color-navy-200)] text-sm">
+          <div className="inline-flex overflow-hidden rounded-full border border-[var(--color-navy-200)] bg-[var(--color-muted)] text-sm">
             {(["month", "week"] as CalendarView[]).map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => onViewChange(option)}
                 className={cn(
-                  "px-3 py-1 capitalize",
-                  option === view ? "bg-[var(--color-navy-900)] text-white" : "bg-white text-[var(--color-navy-600)]"
+                  "px-4 py-1 capitalize font-medium",
+                  option === view ? "bg-[var(--color-navy-900)] text-white" : "text-[var(--color-navy-600)]"
                 )}
               >
                 {option}
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            aria-label="Previous range"
-            onClick={() => onNavigate(stepBackward(currentDate, view))}
-            className="rounded-full border border-[var(--color-navy-200)] px-3 py-1 text-sm text-[var(--color-navy-700)] hover:bg-[var(--color-muted)]"
-          >
-            ‹ Prev
-          </button>
-          <button
-            type="button"
-            onClick={onNavigateToday}
-            className="rounded-full border border-[var(--color-navy-200)] px-3 py-1 text-sm text-[var(--color-navy-700)] hover:bg-[var(--color-muted)]"
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            aria-label="Next range"
-            onClick={() => onNavigate(stepForward(currentDate, view))}
-            className="rounded-full border border-[var(--color-navy-200)] px-3 py-1 text-sm text-[var(--color-navy-700)] hover:bg-[var(--color-muted)]"
-          >
-            Next ›
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous range"
+              onClick={() => onNavigate(stepBackward(currentDate, view))}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--color-navy-200)] px-3 py-1 text-sm font-medium text-[var(--color-navy-700)] hover:bg-[var(--color-muted)]"
+            >
+              <span aria-hidden="true">‹</span> Prev
+            </button>
+            <button
+              type="button"
+              onClick={onNavigateToday}
+              className="inline-flex items-center rounded-full border border-[var(--color-navy-900)] bg-[var(--color-navy-900)] px-3 py-1 text-sm font-medium text-white hover:opacity-90"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              aria-label="Next range"
+              onClick={() => onNavigate(stepForward(currentDate, view))}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--color-navy-200)] px-3 py-1 text-sm font-medium text-[var(--color-navy-700)] hover:bg-[var(--color-muted)]"
+            >
+              Next <span aria-hidden="true">›</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div className="px-4 py-4">
+      <div className="px-5 py-5">
         {emptyMessage ? (
           <p className="mb-4 rounded-xl border border-dashed border-[var(--color-navy-200)] bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-navy-600)]">
             {emptyMessage}
