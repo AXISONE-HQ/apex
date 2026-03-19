@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { ErrorState, LoadingState } from "@/components/ui/State";
-import { useGuardians } from "@/queries/guardians";
-import { useLinkGuardian, usePlayerGuardians, useUnlinkGuardian } from "@/queries/players";
+import { useGuardians, useUnlinkPlayerFromGuardian } from "@/queries/guardians";
+import { useLinkGuardian, usePlayerGuardians } from "@/queries/players";
 import { ApiError } from "@/lib/api-client";
+import { queryKeys } from "@/lib/queryKeys";
 import { Guardian } from "@/types/domain";
 
 interface PlayerGuardiansCardProps {
@@ -15,14 +18,21 @@ interface PlayerGuardiansCardProps {
   playerId: string;
 }
 
+interface PendingUnlink {
+  guardianId: string;
+  guardianName: string;
+}
+
 export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProps) {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingUnlink, setPendingUnlink] = useState<PendingUnlink | null>(null);
 
   const playerGuardiansQuery = usePlayerGuardians(orgId, playerId);
   const guardiansDirectory = useGuardians(orgId);
   const linkGuardian = useLinkGuardian(orgId, playerId);
-  const unlinkGuardian = useUnlinkGuardian(orgId, playerId);
+  const unlinkGuardian = useUnlinkPlayerFromGuardian(orgId, pendingUnlink?.guardianId ?? "");
 
   const linkedGuardians = useMemo(() => playerGuardiansQuery.data ?? [], [playerGuardiansQuery.data]);
 
@@ -52,13 +62,28 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
     }
   };
 
-  const handleUnlink = async (guardianId: string) => {
+  const requestUnlink = (guardian: Guardian) => {
+    setPendingUnlink({ guardianId: guardian.id, guardianName: formatGuardianName(guardian) });
+  };
+
+  const confirmUnlink = async () => {
+    if (!pendingUnlink) return;
     setActionError(null);
     try {
-      await unlinkGuardian.mutateAsync(guardianId);
+      await unlinkGuardian.mutateAsync(playerId);
+      queryClient.setQueryData<Guardian[] | undefined>(
+        queryKeys.playerGuardians(orgId, playerId),
+        (current) => current?.filter((guardian) => guardian.id !== pendingUnlink.guardianId)
+      );
+      setPendingUnlink(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Unable to unlink guardian");
     }
+  };
+
+  const closeUnlinkModal = () => {
+    if (unlinkGuardian.isPending) return;
+    setPendingUnlink(null);
   };
 
   const isMutating = linkGuardian.isPending || unlinkGuardian.isPending;
@@ -103,7 +128,7 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleUnlink(guardian.id)}
+                      onClick={() => requestUnlink(guardian)}
                       disabled={isMutating}
                     >
                       Unlink
@@ -158,6 +183,23 @@ export function PlayerGuardiansCard({ orgId, playerId }: PlayerGuardiansCardProp
           </div>
         </div>
       )}
+      <Modal open={Boolean(pendingUnlink)} onClose={closeUnlinkModal} title="Unlink guardian">
+        <p className="text-sm text-[var(--color-navy-600)]">
+          {pendingUnlink ? `Remove ${pendingUnlink.guardianName} from this player?` : ""}
+        </p>
+        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={closeUnlinkModal} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button type="button" variant="danger" onClick={confirmUnlink} disabled={isMutating || !pendingUnlink}>
+            Unlink guardian
+          </Button>
+        </div>
+      </Modal>
     </Card>
   );
+}
+
+function formatGuardianName(guardian: Guardian) {
+  return `${guardian.firstName} ${guardian.lastName}`.trim();
 }
