@@ -1,13 +1,22 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { StatusVariant } from "@/components/ui/StatusPill";
 import { ErrorState, LoadingState } from "@/components/ui/State";
-import { useGuardian, useGuardianPlayers } from "@/queries/guardians";
+import {
+  useGuardian,
+  useGuardianPlayers,
+  useLinkPlayerToGuardian,
+  useUnlinkPlayerFromGuardian,
+} from "@/queries/guardians";
+import { usePlayers } from "@/queries/players";
 import type { Player } from "@/types/domain";
+import { ApiError } from "@/lib/api-client";
 
 interface GuardianProfilePageClientProps {
   orgId: string;
@@ -17,6 +26,12 @@ interface GuardianProfilePageClientProps {
 export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfilePageClientProps) {
   const guardianQuery = useGuardian(orgId, guardianId);
   const playersQuery = useGuardianPlayers(orgId, guardianId);
+  const rosterQuery = usePlayers(orgId);
+  const linkMutation = useLinkPlayerToGuardian(orgId, guardianId);
+  const unlinkMutation = useUnlinkPlayerFromGuardian(orgId, guardianId);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   if (guardianQuery.isLoading) {
     return <LoadingState message="Loading guardian" />;
@@ -33,9 +48,49 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
   }
 
   const linkedPlayers = playersQuery.data ?? [];
+  const linkedIds = new Set(linkedPlayers.map((player) => player.id));
   const subtitle = [formatStatus(guardian.status), formatLinkedCount(linkedPlayers.length)]
     .filter(Boolean)
     .join(" · ");
+
+  const filteredPlayers = (() => {
+    if (!rosterQuery.data) return [] as Player[];
+    const term = searchTerm.trim().toLowerCase();
+    return rosterQuery.data
+      .filter((player) => !linkedIds.has(player.id))
+      .filter((player) => {
+        if (!term) return true;
+        const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
+        const display = player.displayName?.toLowerCase() ?? "";
+        return fullName.includes(term) || display.includes(term);
+      })
+      .slice(0, 5);
+  })();
+
+  const isMutating = linkMutation.isPending || unlinkMutation.isPending;
+
+  const handleLink = async (playerId: string) => {
+    setActionError(null);
+    try {
+      await linkMutation.mutateAsync(playerId);
+      setSearchTerm("");
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Unable to link player");
+    }
+  };
+
+  const handleUnlink = async (playerId: string) => {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Unlink this player from the guardian?");
+      if (!confirmed) return;
+    }
+    setActionError(null);
+    try {
+      await unlinkMutation.mutateAsync(playerId);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Unable to unlink player");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -78,17 +133,41 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
           ) : null}
         </Card>
 
-        <Card className="space-y-4 lg:col-span-2">
+        <Card className="space-y-6 lg:col-span-2">
           <div>
             <CardTitle>Linked players</CardTitle>
             <CardDescription>Players this guardian can manage from their profile.</CardDescription>
           </div>
+          {actionError ? <ActionError message={actionError} /> : null}
           {renderPlayersSection(
             playersQuery.isLoading,
             playersQuery.isError,
             linkedPlayers,
-            () => playersQuery.refetch()
+            () => playersQuery.refetch(),
+            handleUnlink,
+            isMutating
           )}
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-[var(--color-navy-700)]">Link player</p>
+            <p className="text-xs text-[var(--color-navy-500)]">
+              Search the roster to give this guardian access to additional players.
+            </p>
+            <Input
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              disabled={rosterQuery.isLoading || rosterQuery.isError || isMutating}
+            />
+            {renderLinkOptions(
+              rosterQuery.isLoading,
+              rosterQuery.isError,
+              filteredPlayers,
+              () => rosterQuery.refetch(),
+              handleLink,
+              isMutating
+            )}
+          </div>
         </Card>
       </div>
     </div>
@@ -99,7 +178,9 @@ function renderPlayersSection(
   isLoading: boolean,
   isError: boolean,
   players: Player[],
-  onRetry: () => void
+  onRetry: () => void,
+  onUnlink: (playerId: string) => void,
+  disabled: boolean
 ) {
   if (isLoading) {
     return <InlineNotice>Loading linked players…</InlineNotice>;
@@ -131,7 +212,7 @@ function renderPlayersSection(
       {players.map((player) => (
         <li
           key={player.id}
-          className="flex flex-col gap-2 rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-2xl border border-[var(--color-navy-100)] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
             <p className="text-sm font-semibold text-[var(--color-navy-900)]">
@@ -142,12 +223,70 @@ function renderPlayersSection(
               {player.linkedAt ? ` · Linked ${formatDate(player.linkedAt)}` : ""}
             </p>
           </div>
-          <Link
-            href={`/app/players/${player.id}`}
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/app/players/${player.id}`}
+              className="text-sm font-semibold text-[var(--color-blue-600)] hover:underline"
+            >
+              View player
+            </Link>
+            <Button variant="ghost" size="sm" onClick={() => onUnlink(player.id)} disabled={disabled}>
+              Unlink
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function renderLinkOptions(
+  isLoading: boolean,
+  isError: boolean,
+  players: Player[],
+  onRetry: () => void,
+  onLink: (playerId: string) => void,
+  disabled: boolean
+) {
+  if (isLoading) {
+    return <InlineNotice>Loading roster…</InlineNotice>;
+  }
+
+  if (isError) {
+    return (
+      <InlineNotice>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <span>Unable to load roster.</span>
+          <button
+            type="button"
             className="text-sm font-semibold text-[var(--color-blue-600)] hover:underline"
+            onClick={onRetry}
           >
-            View player
-          </Link>
+            Retry
+          </button>
+        </div>
+      </InlineNotice>
+    );
+  }
+
+  if (!players.length) {
+    return <InlineNotice>No available players match your search.</InlineNotice>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {players.map((player) => (
+        <li
+          key={player.id}
+          className="flex items-center justify-between rounded-xl border border-[var(--color-navy-100)] bg-white px-3 py-2"
+        >
+          <div>
+            <p className="text-sm font-medium text-[var(--color-navy-900)]">{formatPlayerName(player)}</p>
+            <p className="text-xs text-[var(--color-navy-500)]">{formatStatus(player.status)}</p>
+          </div>
+          <Button size="sm" onClick={() => onLink(player.id)} disabled={disabled}>
+            Link
+          </Button>
         </li>
       ))}
     </ul>
@@ -171,11 +310,26 @@ function InlineNotice({ children }: { children: ReactNode }) {
   );
 }
 
+function ActionError({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--color-red-200,#fecaca)] bg-[var(--color-red-50)] px-4 py-3 text-sm text-[var(--color-red-700)]">
+      {message}
+    </div>
+  );
+}
+
 function formatGuardianName(guardian: { firstName: string; lastName: string; displayName?: string | null }) {
   if (guardian.displayName && guardian.displayName.trim().length > 0) {
     return guardian.displayName.trim();
   }
   return `${guardian.firstName} ${guardian.lastName}`.trim();
+}
+
+function formatPlayerName(player: Player) {
+  if (player.displayName && player.displayName.trim().length > 0) {
+    return player.displayName.trim();
+  }
+  return `${player.firstName} ${player.lastName}`.trim();
 }
 
 function formatStatus(status?: string | null) {

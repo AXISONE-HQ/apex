@@ -136,6 +136,10 @@ export interface GuardiansResponse {
   guardians: ApiGuardian[];
 }
 
+export interface CreateGuardianResponse {
+  guardian: ApiGuardian;
+}
+
 export interface PlayerGuardiansResponse {
   guardians: ApiGuardian[];
 }
