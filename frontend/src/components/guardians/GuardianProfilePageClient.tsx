@@ -250,6 +250,7 @@ function renderPlayersSection(
             </p>
             <p className="text-xs text-[var(--color-navy-500)]">
               {formatStatus(player.status)}
+              {player.linkedAt ? ` · Linked ${formatDate(player.linkedAt)}` : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
