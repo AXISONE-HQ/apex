@@ -124,6 +124,7 @@ export function LoginPage() {
               Email
               <Input
                 type="email"
+                autoComplete="username"
                 className="mt-1"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -136,6 +137,7 @@ export function LoginPage() {
               Password
               <Input
                 type="password"
+                autoComplete="current-password"
                 className="mt-1"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -145,7 +147,7 @@ export function LoginPage() {
               />
             </label>
             {error ? (
-              <p className="rounded-lg bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]" role="alert">
+              <p className="rounded-lg bg-[var(--color-red-50)] px-3 py-2 text-sm text-[var(--color-red-600)]" role="alert" aria-live="assertive">
                 {error}
               </p>
             ) : null}

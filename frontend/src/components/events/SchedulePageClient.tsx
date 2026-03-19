@@ -203,6 +203,7 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
                     <button
                       key={option}
                       type="button"
+                      aria-pressed={isActive}
                       onClick={() => setEventType(option)}
                       className={`rounded-full px-4 py-1 text-sm font-medium transition ${
                         isActive ? "bg-[var(--color-navy-900)] text-white" : "border border-[var(--color-navy-200)] text-[var(--color-navy-600)]"
@@ -264,7 +265,7 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
               Date filters were cleared after navigating the calendar to keep your view in sync.
             </p>
           ) : (
-            <span className="text-xs text-[var(--color-navy-400)]">Filters update the calendar instantly.</span>
+            <span className="text-xs text-[var(--color-navy-400)]" aria-live="polite">Filters update the calendar instantly.</span>
           )}
           <Button
             type="button"
