@@ -13,6 +13,19 @@ let baseUrl;
 const RUN_ID = Date.now().toString(36);
 let seasonCounter = 1;
 
+async function seedDb() {
+  if (!process.env.DATABASE_URL) return;
+  const { query } = await import("../src/db/client.js");
+  await query(
+    `INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    [ORG_1, "Seasons Test Org 1", "seasons-test-org-1"]
+  );
+  await query(
+    `INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    [ORG_2, "Seasons Test Org 2", "seasons-test-org-2"]
+  );
+}
+
 function xUser({ id, roles, orgScopes }) {
   return { id, roles, permissions: [], orgScopes };
 }
@@ -64,6 +77,7 @@ const adminOrg2 = xUser({ id: USER_ORGADMIN, roles: ["OrgAdmin"], orgScopes: [OR
 const coachUser = xUser({ id: USER_COACH, roles: ["Coach"], orgScopes: [ORG_1] });
 
 test.before(async () => {
+  await seedDb();
   server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address();
