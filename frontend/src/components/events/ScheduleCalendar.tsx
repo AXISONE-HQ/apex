@@ -164,14 +164,18 @@ export function ScheduleCalendar({
               onSelectEvent={onSelectEvent}
             />
           ) : (
-            <MonthGrid
-              eventsByDay={eventsByDay}
-              currentDate={currentDate}
-              teamLookup={teamLookup}
-              today={today}
-              timeFormatter={timeFormatter}
-              onSelectEvent={onSelectEvent}
-            />
+            <div className="overflow-x-auto lg:overflow-visible">
+              <div className="min-w-[960px]">
+                <MonthGrid
+                  eventsByDay={eventsByDay}
+                  currentDate={currentDate}
+                  teamLookup={teamLookup}
+                  today={today}
+                  timeFormatter={timeFormatter}
+                  onSelectEvent={onSelectEvent}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -290,7 +294,7 @@ function WeekGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid min-w-[720px] grid-cols-7 gap-3">
+      <div className="grid min-w-[720px] grid-cols-7 gap-3 xl:min-w-full">
         {days.map((day, index) => {
           const key = dateKey(day);
           const dayEvents = eventsByDay[key] ?? [];

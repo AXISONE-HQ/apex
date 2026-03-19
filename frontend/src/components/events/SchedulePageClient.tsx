@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ErrorState, LoadingState } from "@/components/ui/State";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/State";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useEvent, useEvents } from "@/queries/events";
@@ -59,7 +59,7 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
     return filters;
   }, [teamFilter, fromDate, toDate]);
 
-  const { data, isLoading, isError, refetch } = useEvents(orgId, eventsFilters);
+  const { data, isLoading, isError, refetch, isFetching } = useEvents(orgId, eventsFilters);
   const teamsQuery = useTeams(orgId);
 
   const teamLookup = useMemo(() => {
@@ -92,6 +92,21 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
     return options;
   }, [teamsQuery.data]);
 
+  const handleResetFilters = useCallback(() => {
+    setTeamFilter("all");
+    setEventType("all");
+    setFromDate("");
+    setToDate("");
+    setSearchTerm("");
+    setClearedDateFilters(false);
+  }, []);
+
+  const isFiltered = teamFilter !== "all" || eventType !== "all" || fromDate !== "" || toDate !== "" || Boolean(searchTerm.trim());
+  const hasEvents = filteredEvents.length > 0;
+  const emptyStateMessage = isFiltered ? "No events match these filters." : "No events scheduled yet.";
+  const emptyStateActionLabel = isFiltered ? "Reset filters" : "Create event";
+  const emptyStateAction = isFiltered ? handleResetFilters : () => setCreateOpen(true);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (teamFilter !== "all") params.set("teamId", teamFilter);
@@ -103,15 +118,6 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [teamFilter, eventType, fromDate, toDate, view, searchTerm, pathname, router]);
-
-  const handleResetFilters = useCallback(() => {
-    setTeamFilter("all");
-    setEventType("all");
-    setFromDate("");
-    setToDate("");
-    setSearchTerm("");
-    setClearedDateFilters(false);
-  }, []);
 
   const handleNavigate = useCallback(
     (nextDate: Date) => {
@@ -272,16 +278,28 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
         </div>
       </section>
 
-      <ScheduleCalendar
-        events={filteredEvents}
-        currentDate={currentDate}
-        view={view}
-        onViewChange={setView}
-        onNavigate={handleNavigate}
-        onNavigateToday={() => handleNavigate(new Date())}
-        teamLookup={teamLookup}
-        onSelectEvent={handleSelectEvent}
-      />
+      {isFetching && !isLoading ? (
+        <p className="text-xs text-[var(--color-navy-400)]">Refreshing events…</p>
+      ) : null}
+
+      {hasEvents ? (
+        <ScheduleCalendar
+          events={filteredEvents}
+          currentDate={currentDate}
+          view={view}
+          onViewChange={setView}
+          onNavigate={handleNavigate}
+          onNavigateToday={() => handleNavigate(new Date())}
+          teamLookup={teamLookup}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : (
+        <EmptyState
+          message={emptyStateMessage}
+          actionLabel={emptyStateActionLabel}
+          onAction={emptyStateAction}
+        />
+      )}
       <CreateEventModal orgId={orgId} open={isCreateOpen} onClose={() => setCreateOpen(false)} />
       <EventDetailDrawer orgId={orgId} eventId={selectedEventId} onClose={closeDrawer} />
     </div>
