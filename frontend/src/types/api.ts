@@ -136,8 +136,16 @@ export interface GuardiansResponse {
   guardians: ApiGuardian[];
 }
 
+export interface CreateGuardianResponse {
+  guardian: ApiGuardian;
+}
+
 export interface PlayerGuardiansResponse {
   guardians: ApiGuardian[];
+}
+
+export interface GuardianPlayersResponse {
+  players: Array<ApiPlayer & { linked_at?: string | null }>;
 }
 
 export interface CoachesResponse {

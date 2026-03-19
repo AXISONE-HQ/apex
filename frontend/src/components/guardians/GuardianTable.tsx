@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Guardian } from "@/types/domain";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -21,7 +22,9 @@ export function GuardianTable({ guardians }: GuardianTableProps) {
         {guardians.map((guardian) => (
           <TableRow key={guardian.id}>
             <TableCell className="font-medium text-[var(--color-navy-900)]">
-              {guardian.firstName} {guardian.lastName}
+              <Link href={`/app/guardians/${guardian.id}`} className="text-[var(--color-blue-600)] hover:underline">
+                {guardian.firstName} {guardian.lastName}
+              </Link>
             </TableCell>
             <TableCell>{guardian.email ?? "--"}</TableCell>
             <TableCell>{guardian.linkedPlayers?.length ?? 0}</TableCell>

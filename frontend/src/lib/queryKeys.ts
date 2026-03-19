@@ -11,6 +11,7 @@ export const queryKeys = {
   player: (orgId: string, playerId: string) => ["player", orgId, playerId] as const,
   playerGuardians: (orgId: string, playerId: string) => ["player-guardians", orgId, playerId] as const,
   guardians: (orgId: string) => ["guardians", orgId] as const,
+  guardianPlayers: (orgId: string, guardianId: string) => ["guardian-players", orgId, guardianId] as const,
   teamPlayers: (orgId: string, teamId: string) => ["team-players", orgId, teamId] as const,
   events: (orgId: string, filters?: unknown) => [
     "events",
