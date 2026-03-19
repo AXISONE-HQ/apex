@@ -62,3 +62,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Session bootstrap — removed demo overrides so only real Firebase auth is used — fix applied: b9ce660
+
+## Auth Flow (Logout + resilience)
+Status: MATCH
+Deviations:
+- Added real sign-out (Firebase + cookie + store/sessionStorage clears) and tightened AuthGuard/session bootstrap token refresh — fix applied: bd5ba40
