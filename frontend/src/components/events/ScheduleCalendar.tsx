@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { EventSummary } from "@/types/domain";
+import { MouseEvent, useMemo } from "react";
+import { EventSummary, EventType } from "@/types/domain";
 import { cn } from "@/lib/cn";
 import {
   CalendarView,
@@ -28,6 +28,7 @@ interface ScheduleCalendarProps {
   onNavigateToday: () => void;
   onViewChange: (view: CalendarView) => void;
   teamLookup: Record<string, string | undefined>;
+  onSelectEvent?: (eventId: string) => void;
 }
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -40,6 +41,7 @@ export function ScheduleCalendar({
   onNavigateToday,
   onViewChange,
   teamLookup,
+  onSelectEvent,
 }: ScheduleCalendarProps) {
   const today = new Date();
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }), []);
@@ -147,6 +149,7 @@ export function ScheduleCalendar({
             teamLookup={teamLookup}
             timeFormatter={timeFormatter}
             dateFormatter={mobileDateFormatter}
+            onSelectEvent={onSelectEvent}
           />
         </div>
         <div className="hidden md:block">
@@ -158,6 +161,7 @@ export function ScheduleCalendar({
               today={today}
               timeFormatter={timeFormatter}
               weekdayFormatter={weekdayFormatter}
+              onSelectEvent={onSelectEvent}
             />
           ) : (
             <MonthGrid
@@ -166,6 +170,7 @@ export function ScheduleCalendar({
               teamLookup={teamLookup}
               today={today}
               timeFormatter={timeFormatter}
+              onSelectEvent={onSelectEvent}
             />
           )}
         </div>
@@ -180,12 +185,14 @@ function MonthGrid({
   teamLookup,
   today,
   timeFormatter,
+  onSelectEvent,
 }: {
   eventsByDay: Record<string, EventSummary[]>;
   currentDate: Date;
   teamLookup: Record<string, string | undefined>;
   today: Date;
   timeFormatter: Intl.DateTimeFormat;
+  onSelectEvent?: (eventId: string) => void;
 }) {
   const calendarDays = useMemo(() => {
     const start = startOfMonthGrid(currentDate);
@@ -230,18 +237,27 @@ function MonthGrid({
                 {dayEvents.length === 0 ? (
                   <p className="text-xs text-[var(--color-navy-400)]">No events</p>
                 ) : (
-                  dayEvents.map((event) => (
-                    <Link
-                      key={event.id}
-                      href={`/app/events/${event.id}`}
-                      className="rounded-xl border border-[var(--color-navy-100)] bg-white px-3 py-2 text-xs text-[var(--color-navy-700)] shadow-sm transition hover:border-[var(--color-blue-200)] hover:bg-[var(--color-blue-100)]"
-                    >
-                      <p className="truncate text-[var(--color-navy-900)]">{event.title}</p>
-                      <p className="text-[10px] text-[var(--color-navy-500)]">
-                        {timeFormatter.format(new Date(event.startsAt))} · {teamLookup[event.teamId] ?? "Team"}
-                      </p>
-                    </Link>
-                  ))
+                  dayEvents.map((event) => {
+                    const meta = getEventTypeMeta(event.type);
+                    return (
+                      <Link
+                        key={event.id}
+                        href={`/app/events/${event.id}`}
+                        className={cn(
+                          "rounded-2xl border px-3 py-2 text-xs text-[var(--color-navy-700)] shadow-sm transition",
+                          meta.cardClass
+                        )}
+                        onClick={(evt) => handleEventClick(evt, event.id, onSelectEvent)}
+                      >
+                        <div className="flex items-center justify-between text-[10px] font-semibold text-[var(--color-navy-500)]">
+                          <span className={cn("rounded-full px-2 py-0.5", meta.badgeClass)}>{meta.label}</span>
+                          <span>{timeFormatter.format(new Date(event.startsAt))}</span>
+                        </div>
+                        <p className="mt-2 truncate text-[var(--color-navy-900)]">{event.title}</p>
+                        <p className="text-[10px] text-[var(--color-navy-500)]">{teamLookup[event.teamId] ?? "Club-wide"}</p>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -259,6 +275,7 @@ function WeekGrid({
   today,
   timeFormatter,
   weekdayFormatter,
+  onSelectEvent,
 }: {
   eventsByDay: Record<string, EventSummary[]>;
   currentDate: Date;
@@ -266,6 +283,7 @@ function WeekGrid({
   today: Date;
   timeFormatter: Intl.DateTimeFormat;
   weekdayFormatter: Intl.DateTimeFormat;
+  onSelectEvent?: (eventId: string) => void;
 }) {
   const start = startOfWeek(currentDate);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(start, index)), [start]);
@@ -291,19 +309,32 @@ function WeekGrid({
                 {dayEvents.length === 0 ? (
                   <p className="text-xs text-[var(--color-navy-400)]">No events</p>
                 ) : (
-                  dayEvents.map((event) => (
-                    <Link
-                      key={event.id}
-                      href={`/app/events/${event.id}`}
-                      className="rounded-xl border border-[var(--color-navy-100)] bg-white px-3 py-2 text-xs text-[var(--color-navy-700)] shadow-sm transition hover:border-[var(--color-blue-200)] hover:bg-[var(--color-blue-100)]"
-                    >
-                      <p className="font-medium text-[var(--color-navy-900)]">{event.title}</p>
-                      <p className="text-[10px] text-[var(--color-navy-500)]">
-                        {timeFormatter.format(new Date(event.startsAt))} – {timeFormatter.format(new Date(event.endsAt))}
-                        {teamLookup[event.teamId] ? ` · ${teamLookup[event.teamId]}` : ""}
-                      </p>
-                    </Link>
-                  ))
+                  dayEvents.map((event) => {
+                    const meta = getEventTypeMeta(event.type);
+                    return (
+                      <Link
+                        key={event.id}
+                        href={`/app/events/${event.id}`}
+                        className={cn(
+                          "rounded-2xl border px-3 py-2 text-xs text-[var(--color-navy-700)] shadow-sm transition",
+                          meta.cardClass
+                        )}
+                        onClick={(evt) => handleEventClick(evt, event.id, onSelectEvent)}
+                      >
+                        <div className="flex items-center justify-between text-[10px] font-semibold text-[var(--color-navy-500)]">
+                          <span className={cn("rounded-full px-2 py-0.5", meta.badgeClass)}>{meta.label}</span>
+                          <span>
+                            {timeFormatter.format(new Date(event.startsAt))} – {timeFormatter.format(new Date(event.endsAt))}
+                          </span>
+                        </div>
+                        <p className="mt-2 font-medium text-[var(--color-navy-900)]">{event.title}</p>
+                        <p className="text-[10px] text-[var(--color-navy-500)]">
+                          {teamLookup[event.teamId] ?? "Club-wide"}
+                          {event.location ? ` · ${event.location}` : ""}
+                        </p>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -319,11 +350,13 @@ function MobileEventList({
   teamLookup,
   timeFormatter,
   dateFormatter,
+  onSelectEvent,
 }: {
   events: EventSummary[];
   teamLookup: Record<string, string | undefined>;
   timeFormatter: Intl.DateTimeFormat;
   dateFormatter: Intl.DateTimeFormat;
+  onSelectEvent?: (eventId: string) => void;
 }) {
   if (events.length === 0) {
     return (
@@ -348,23 +381,63 @@ function MobileEventList({
         <div key={key} className="rounded-2xl border border-[var(--color-navy-100)] bg-white p-3 shadow-sm">
           <p className="text-sm font-semibold text-[var(--color-navy-900)]">{dateFormatter.format(new Date(key))}</p>
           <div className="mt-2 space-y-2">
-            {dayEvents.map((event) => (
-              <Link
-                key={event.id}
-                href={`/app/events/${event.id}`}
-                className="block rounded-xl border border-[var(--color-navy-100)] px-3 py-2 text-xs text-[var(--color-navy-700)]"
-              >
-                <p className="font-medium text-[var(--color-navy-900)]">{event.title}</p>
-                <p className="text-[10px] text-[var(--color-navy-500)]">
-                  {timeFormatter.format(new Date(event.startsAt))} · {teamLookup[event.teamId] ?? "Team"}
-                </p>
-              </Link>
-            ))}
+            {dayEvents.map((event) => {
+              const meta = getEventTypeMeta(event.type);
+              return (
+                <Link
+                  key={event.id}
+                  href={`/app/events/${event.id}`}
+                  className={cn(
+                    "block rounded-2xl border px-3 py-2 text-xs text-[var(--color-navy-700)]",
+                    meta.cardClass
+                  )}
+                  onClick={(evt) => handleEventClick(evt, event.id, onSelectEvent)}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-[var(--color-navy-500)]">
+                    <span className={cn("rounded-full px-2 py-0.5", meta.badgeClass)}>{meta.label}</span>
+                    <span>{timeFormatter.format(new Date(event.startsAt))}</span>
+                  </div>
+                  <p className="mt-1 font-medium text-[var(--color-navy-900)]">{event.title}</p>
+                  <p className="text-[10px] text-[var(--color-navy-500)]">{teamLookup[event.teamId] ?? "Club-wide"}</p>
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}
     </div>
   );
+}
+
+function handleEventClick(
+  evt: MouseEvent<HTMLAnchorElement>,
+  eventId: string,
+  onSelectEvent?: (eventId: string) => void
+) {
+  if (!onSelectEvent) return;
+  evt.preventDefault();
+  onSelectEvent(eventId);
+}
+
+function getEventTypeMeta(type: EventType) {
+  const meta: Record<EventType, { label: string; badgeClass: string; cardClass: string }> = {
+    practice: {
+      label: "Practice",
+      badgeClass: "bg-[var(--color-green-100)] text-[var(--color-green-700)]",
+      cardClass: "border-[var(--color-navy-100)] bg-[var(--color-green-100)]",
+    },
+    game: {
+      label: "Game",
+      badgeClass: "bg-[var(--color-blue-100)] text-[var(--color-blue-700)]",
+      cardClass: "border-[var(--color-navy-100)] bg-[var(--color-blue-100)]",
+    },
+    event: {
+      label: "Club event",
+      badgeClass: "bg-[var(--color-orange-100)] text-[var(--color-orange-700)]",
+      cardClass: "border-[var(--color-navy-100)] bg-[var(--color-orange-100)]",
+    },
+  };
+  return meta[type] || meta.event;
 }
 
 function stepBackward(current: Date, view: CalendarView): Date {

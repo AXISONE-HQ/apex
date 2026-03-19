@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ErrorState, LoadingState } from "@/components/ui/State";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { useEvents } from "@/queries/events";
+import { useEvent, useEvents } from "@/queries/events";
 import { useTeams } from "@/queries/teams";
 import { CreateEventModal } from "@/components/events/CreateEventModal";
 import { ScheduleCalendar } from "@/components/events/ScheduleCalendar";
+import { EventDetailPanel } from "@/components/events/EventDetailPanel";
 import type { CalendarView } from "@/lib/date-utils";
 import type { EventType } from "@/types/domain";
 import { addDays } from "@/lib/date-utils";
@@ -47,6 +49,7 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [clearedDateFilters, setClearedDateFilters] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const eventsFilters = useMemo(() => {
     const filters: { teamId?: string; from?: string; to?: string } = {};
@@ -121,6 +124,12 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
     },
     [fromDate, toDate]
   );
+
+  const handleSelectEvent = useCallback((eventId: string) => {
+    setSelectedEventId(eventId);
+  }, []);
+
+  const closeDrawer = useCallback(() => setSelectedEventId(null), []);
 
   const stats = useMemo(() => {
     const total = data?.length ?? 0;
@@ -271,8 +280,67 @@ export function SchedulePageClient({ orgId }: SchedulePageClientProps) {
         onNavigate={handleNavigate}
         onNavigateToday={() => handleNavigate(new Date())}
         teamLookup={teamLookup}
+        onSelectEvent={handleSelectEvent}
       />
       <CreateEventModal orgId={orgId} open={isCreateOpen} onClose={() => setCreateOpen(false)} />
+      <EventDetailDrawer orgId={orgId} eventId={selectedEventId} onClose={closeDrawer} />
     </div>
   );
 }
+
+function EventDetailDrawer({ orgId, eventId, onClose }: { orgId: string; eventId: string | null; onClose: () => void }) {
+  const open = Boolean(eventId);
+  const { data, isLoading, isError, refetch } = useEvent(orgId, eventId ?? "");
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        className="flex-1 bg-black/40"
+        aria-label="Close event drawer"
+        onClick={onClose}
+      />
+      <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between border-b border-[var(--color-navy-100)] px-5 py-4">
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">Event details</p>
+          <button
+            type="button"
+            className="text-2xl leading-none text-[var(--color-navy-400)] hover:text-[var(--color-navy-600)]"
+            onClick={onClose}
+            aria-label="Close event drawer"
+          >
+            ×
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {isLoading ? (
+            <p className="text-sm text-[var(--color-navy-500)]">Loading event…</p>
+          ) : isError || !data ? (
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--color-red-600)]">Unable to load event.</p>
+              <Button type="button" variant="secondary" onClick={() => refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : (
+            <EventDetailPanel event={data} />
+          )}
+        </div>
+        {data ? (
+          <div className="border-t border-[var(--color-navy-100)] px-5 py-4">
+            <Link
+              href={`/app/events/${data.id}`}
+              className="inline-flex w-full items-center justify-center rounded-full border border-[var(--color-navy-900)] px-4 py-2 text-sm font-semibold text-[var(--color-navy-900)] hover:bg-[var(--color-muted)]"
+              onClick={onClose}
+            >
+              Open full event
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
