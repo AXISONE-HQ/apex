@@ -3,14 +3,16 @@ import { create } from "zustand";
 interface SessionState {
   orgId: string;
   userName: string;
-  role: "platform" | "org-admin" | "coach";
-  setSession: (payload: Partial<SessionState>) => void;
+  email: string;
+  role: string;
+  setSession: (payload: Partial<Omit<SessionState, "setSession">>) => void;
 }
 
-const DEFAULT_STATE = {
+const DEFAULT_STATE: Omit<SessionState, "setSession"> = {
   orgId: "00000000-0000-0000-0000-000000000001",
   userName: "Alex Morgan",
-  role: "org-admin" as const,
+  email: "alex@apex.dev",
+  role: "org-admin",
 };
 
 export const useSessionStore = create<SessionState>((set) => ({

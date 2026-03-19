@@ -3,13 +3,15 @@
 import { Avatar } from "@/components/ui/Avatar";
 import { useSessionStore } from "@/stores/sessionStore";
 import { Input } from "@/components/ui/Input";
+import { useAuthActions } from "@/hooks/useAuthActions";
 
 interface TopbarProps {
   onMenuClick: () => void;
 }
 
 export function Topbar({ onMenuClick }: TopbarProps) {
-  const { userName, role } = useSessionStore();
+  const { userName, role, email } = useSessionStore();
+  const { signOut } = useAuthActions();
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-[var(--color-navy-200)] bg-white px-6">
@@ -27,7 +29,15 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <div className="flex items-center gap-3">
         <div className="text-right text-sm">
           <p className="font-medium text-[var(--color-navy-900)]">{userName}</p>
-          <p className="text-[var(--color-navy-400)] capitalize">{role.replace("-", " ")}</p>
+          <p className="text-[var(--color-navy-500)]">{email}</p>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--color-navy-400)]">{role}</p>
+          <button
+            type="button"
+            className="mt-1 text-xs font-medium text-[var(--color-blue-600)] hover:text-[var(--color-blue-700)]"
+            onClick={signOut}
+          >
+            Sign out
+          </button>
         </div>
         <Avatar name={userName} size="sm" />
       </div>
