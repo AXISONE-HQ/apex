@@ -42,6 +42,7 @@ const POST_FIELDS = new Set([
 
 const PATCH_FIELDS = POST_FIELDS;
 const ASSIGN_FIELDS = new Set(["team_id"]);
+const GUARDIAN_LINK_FIELDS = new Set(["guardian_id"]);
 const EVALUATION_POST_FIELDS = new Set([
   "event_id",
   "title",
@@ -66,6 +67,16 @@ export function allowPlayersAdmin(req, orgId) {
     (req.user?.roles || []).includes("OrgAdmin") &&
     (req.user?.orgScopes || []).map(String).includes(String(orgId))
   );
+}
+
+function hasTeamScopedAccess(req, teamId) {
+  if (!teamId) return false;
+  const roles = new Set((req.user?.roles || []).map(String));
+  const allowed = ["Coach", "AssistantCoach", "TeamManager"];
+  const hasRole = allowed.some((role) => roles.has(role));
+  if (!hasRole) return false;
+  const scopes = (req.user?.teamScopes || []).map(String);
+  return scopes.includes(String(teamId));
 }
 
 export function badRequest(res, message) {
@@ -290,6 +301,9 @@ router.post(
     const playerId = req.params.playerId;
 
     if (!allowPlayersAdmin(req, orgId)) return forbidden(res);
+
+    const unknown = rejectUnknownFields(req.body || {}, GUARDIAN_LINK_FIELDS);
+    if (unknown) return badRequest(res, `unknown field: ${unknown}`);
 
     const player = await getPlayerByIdAndOrg(playerId, orgId);
     if (!player) return res.status(404).json({ error: "player_not_found" });
@@ -523,6 +537,27 @@ router.patch(
     }
   }
 );
+
+router.get("/:orgId/players/:playerId", requireSession, async (req, res) => {
+  const orgId = req.params.orgId;
+  const playerId = req.params.playerId;
+
+  const player = await getPlayerByIdAndOrg(playerId, orgId);
+  if (!player) return res.status(404).json({ error: "player_not_found" });
+
+  const isAuthorized = allowPlayersAdmin(req, orgId) || hasTeamScopedAccess(req, player.team_id);
+  if (!isAuthorized) return forbidden(res);
+
+  let team = null;
+  if (player.team_id) {
+    const teamRecord = await getTeamById(orgId, player.team_id);
+    if (teamRecord && !teamRecord.is_archived) {
+      team = { id: teamRecord.id, name: teamRecord.name };
+    }
+  }
+
+  return res.status(200).json({ player: normalizePlayerRow(player), team });
+});
 
 router.get("/:orgId/players", requireSession, async (req, res) => {
   const orgId = req.params.orgId;
