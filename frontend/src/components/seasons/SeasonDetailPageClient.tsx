@@ -12,6 +12,33 @@ import { useSeason, useSeasonStatusMutation, useSeasonUpdateMutation } from "@/q
 import { useTeams, useUpdateTeam } from "@/queries/teams";
 import type { SeasonStatus, Team } from "@/types/domain";
 
+const lifecycleCopy: Record<SeasonStatus, { title: string; description: string; consequence: string; confirmLabel: string }> = {
+  draft: {
+    title: "Revert to draft?",
+    description: "Draft seasons stay hidden from teams and guardians until activated.",
+    consequence: "Use this only if you need to reset settings before launch.",
+    confirmLabel: "Save as draft",
+  },
+  active: {
+    title: "Activate season?",
+    description: "Activating opens the season for scheduling, roster management, and team linking.",
+    consequence: "Once active you can still archive if plans change.",
+    confirmLabel: "Activate season",
+  },
+  completed: {
+    title: "Complete season?",
+    description: "Marking a season complete locks in results and hides create/edit controls for teams.",
+    consequence: "Completed seasons cannot return to active — only archive afterward.",
+    confirmLabel: "Complete season",
+  },
+  archived: {
+    title: "Archive season?",
+    description: "Archived seasons move out of day-to-day workflows but remain read-only for reference.",
+    consequence: "Archiving is final — unarchive isn’t supported.",
+    confirmLabel: "Archive season",
+  },
+};
+
 interface SeasonDetailPageClientProps {
   orgId: string;
   seasonId: string;
@@ -47,6 +74,8 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLifecycleModalOpen, setIsLifecycleModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<SeasonStatus | null>(null);
   const [isManageTeamsOpen, setIsManageTeamsOpen] = useState(false);
   const [manageTeamsError, setManageTeamsError] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState("");
@@ -107,17 +136,39 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
     setTeamSelection((prev) => (prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]));
   };
 
-  const handleLifecycle = async (nextStatus: SeasonStatus) => {
+  const startLifecycleAction = (nextStatus: SeasonStatus) => {
+    setActionError(null);
+    setPendingStatus(nextStatus);
+    setIsLifecycleModalOpen(true);
+  };
+
+  const confirmLifecycleAction = async () => {
+    if (!pendingStatus) return;
     setActionError(null);
     setPendingId(season.id);
     try {
-      await transitionSeason({ seasonId: season.id, status: nextStatus });
+      await transitionSeason({ seasonId: season.id, status: pendingStatus });
+      const successCopy = {
+        draft: "Season updated",
+        active: "Season activated",
+        completed: "Season completed",
+        archived: "Season archived",
+      } as const;
+      setSuccessMessage(successCopy[pendingStatus]);
+      setIsLifecycleModalOpen(false);
+      setPendingStatus(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to update season";
       setActionError(message);
     } finally {
       setPendingId(null);
     }
+  };
+
+  const closeLifecycleModal = () => {
+    if (isLifecyclePending) return;
+    setIsLifecycleModalOpen(false);
+    setPendingStatus(null);
   };
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -209,7 +260,7 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
             Edit details
           </Button>
           {lifecycleActions.map(({ label, status, variant }) => (
-            <Button key={status} variant={variant} disabled={rowPending} onClick={() => handleLifecycle(status)}>
+            <Button key={status} variant={variant} disabled={rowPending} onClick={() => startLifecycleAction(status)}>
               {label}
             </Button>
           ))}
@@ -373,6 +424,27 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
             </Button>
             <Button type="button" onClick={handleManageTeamsSubmit} disabled={isUpdatingTeams || teamsQuery.isLoading}>
               {isUpdatingTeams ? "Updating…" : "Save links"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={isLifecycleModalOpen} onClose={closeLifecycleModal} title={pendingStatus ? lifecycleCopy[pendingStatus].title : "Update season"}>
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-navy-600)]">
+            {pendingStatus ? lifecycleCopy[pendingStatus].description : "Confirm this status change."}
+          </p>
+          {pendingStatus ? (
+            <div className="rounded-xl border border-[var(--color-navy-100)] bg-[var(--color-navy-25)] px-4 py-3 text-sm text-[var(--color-navy-700)]">
+              {lifecycleCopy[pendingStatus].consequence}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={closeLifecycleModal} disabled={isLifecyclePending}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmLifecycleAction} disabled={!pendingStatus || isLifecyclePending}>
+              {pendingStatus ? (isLifecyclePending ? "Updating…" : lifecycleCopy[pendingStatus].confirmLabel) : "Confirm"}
             </Button>
           </div>
         </div>
