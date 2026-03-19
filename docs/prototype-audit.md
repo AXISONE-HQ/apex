@@ -52,3 +52,8 @@ Deviations:
 Status: MATCH
 Deviations:
 - Link guardian CTA — new modal-based search + pagination per prototype, including create-new guardrail copy — fix applied: 6822e39
+
+## Page: /app/players (Guardian polish)
+Status: MATCH
+Deviations:
+- Empty/loading states — styled empty callout + link/unlink loading banners per proto — fix applied: fa4eecc
