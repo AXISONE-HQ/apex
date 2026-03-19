@@ -36,3 +36,9 @@ Status: MATCH
 Deviations:
 - Event cards — calendar grid/week/mobile cards now use the prototype badges, colors, and typography — fix applied: 5d6c4f8
 - Quick view drawer — clicking an event opens the right-side drawer with detail panel per design — fix applied: 5d6c4f8
+
+## Page: /app/schedule (Responsive polish)
+Status: MATCH
+Deviations:
+- Responsive grid — overflow wrappers + tablet scroll tuned for the month/week grids — fix applied: 31f656a
+- Empty/loading states — added filter-aware empty state and live refresh indicator per prototype — fix applied: 31f656a
