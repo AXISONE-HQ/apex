@@ -138,7 +138,7 @@ export function GuardianProfilePageClient({ orgId, guardianId }: GuardianProfile
             <CardTitle>Linked players</CardTitle>
             <CardDescription>Players this guardian can manage from their profile.</CardDescription>
           </div>
-          {actionError ? <ActionError message={actionError} /> : null}
+          {actionError ? <Callout variant="error">{actionError}</Callout> : null}
           {renderPlayersSection(
             playersQuery.isLoading,
             playersQuery.isError,
@@ -183,12 +183,12 @@ function renderPlayersSection(
   disabled: boolean
 ) {
   if (isLoading) {
-    return <InlineNotice>Loading linked players…</InlineNotice>;
+    return <Callout variant="info">Loading linked players…</Callout>;
   }
 
   if (isError) {
     return (
-      <InlineNotice>
+      <Callout variant="error">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span>Unable to load linked players.</span>
           <button
@@ -199,12 +199,12 @@ function renderPlayersSection(
             Retry
           </button>
         </div>
-      </InlineNotice>
+      </Callout>
     );
   }
 
   if (!players.length) {
-    return <InlineNotice>No linked players yet.</InlineNotice>;
+    return <Callout variant="muted">No linked players yet.</Callout>;
   }
 
   return (
@@ -249,12 +249,12 @@ function renderLinkOptions(
   disabled: boolean
 ) {
   if (isLoading) {
-    return <InlineNotice>Loading roster…</InlineNotice>;
+    return <Callout variant="info">Loading roster…</Callout>;
   }
 
   if (isError) {
     return (
-      <InlineNotice>
+      <Callout variant="error">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span>Unable to load roster.</span>
           <button
@@ -265,12 +265,12 @@ function renderLinkOptions(
             Retry
           </button>
         </div>
-      </InlineNotice>
+      </Callout>
     );
   }
 
   if (!players.length) {
-    return <InlineNotice>No available players match your search.</InlineNotice>;
+    return <Callout variant="muted">No available players match your search.</Callout>;
   }
 
   return (
@@ -302,18 +302,16 @@ function Metadata({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function InlineNotice({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-[var(--color-navy-200)] bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-navy-600)]">
-      {children}
-    </div>
-  );
-}
+const calloutVariantStyles = {
+  muted: "border-dashed border-[var(--color-navy-200)] bg-[var(--color-muted)] text-[var(--color-navy-600)]",
+  info: "border-[var(--color-blue-200,#bfdbfe)] bg-[var(--color-blue-50,#eff6ff)] text-[var(--color-blue-700,#1d4ed8)]",
+  error: "border-[var(--color-red-200,#fecaca)] bg-[var(--color-red-50,#fef2f2)] text-[var(--color-red-700,#b91c1c)]",
+} as const;
 
-function ActionError({ message }: { message: string }) {
+function Callout({ children, variant = "muted" }: { children: ReactNode; variant?: keyof typeof calloutVariantStyles }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-red-200,#fecaca)] bg-[var(--color-red-50)] px-4 py-3 text-sm text-[var(--color-red-700)]">
-      {message}
+    <div className={`rounded-2xl border px-4 py-3 text-sm ${calloutVariantStyles[variant]}`}>
+      {children}
     </div>
   );
 }
