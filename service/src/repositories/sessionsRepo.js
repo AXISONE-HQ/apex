@@ -4,13 +4,28 @@ import { hasDatabase, query } from "../db/client.js";
 const sessions = new Map();
 const TTL_MS = 15 * 60 * 1000;
 
-export async function createSession({ userId, roles = [], permissions = [], activeOrgId = null }) {
+export async function createSession({
+  userId,
+  roles = [],
+  permissions = [],
+  activeOrgId = null,
+  orgScopes = [],
+  platformAdmin = false,
+}) {
   const sessionId = crypto.randomUUID();
   const expiresAtMs = Date.now() + TTL_MS;
   const expiresAtIso = new Date(expiresAtMs).toISOString();
 
   if (!hasDatabase()) {
-    sessions.set(sessionId, { userId, roles, permissions, activeOrgId, expiresAt: expiresAtMs });
+    sessions.set(sessionId, {
+      userId,
+      roles,
+      permissions,
+      activeOrgId,
+      orgScopes,
+      platformAdmin,
+      expiresAt: expiresAtMs,
+    });
     return { sessionId, expiresAt: expiresAtIso };
   }
 
@@ -20,6 +35,8 @@ export async function createSession({ userId, roles = [], permissions = [], acti
     [sessionId, userId, activeOrgId, roles, permissions, expiresAtIso]
   );
 
+  // NOTE: orgScopes/platformAdmin are currently not persisted in the DB sessions table.
+  // They can be derived at request time from memberships/roles if needed.
   return { sessionId, expiresAt: expiresAtIso };
 }
 

@@ -1,0 +1,233 @@
+# Apex v1 — Step 5.0: MVP Live + Load Readiness Checklist
+
+## Status
+- **Step:** 5.0 MVP launch readiness with scale-first constraints
+- **State:** 🚧 In progress
+- **Date:** 2026-02-27
+- **Owner:** Fred + Moltbot
+
+## Objective
+Launch an MVP that is fully cloud-hosted (no localhost runtime dependency) and engineered to scale toward:
+- **5,000+ clubs**
+- **100,000+ teams**
+- **1,000,000+ players**
+
+> Note: existing fake data is non-blocking. Architecture, frontend/backend/API readiness are the priority.
+
+---
+
+## Gate A — Scope & Architecture Freeze
+
+### A1. MVP scope frozen
+- [x] Must-have flows documented (auth, core club/team/player, schedule/events, core dashboard)
+- [x] Non-MVP features explicitly out-of-scope
+- [x] Single source doc linked from this checklist
+
+Linked doc: `docs/13-step-5.0-gate-a-scope-and-architecture-freeze.md`
+
+**Acceptance criteria**
+- MVP scope doc signed off by Fred
+- No unresolved “maybe for MVP” items
+
+### A2. Service boundaries frozen
+- [x] Frontend service selected and documented
+- [x] Backend API service boundary documented
+- [x] Async worker/service boundary documented for heavy tasks
+- [x] OpenAI integration path documented (sync vs async)
+
+Linked doc: `docs/13-step-5.0-gate-a-scope-and-architecture-freeze.md`
+
+**Acceptance criteria**
+- Architecture diagram + service responsibility list committed
+
+Gate A status: ✅ Complete (signed off 2026-02-27)
+
+---
+
+## Gate B — Frontend Fully Off Localhost
+
+### B1. Frontend deployed to cloud staging
+- [x] Staging frontend URL is live
+- [x] Frontend env vars defined in cloud
+- [x] API base URL points to cloud API only
+
+Working doc: `docs/14-step-5.0-gate-b-frontend-cloud-cutover.md`
+
+### B2. Localhost dependency removed
+- [x] No runtime use of `127.0.0.1:18789`
+- [x] No hardcoded localhost in frontend config
+- [x] No hardcoded localhost in backend CORS/callback config
+
+**Acceptance criteria**
+- Full staging UX works with local services off
+- Grep/check confirms no active localhost runtime refs in app config
+
+Gate B status: ✅ Functionally complete (frontend cloud cutover done on Firebase Hosting).
+
+---
+
+## Gate C — Auth & Session Reliability
+
+### C1. Auth model finalized
+- [x] Firebase Auth strategy confirmed (Google + optional email/password)
+- [x] Backend token verification flow documented
+
+### C2. OAuth and callback correctness
+- [x] Authorized domains configured
+- [x] Authorized JS origins configured
+- [x] Redirect URIs configured with exact match
+- [x] Canonical staging domain chosen and documented
+
+### C3. Session/cookie behavior validated
+- [x] `/auth/session` success path validated
+- [x] `/auth/me` validated from frontend
+- [x] Logout/session invalidation validated
+
+**Acceptance criteria**
+- 20/20 consecutive login attempts succeed in staging
+- No intermittent callback/redirect mismatch
+
+Gate C status: ✅ Complete (Google popup + email/password + backend sessions validated)
+
+---
+
+## Gate D — Backend/API Scale Baseline
+
+### D1. API contract hardening
+- [x] Pagination on all list endpoints
+- [x] Input validation on critical endpoints
+- [x] Consistent error envelope + status codes
+
+Working doc: `docs/15-step-5.0-gate-d-backend-api-scale-baseline.md`
+
+### D2. Database performance baseline
+- [x] Tenant-aware indexing strategy documented
+- [x] Indexes created for high-growth entities (players, teams, events, memberships, sessions)
+- [x] Query plans reviewed for top endpoints
+
+### D3. Stateful logic removed from instances
+- [x] API instances remain stateless
+- [x] Sessions/state persisted in managed stores only
+
+Working doc: `docs/17-step-5.0-gate-d3-statestore-and-runtime-constraints.md`
+
+### D4. Heavy tasks isolated
+- [x] OpenAI-heavy and non-critical tasks moved to async path where needed
+- [x] Retry/timeout policies defined
+
+Working doc: `docs/18-step-5.0-gate-d4-async-isolation-and-resilience-policy.md`
+
+**Acceptance criteria**
+- No unbounded list endpoint in MVP surface
+- No P0 slow-query hotspots in smoke/load test scope
+
+Gate D status: ✅ Complete (D1 + D2 + D3 + D4)
+
+---
+
+## Gate E — Observability, Protection, and SLOs
+
+### E1. Observability
+- [x] Request latency dashboards
+- [x] Error-rate dashboards
+- [x] DB health/saturation metrics
+- [x] Auth failure metrics
+- [x] OpenAI/API failure metrics
+
+Working doc: `docs/19-step-5.0-gate-e-observability-protection-slo.md`
+
+### E2. Protection controls
+- [x] Rate limiting for auth endpoints
+- [x] Rate limiting/budget controls for AI endpoints
+- [x] Basic abuse protection strategy documented
+
+### E3. SLO baseline
+- [x] SLOs defined for login, roster load, schedule load, save/update flows
+- [x] Alert thresholds documented
+
+Working doc: `docs/20-step-5.0-gate-e3-slo-and-alert-thresholds.md`
+
+**Acceptance criteria**
+- Alerts fire in test and route correctly
+- SLO dashboard is available before go-live
+
+Gate E status: ✅ Complete (E1 + E2 + E3)
+
+---
+
+## Gate F — Load Readiness Validation
+
+### F1. Staging load tests
+- [x] Tenant-distributed test scenarios prepared
+- [x] Core endpoints tested under concurrent load
+- [x] Login + read-heavy + write-heavy mixes tested
+
+Working doc: `docs/21-step-5.0-gate-f-load-readiness-validation.md`
+
+### F2. Capacity thresholds
+- [x] Throughput target defined
+- [x] p95/p99 latency thresholds defined
+- [x] Error-rate threshold defined
+- [x] DB CPU/connection saturation thresholds defined
+
+### F3. Bottleneck remediation loop
+- [x] Findings logged
+- [x] Fixes implemented
+- [x] Retest passes target thresholds
+
+**Acceptance criteria**
+- Load test report attached
+- All threshold gates green for MVP launch scope
+
+Gate F status: ✅ Complete (read-heavy + mixed-write passed after remediation)
+
+---
+
+## Gate G — MVP Production Launch
+
+### G1. Production deployment readiness
+- [x] Frontend prod deployment ready
+- [x] Backend prod deployment ready
+- [x] Secrets/env parity validated
+- [x] DNS/domain/SSL validated
+
+Working doc: `docs/22-step-5.0-gate-g-mvp-production-launch.md`
+
+### G2. Controlled rollout
+- [x] Pilot clubs selected
+- [x] Rollback plan documented
+- [x] Launch-day monitoring runbook available
+
+Working doc: `docs/23-step-5.0-g2-controlled-rollout-and-launch-runbook.md`
+
+### G3. Post-launch stabilization
+- [x] 24h and 7d review checkpoints scheduled
+- [x] Incident ownership defined
+- [x] Immediate performance backlog prioritized
+
+Working doc: `docs/24-step-5.0-g3-post-launch-stabilization.md`
+
+**Acceptance criteria**
+- MVP is live with no localhost runtime dependency
+- Pilot usage stable with no critical incidents
+
+Gate G status: ✅ Complete (G1 + G2 + G3)
+
+---
+
+## Global Non-Functional Rules (must hold throughout)
+1. Tenant isolation is non-negotiable.
+2. No unbounded API reads in production MVP.
+3. No critical user flow depends on synchronous heavy AI processing.
+4. Every critical flow has observability before launch.
+5. Any change that harms scale objective is blocked until mitigated.
+
+---
+
+## Definition of Done (Step 5.0)
+Step 5.0 is complete when:
+- All Gates **A through G** meet acceptance criteria,
+- MVP is live in production,
+- and the system runs fully cloud-hosted with a tested path toward the capacity objective.
+
+Step 5.0 status: ✅ Complete (2026-02-27)

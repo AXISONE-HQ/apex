@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "apex-v1-488611"
+  },
+  "targets": {
+    "apex-v1-488611": {
+      "hosting": {
+        "staging": [
+          "apex-staging-web"
+        ],
+        "prod": [
+          "apex-v1-488611"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

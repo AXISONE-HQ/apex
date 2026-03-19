@@ -4,14 +4,45 @@ import { upsertUserFromIdentity } from "../repositories/usersRepo.js";
 import { createSession, destroySession } from "../repositories/sessionsRepo.js";
 import { ensureDefaultOrgMembership, resolveAuthzForUser } from "../repositories/authzRepo.js";
 import { seedRbac } from "../db/seedRbac.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
-router.post("/session", async (req, res) => {
+const authMutationsLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => req.ip || "unknown",
+});
+
+router.options("/session", (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (origin && (!allowedOrigins.length || allowedOrigins.includes(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
+
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  return res.sendStatus(204);
+});
+
+router.post("/session", authMutationsLimiter, async (req, res) => {
   const { idToken } = req.body || {};
   if (!idToken) {
     return res.status(400).json({ error: "idToken required" });
   }
+
+  const rawFlag = process.env.AUTH_ALLOW_INSECURE_TEST_TOKENS ?? "";
+  const normalizedFlag = rawFlag.trim().toLowerCase();
+  const isTestToken = typeof idToken === "string" && idToken.startsWith("test:");
+  const tokenPreview = typeof idToken === "string" ? idToken.slice(0, 16) : typeof idToken;
 
   try {
     const identity = await verifyIdentityToken(idToken);
@@ -28,10 +59,15 @@ router.post("/session", async (req, res) => {
       activeOrgId: authz.activeOrgId
     });
 
+    const cookieSameSite = process.env.AUTH_COOKIE_SAMESITE || "lax";
+    const cookieSecure = process.env.AUTH_COOKIE_SECURE
+      ? process.env.AUTH_COOKIE_SECURE === "true"
+      : process.env.NODE_ENV !== "development";
+
     res.cookie("apex_session", session.sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       path: "/"
     });
 
@@ -41,12 +77,16 @@ router.post("/session", async (req, res) => {
       permissions: authz.permissions,
       session: { expiresAt: session.expiresAt }
     });
-  } catch {
+  } catch (error) {
+    logger.error(
+      { rawFlag, normalizedFlag, isTestToken, tokenPreview, error: error?.message },
+      "auth.session.invalid_identity_token"
+    );
     return res.status(401).json({ error: "invalid_identity_token" });
   }
 });
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authMutationsLimiter, async (req, res) => {
   await destroySession(req.cookies?.apex_session);
   res.clearCookie("apex_session");
   res.status(204).send();

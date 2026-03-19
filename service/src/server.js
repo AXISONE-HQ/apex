@@ -1,19 +1,126 @@
 import express from "express";
+import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
+import authInvitesRoutes from "./routes/authInvites.js";
 import teamsRoutes from "./routes/domain/teams.js";
+import { setEvaluationAISuggestionProvider } from "./services/evaluationAIService.js";
+import { createOpenAISuggestionProvider } from "./providers/openAiEvaluationSuggestions.js";
 import playersRoutes from "./routes/domain/players.js";
 import matchesRoutes from "./routes/domain/matches.js";
+import eventsRoutes from "./routes/domain/events.js";
+import announcementsRoutes from "./routes/domain/announcements.js";
+import aiJobsRoutes from "./routes/aiJobs.js";
+import adminClubsRoutes from "./routes/admin/clubs.js";
+import adminCoachInvitesRoutes from "./routes/admin/coachInvites.js";
+import jobsRoutes from "./routes/jobs.js";
 import { requireSession } from "./middleware/requireSession.js";
 import { requirePermission } from "./middleware/requirePermission.js";
 import { getSession } from "./repositories/sessionsRepo.js";
 import { getUserById } from "./repositories/usersRepo.js";
+import { resolveAuthzForUser } from "./repositories/authzRepo.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedRbac } from "./db/seedRbac.js";
+import { createRateLimiter } from "./middleware/rateLimit.js";
+import { hasDatabase, query } from "./db/client.js";
 
 const app = express();
+
+if (process.env.OPENAI_API_KEY) {
+  try {
+    const provider = createOpenAISuggestionProvider({
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL,
+      apiUrl: process.env.OPENAI_API_URL,
+    });
+    setEvaluationAISuggestionProvider(provider);
+    console.log("[evaluation-ai] OpenAI suggestion provider enabled");
+  } catch (err) {
+    console.error("[evaluation-ai] failed to init OpenAI provider", err);
+  }
+} else {
+  console.log("[evaluation-ai] OpenAI provider not configured; using fallback suggestions");
+}
+
+
+// [SECURITY] Emergency fallback guard (default OFF).
+// If enabled, require an explicit allowlist and warn loudly.
+if (process.env.AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK === "true") {
+  if (!process.env.PLATFORM_ADMIN_EMAILS) {
+    throw new Error(
+      "[SECURITY] AUTH_ALLOW_PLATFORM_ADMIN_EMAIL_FALLBACK=true requires PLATFORM_ADMIN_EMAILS"
+    );
+  }
+  console.warn("[SECURITY] Platform admin email fallback ENABLED");
+}
+
+// [SECURITY] Coach invites token pepper is required.
+// Keep prod behavior strict; tests should set a dummy value.
+if (!process.env.INVITE_TOKEN_PEPPER) {
+  console.error("[SECURITY] INVITE_TOKEN_PEPPER is required");
+  process.exit(1);
+}
+
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (!allowedOrigins.length || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true
+  })
+);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const originAllowed = !origin || !allowedOrigins.length || allowedOrigins.includes(origin);
+
+  if (!originAllowed) {
+    return res.status(403).json({ error: "cors_origin_not_allowed" });
+  }
+
+  if (origin) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
+
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
 app.use(express.json());
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on("finish", () => {
+    const latencyMs = Date.now() - started;
+    const entry = {
+      type: "request_log",
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      latencyMs,
+      hasSession: Boolean(req.cookies?.apex_session),
+      userId: req.user?.id || null,
+    };
+    console.log(JSON.stringify(entry));
+  });
+  next();
+});
 
 app.use(async (req, _res, next) => {
   const sid = req.cookies?.apex_session;
@@ -22,36 +129,65 @@ app.use(async (req, _res, next) => {
     if (session) {
       const user = await getUserById(session.userId);
       if (user) {
+        const authz = await resolveAuthzForUser({ userId: session.userId, orgId: session.activeOrgId || null });
+        const roles = (authz.roles && authz.roles.length ? authz.roles : session.roles || []).map(String);
+        const permissions = authz.permissions && authz.permissions.length ? authz.permissions : session.permissions || [];
+        const orgScopes = (authz.orgScopes && authz.orgScopes.length ? authz.orgScopes : []).map(String);
+        const platformAdmin = !!session.platformAdmin || Boolean(user.isPlatformAdmin);
+        const candidateOrgId = authz.activeOrgId || session.activeOrgId || null;
+        const activeOrgId = candidateOrgId && (platformAdmin || orgScopes.includes(String(candidateOrgId)))
+          ? candidateOrgId
+          : orgScopes[0] || null;
+
         req.user = {
           id: user.id,
           email: user.email,
           name: user.name,
-          roles: session.roles,
-          permissions: session.permissions,
-          activeOrgId: session.activeOrgId,
-          orgScopes: session.activeOrgId ? [session.activeOrgId] : [],
-          teamScopes: []
+          roles,
+          permissions,
+          activeOrgId,
+          orgScopes,
+          teamScopes: session.teamScopes || [],
+          playerScopes: session.playerScopes || [],
+          isPlatformAdmin: platformAdmin,
         };
       }
     }
   }
 
-  // Temporary testing override header.
-  const userHeader = req.header("x-user");
-  if (userHeader) {
-    try {
-      req.user = JSON.parse(userHeader);
-    } catch {
-      req.user = { id: "usr_invalid", roles: [] };
+  // Temporary testing override header (dev/test only).
+  const allowHeaderAuth = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+  if (allowHeaderAuth) {
+    const userHeader = req.header("x-user");
+    if (userHeader) {
+      try {
+        req.user = JSON.parse(userHeader);
+      } catch {
+        req.user = { id: "usr_invalid", roles: [] };
+      }
     }
   }
+
   next();
 });
 
+const aiLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: (req) => req.user?.id || req.ip || "unknown",
+});
+
 app.use("/auth", authRoutes);
+app.use("/auth", authInvitesRoutes);
 app.use("/teams", teamsRoutes);
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/events", eventsRoutes);
+app.use("/announcements", announcementsRoutes);
+app.use("/ai", aiLimiter, aiJobsRoutes);
+app.use("/admin/clubs", adminClubsRoutes);
+app.use("/admin", adminCoachInvitesRoutes);
+app.use("/jobs", jobsRoutes);
 
 app.get(
   "/secure/teams",
@@ -82,7 +218,46 @@ app.post("/admin/bootstrap-db", async (req, res) => {
   }
 });
 
-app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "apex-v1-service",
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get("/readyz", async (_req, res) => {
+  if (!hasDatabase()) {
+    return res.status(200).json({
+      status: "ready",
+      checks: {
+        database: { ok: true, mode: "memory" }
+      }
+    });
+  }
+
+  try {
+    await query("select 1");
+    return res.status(200).json({
+      status: "ready",
+      checks: {
+        database: { ok: true, mode: "postgres" }
+      }
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: "not_ready",
+      checks: {
+        database: { ok: false, mode: "postgres", error: "query_failed" }
+      },
+      message: err.message
+    });
+  }
+});
+
+if (["staging", "production"].includes(process.env.NODE_ENV || "") && !process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required in staging/production");
+}
 
 if (process.env.NODE_ENV !== "test") {
   const port = process.env.PORT || 8080;

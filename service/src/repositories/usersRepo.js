@@ -49,11 +49,49 @@ export async function getUserById(id) {
   if (!hasDatabase()) return users.get(id) || null;
 
   const result = await query(
-    `SELECT id, external_uid, email, name FROM users WHERE id = $1`,
+    `SELECT id, external_uid, email, name, is_platform_admin
+     FROM users
+     WHERE id = $1`,
     [id]
   );
 
   if (!result.rows.length) return null;
   const row = result.rows[0];
-  return { id: row.id, externalUid: row.external_uid, email: row.email, name: row.name };
+  return {
+    id: row.id,
+    externalUid: row.external_uid,
+    email: row.email,
+    name: row.name,
+    isPlatformAdmin: Boolean(row.is_platform_admin)
+  };
+}
+
+export async function getUserByEmail(email) {
+  if (!email) return null;
+
+  if (!hasDatabase()) {
+    const normalized = String(email).toLowerCase();
+    for (const u of users.values()) {
+      if ((u.email || "").toLowerCase() === normalized) return u;
+    }
+    return null;
+  }
+
+  const result = await query(
+    `SELECT id, external_uid, email, name, is_platform_admin
+     FROM users
+     WHERE lower(email) = lower($1)
+     LIMIT 1`,
+    [email]
+  );
+
+  if (!result.rows.length) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    externalUid: row.external_uid,
+    email: row.email,
+    name: row.name,
+    isPlatformAdmin: Boolean(row.is_platform_admin)
+  };
 }
