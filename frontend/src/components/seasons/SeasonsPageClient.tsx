@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/State";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { SeasonStatusPill, getLifecycleActions } from "./SeasonStatusPill";
 import { useSeasons, useSeasonStatusMutation } from "@/queries/seasons";
 import type { Season, SeasonStatus } from "@/types/domain";
 
@@ -11,32 +13,6 @@ interface SeasonsPageClientProps {
   orgId: string;
 }
 
-const statusLabels: Record<SeasonStatus, string> = {
-  draft: "Draft",
-  active: "Active",
-  completed: "Completed",
-  archived: "Archived",
-};
-
-const statusClasses: Record<SeasonStatus, string> = {
-  draft: "bg-[var(--color-navy-100)] text-[var(--color-navy-600)]",
-  active: "bg-[var(--color-green-100)] text-[var(--color-green-700)]",
-  completed: "bg-[var(--color-blue-100)] text-[var(--color-blue-700)]",
-  archived: "bg-[var(--color-navy-50)] text-[var(--color-navy-400)]",
-};
-
-const lifecycleActions: Record<SeasonStatus, Array<{ label: string; status: SeasonStatus; variant?: "secondary" | "ghost" }>> = {
-  draft: [
-    { label: "Activate", status: "active", variant: "secondary" },
-    { label: "Archive", status: "archived", variant: "ghost" },
-  ],
-  active: [
-    { label: "Complete", status: "completed", variant: "secondary" },
-    { label: "Archive", status: "archived", variant: "ghost" },
-  ],
-  completed: [],
-  archived: [],
-};
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -51,13 +27,6 @@ function formatDate(value?: string | null) {
   return dateFormatter.format(date);
 }
 
-function SeasonStatusBadge({ status }: { status: SeasonStatus }) {
-  return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[status]}`}>
-      {statusLabels[status]}
-    </span>
-  );
-}
 
 export function SeasonsPageClient({ orgId }: SeasonsPageClientProps) {
   const { seasons, isLoading, isError, refetch } = useSeasons(orgId);
@@ -129,16 +98,18 @@ export function SeasonsPageClient({ orgId }: SeasonsPageClientProps) {
         </TableHead>
         <TableBody>
           {sortedSeasons.map((season) => {
-            const actions = lifecycleActions[season.status];
+            const actions = getLifecycleActions(season.status);
             const isRowPending = pendingId === season.id && isPending;
             return (
               <TableRow key={season.id}>
                 <TableCell>
-                  <div className="font-semibold text-[var(--color-navy-900)]">{season.label}</div>
+                  <Link href={`/app/seasons/${season.id}`} className="font-semibold text-[var(--color-blue-700)] hover:underline">
+                    {season.label}
+                  </Link>
                 </TableCell>
                 <TableCell>{season.year ?? "—"}</TableCell>
                 <TableCell>
-                  <SeasonStatusBadge status={season.status} />
+                  <SeasonStatusPill status={season.status} />
                 </TableCell>
                 <TableCell>{formatDate(season.startsOn)}</TableCell>
                 <TableCell>{formatDate(season.endsOn)}</TableCell>
