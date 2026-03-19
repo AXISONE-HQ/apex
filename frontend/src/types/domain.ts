@@ -19,6 +19,20 @@ export interface Team {
   linkedAt?: string | null;
 }
 
+export type SeasonStatus = "draft" | "active" | "completed" | "archived";
+
+export interface Season {
+  id: string;
+  orgId: string;
+  label: string;
+  year: number | null;
+  status: SeasonStatus;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ClubSummary {
   id: string;
   name: string;

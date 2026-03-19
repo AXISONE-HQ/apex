@@ -19,6 +19,18 @@ export interface ApiTeam {
   updated_at?: string;
 }
 
+export interface ApiSeason {
+  id: string;
+  org_id: string;
+  label: string;
+  year?: number | null;
+  status: "draft" | "active" | "completed" | "archived";
+  starts_on?: string | null;
+  ends_on?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ApiPlayer {
   id: string;
   org_id: string;
@@ -131,6 +143,11 @@ export interface ApiListResponse<T> {
 export type TeamsResponse = ApiListResponse<ApiTeam>;
 export type PlayersResponse = ApiListResponse<ApiPlayer>;
 export type EventsResponse = ApiListResponse<ApiEvent>;
+export type SeasonsResponse = ApiListResponse<ApiSeason>;
+
+export interface SeasonResponse {
+  item: ApiSeason;
+}
 
 export interface GuardiansResponse {
   guardians: ApiGuardian[];

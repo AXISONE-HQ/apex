@@ -4,6 +4,7 @@ import {
   ApiCoach,
   ApiClubSummary,
   ApiEvent,
+  ApiSeason,
   ApiGuardian,
   ApiGuardianAttendance,
   ApiGuardianEvent,
@@ -35,6 +36,7 @@ import {
   GuardianEventPlayer,
   GuardianRsvpEntry,
   Player,
+  Season,
   Team,
   TeamDetail,
   UserSummary,
@@ -65,6 +67,20 @@ export function mapTeam(api: ApiTeam): Team {
     defaultTrainingDurationMin: api.default_training_duration_min ?? null,
     homeVenue: api.home_venue ?? null,
     playerCount: api.player_count ?? 0,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export function mapSeason(api: ApiSeason): Season {
+  return {
+    id: api.id,
+    orgId: api.org_id,
+    label: api.label,
+    year: api.year ?? null,
+    status: api.status,
+    startsOn: api.starts_on ?? null,
+    endsOn: api.ends_on ?? null,
     createdAt: api.created_at,
     updatedAt: api.updated_at,
   };
