@@ -72,3 +72,23 @@ export function useCreateTeam(orgId: string) {
     },
   });
 }
+
+interface UpdateTeamPayload {
+  teamId: string;
+  body: Record<string, unknown>;
+}
+
+export function useUpdateTeam(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, body }: UpdateTeamPayload) =>
+      apiClient<{ item: ApiTeam }>(`/admin/clubs/${orgId}/teams/${teamId}`, {
+        method: "PATCH",
+        body,
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.teams(orgId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.team(orgId, variables.teamId) });
+    },
+  });
+}
