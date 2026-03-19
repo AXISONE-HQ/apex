@@ -12,3 +12,9 @@ Status: MATCH
 Deviations:
 - Filters — page lacked the search/status/team filter row from the prototype — fix applied: 247fad5
 - Table rows — prototype uses friendly team names, jersey badges, and clickable rows — fix applied: 247fad5
+
+## Page: /app/players (Create form)
+Status: MATCH
+Deviations:
+- Form layout — needed sectioned layout with side-by-side inputs and helper copy — fix applied: c375fc4
+- Validation — now surfaces per-field errors + API alert per prototype — fix applied: c375fc4
