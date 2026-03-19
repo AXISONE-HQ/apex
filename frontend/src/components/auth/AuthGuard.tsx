@@ -37,7 +37,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [isUnauthorized, pathname, router]);
 
-  if (sessionQuery.status === "loading") {
+  if (sessionQuery.isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-[var(--color-navy-500)]">
         Verifying session…
