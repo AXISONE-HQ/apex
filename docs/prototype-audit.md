@@ -72,3 +72,13 @@ Deviations:
 Status: MATCH
 Deviations:
 - Session expiry UX — surfaced toast-equivalent messaging + login banner, polished password reset feedback per prototype — fix applied: 29ef3b6
+
+## Page: /app/dashboard (final audit)
+Status: MATCH
+Deviations:
+- Stats/quick-actions spacing + activity hover states brought in line with proto — fix applied: 19341a6
+
+## Page: /app/players (final audit)
+Status: MATCH
+Deviations:
+- Filter labels/search aria + table focus/hover states aligned to prototype spec — fix applied: 19341a6
