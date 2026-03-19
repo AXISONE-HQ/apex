@@ -13,6 +13,7 @@ import evaluationBlocksRoutes from "./evaluationBlocks.js";
 import evaluationPlansRoutes from "./evaluationPlans.js";
 import evaluationAIRoutes from "./evaluationAI.js";
 import evaluationSessionsRoutes from "./evaluationSessions.js";
+import seasonsRoutes from "./seasons.js";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/", evaluationBlocksRoutes);
 router.use("/", evaluationPlansRoutes);
 router.use("/", evaluationAIRoutes);
 router.use("/", evaluationSessionsRoutes);
+router.use("/", seasonsRoutes);
 
 export default router;
