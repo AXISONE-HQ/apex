@@ -11,6 +11,7 @@ const USER_COACH = "00000000-0000-0000-0000-000000000201";
 
 let server;
 let baseUrl;
+const RUN_ID = Date.now().toString(36);
 let teamCounter = 1;
 let planCounter = 1;
 let eventCounter = 1;
@@ -28,7 +29,7 @@ function headersFor(user) {
 
 async function createTeamRecord(orgId, user) {
   const payload = {
-    name: `Team ${teamCounter++}`,
+    name: `Team ${RUN_ID}-${teamCounter++}`,
     season_year: 2026,
     season_label: "2026 Outdoor",
     sport: "soccer",
