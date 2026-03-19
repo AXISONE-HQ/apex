@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { ErrorState, LoadingState } from "@/components/ui/State";
 import { SeasonStatusPill, getLifecycleActions } from "./SeasonStatusPill";
-import { useSeason, useSeasonStatusMutation, useSeasonUpdateMutation } from "@/queries/seasons";
+import { useSeason, useSeasonCreateMutation, useSeasonStatusMutation, useSeasonUpdateMutation } from "@/queries/seasons";
 import { useTeams, useUpdateTeam } from "@/queries/teams";
 import type { SeasonStatus, Team } from "@/types/domain";
 
@@ -39,6 +39,14 @@ const lifecycleCopy: Record<SeasonStatus, { title: string; description: string; 
   },
 };
 
+function buildCloneLabel(label?: string | null) {
+  if (!label) return "Season copy";
+  if (label.toLowerCase().includes("copy")) {
+    return `${label} - Copy`;
+  }
+  return `${label} (Copy)`;
+}
+
 interface SeasonDetailPageClientProps {
   orgId: string;
   seasonId: string;
@@ -63,9 +71,11 @@ function formatInputDate(value?: string | null) {
 }
 
 export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClientProps) {
+  const router = useRouter();
   const { season, isLoading, isError, refetch } = useSeason(orgId, seasonId);
   const { mutateAsync: transitionSeason, isPending: isLifecyclePending } = useSeasonStatusMutation(orgId);
   const { mutateAsync: updateSeason, isPending: isUpdating } = useSeasonUpdateMutation(orgId);
+  const { mutateAsync: cloneSeason, isPending: isCloningSeason } = useSeasonCreateMutation(orgId);
   const teamsQuery = useTeams(orgId);
   const updateTeam = useUpdateTeam(orgId);
   const seasonLabel = season?.label ?? "";
@@ -76,6 +86,8 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLifecycleModalOpen, setIsLifecycleModalOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<SeasonStatus | null>(null);
+  const [isCloneOpen, setIsCloneOpen] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
   const [isManageTeamsOpen, setIsManageTeamsOpen] = useState(false);
   const [manageTeamsError, setManageTeamsError] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState("");
@@ -123,6 +135,11 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
     });
     setEditError(null);
     setIsEditOpen(true);
+  };
+
+  const openCloneModal = () => {
+    setCloneError(null);
+    setIsCloneOpen(true);
   };
 
   const openManageTeams = () => {
@@ -239,6 +256,55 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
     }
   };
 
+  const handleCloneSeason = async () => {
+    if (!season) return;
+    setCloneError(null);
+    const cloneLabel = buildCloneLabel(season.label);
+    try {
+      const created = await cloneSeason({
+        body: {
+          label: cloneLabel,
+          year: season.year ?? null,
+          starts_on: season.startsOn || null,
+          ends_on: season.endsOn || null,
+          status: "draft",
+        },
+      });
+      let linkingFailed = false;
+      if (linkedTeamIds.length) {
+        try {
+          await Promise.all(
+            linkedTeamIds.map((teamId) =>
+              updateTeam.mutateAsync({
+                teamId,
+                body: {
+                  season_label: created.label ?? cloneLabel,
+                  season_year: created.year ?? season.year ?? null,
+                },
+              })
+            )
+          );
+        } catch {
+          linkingFailed = true;
+          setActionError("Season cloned but linking teams failed. Use Manage teams to retry.");
+        }
+      }
+      setIsCloneOpen(false);
+      setSuccessMessage(linkingFailed ? "Season cloned (check team links)" : "Season cloned");
+      if (created.id) {
+        router.push(`/app/seasons/${created.id}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to clone season";
+      setCloneError(message);
+    }
+  };
+
+  const closeCloneModal = () => {
+    if (isCloningSeason) return;
+    setIsCloneOpen(false);
+  };
+
   const lifecycleActions = getLifecycleActions(season.status);
   const rowPending = pendingId === season.id && isLifecyclePending;
 
@@ -258,6 +324,9 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={openEditModal} disabled={isLifecyclePending}>
             Edit details
+          </Button>
+          <Button variant="ghost" onClick={openCloneModal} disabled={isCloningSeason}>
+            Clone season
           </Button>
           {lifecycleActions.map(({ label, status, variant }) => (
             <Button key={status} variant={variant} disabled={rowPending} onClick={() => startLifecycleAction(status)}>
@@ -424,6 +493,30 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
             </Button>
             <Button type="button" onClick={handleManageTeamsSubmit} disabled={isUpdatingTeams || teamsQuery.isLoading}>
               {isUpdatingTeams ? "Updating…" : "Save links"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={isCloneOpen} onClose={closeCloneModal} title="Clone season">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-navy-600)]">
+            This will duplicate <span className="font-semibold">{season.label}</span> as <span className="font-semibold">{buildCloneLabel(season.label)}</span> in draft status and copy the current dates.
+          </p>
+          <p className="text-xs text-[var(--color-navy-500)]">
+            Linked teams will move to the cloned season so you can prepare the next drop without reassigning manually.
+          </p>
+          {cloneError ? (
+            <div className="text-sm text-[var(--color-red-600)]" role="alert">
+              {cloneError}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={closeCloneModal} disabled={isCloningSeason}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleCloneSeason} disabled={isCloningSeason}>
+              {isCloningSeason ? "Cloning…" : "Clone season"}
             </Button>
           </div>
         </div>
