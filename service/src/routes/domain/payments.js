@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import logger from "../../lib/logger.js";
 import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
 import { badRequest, notFound, parsePagination } from "./_helpers.js";
@@ -10,12 +11,17 @@ import {
   listInvoices,
   createInvoice,
   updateInvoice,
+  getInvoiceById,
+  getStripeAccountForOrg,
 } from "../../repositories/paymentsRepo.js";
+import { createCheckoutSession, constructWebhookEvent } from "../../lib/stripe.js";
 
 const router = Router();
 
 const PAYMENT_MANAGE_PERMISSION = "payments.function.manage";
 const PAYMENTS_VIEW_PERMISSION = "payments.page.view";
+const PAYMENTS_VIEW_OWN = "payments.page.view_own";
+const PAY_PERMISSION = "payments.function.pay";
 
 router.get("/fees", requireSession, requirePermission(PAYMENTS_VIEW_PERMISSION), async (req, res) => {
   const orgId = req.user?.activeOrgId;
@@ -86,6 +92,15 @@ router.get("/invoices", requireSession, requirePermission(PAYMENTS_VIEW_PERMISSI
   res.status(200).json({ items, paging: { limit, offset } });
 });
 
+router.get("/invoices/mine", requireSession, requirePermission(PAYMENTS_VIEW_OWN), async (req, res) => {
+  const orgId = req.user?.activeOrgId;
+  const guardianUserId = req.user?.id;
+  if (!orgId || !guardianUserId) return badRequest(res, "active org and guardian user required");
+  const { limit, offset } = parsePagination(req.query);
+  const items = await listInvoices({ orgId, guardianUserId, limit, offset });
+  res.status(200).json({ items, paging: { limit, offset } });
+});
+
 router.post("/invoices", requireSession, requirePermission(PAYMENT_MANAGE_PERMISSION), async (req, res) => {
   const orgId = req.user?.activeOrgId;
   if (!orgId) return badRequest(res, "active org required");
@@ -143,15 +158,110 @@ router.patch("/invoices/:id", requireSession, requirePermission(PAYMENT_MANAGE_P
   res.status(200).json({ invoice: updated });
 });
 
-router.post("/invoices/:id/checkout", requireSession, requirePermission("payments.function.pay"), async (_req, res) => {
-  res.status(501).json({ error: "not_implemented" });
+router.post("/invoices/:id/checkout", requireSession, requirePermission(PAY_PERMISSION), async (req, res) => {
+  const orgId = req.user?.activeOrgId;
+  const userId = req.user?.id;
+  if (!orgId || !userId) return badRequest(res, "active org and user required");
+  const { successUrl, cancelUrl } = req.body || {};
+  if (!successUrl || !cancelUrl) return badRequest(res, "successUrl and cancelUrl are required");
+
+  const invoice = await getInvoiceById({ orgId, invoiceId: req.params.id });
+  if (!invoice) return notFound(res, "invoice_not_found");
+  if (invoice.guardian_user_id && invoice.guardian_user_id !== userId) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  if (invoice.status === "paid") {
+    return badRequest(res, "Invoice already paid");
+  }
+
+  const stripeAccount = await getStripeAccountForOrg(orgId);
+  if (!stripeAccount) {
+    return badRequest(res, "Stripe account not connected for this club");
+  }
+
+  const session = await createCheckoutSession({
+    orgId,
+    invoiceId: invoice.id,
+    amountCents: invoice.amount_cents,
+    currency: invoice.currency,
+    clubStripeAccountId: stripeAccount.stripe_account_id,
+    successUrl,
+    cancelUrl,
+    description: invoice.fee_name || "Club fee",
+  });
+
+  await updateInvoice({
+    orgId,
+    invoiceId: invoice.id,
+    fields: {
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent ?? null,
+    },
+  });
+
+  res.status(200).json({ sessionUrl: session.url });
 });
 
 router.post(
   "/webhooks/stripe",
   express.raw({ type: "application/json" }),
-  async (_req, res) => {
-    res.status(501).json({ error: "not_implemented" });
+  async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = constructWebhookEvent(req.body, signature);
+    } catch (err) {
+      logger.error({ err }, "Stripe webhook signature verification failed");
+      return res.status(400).json({ error: "invalid_signature" });
+    }
+
+    try {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object;
+          const invoiceId = session.metadata?.invoice_id;
+          const orgId = session.metadata?.org_id;
+          if (invoiceId && orgId) {
+            await updateInvoice({
+              orgId,
+              invoiceId,
+              fields: {
+                status: "paid",
+                paidAt: new Date().toISOString(),
+                stripePaymentIntentId: session.payment_intent,
+                stripeCheckoutSessionId: session.id,
+              },
+            });
+          } else {
+            logger.warn({ sessionId: session.id }, "Stripe session missing invoice/org metadata");
+          }
+          break;
+        }
+        case "payment_intent.payment_failed": {
+          const intent = event.data.object;
+          const invoiceId = intent.metadata?.invoice_id;
+          const orgId = intent.metadata?.org_id;
+          if (invoiceId && orgId) {
+            await updateInvoice({
+              orgId,
+              invoiceId,
+              fields: {
+                status: "failed",
+                stripePaymentIntentId: intent.id,
+              },
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (err) {
+      logger.error({ err, eventType: event.type }, "Failed to process Stripe webhook");
+      return res.status(500).json({ error: "webhook_processing_failed" });
+    }
+
+    res.status(200).json({ received: true });
   }
 );
 

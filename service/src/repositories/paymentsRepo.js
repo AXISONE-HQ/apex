@@ -192,3 +192,23 @@ export async function updateInvoice({ orgId, invoiceId, fields }) {
   const result = await query(sql, values);
   return result.rows[0] || null;
 }
+
+export async function getInvoiceById({ orgId, invoiceId }) {
+  const result = await query(
+    `SELECT inv.*, fees.name AS fee_name, fees.fee_type
+     FROM payment_invoices inv
+     LEFT JOIN payment_fees fees ON fees.id = inv.fee_id
+     WHERE inv.org_id = $1 AND inv.id = $2
+     LIMIT 1`,
+    [orgId, invoiceId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getStripeAccountForOrg(orgId) {
+  const result = await query(
+    `SELECT * FROM payment_club_stripe_accounts WHERE org_id = $1 LIMIT 1`,
+    [orgId]
+  );
+  return result.rows[0] || null;
+}

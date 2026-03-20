@@ -27,6 +27,7 @@ export function getStripeClient() {
 }
 
 export async function createCheckoutSession({
+  orgId,
   invoiceId,
   amountCents,
   currency = "cad",
@@ -35,6 +36,7 @@ export async function createCheckoutSession({
   cancelUrl,
   description = "Club fee",
 }) {
+  if (!orgId) throw new Error("orgId is required");
   if (!invoiceId) throw new Error("invoiceId is required");
   if (!amountCents || amountCents <= 0) throw new Error("amountCents must be > 0");
   if (!successUrl || !cancelUrl) throw new Error("successUrl and cancelUrl are required");
@@ -49,6 +51,7 @@ export async function createCheckoutSession({
     payment_intent_data: {
       metadata: {
         invoice_id: invoiceId,
+        org_id: orgId,
       },
     },
     line_items: [
@@ -65,6 +68,7 @@ export async function createCheckoutSession({
     ],
     metadata: {
       invoice_id: invoiceId,
+      org_id: orgId,
     },
   };
 
