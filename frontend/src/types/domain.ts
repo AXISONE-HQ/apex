@@ -33,6 +33,24 @@ export interface Season {
   updatedAt?: string;
 }
 
+export type RegistrationStatus = "pending" | "approved" | "rejected" | "waitlisted" | "withdrawn";
+
+export interface Registration {
+  id: string;
+  orgId: string;
+  seasonId: string;
+  playerId: string;
+  guardianId: string;
+  status: RegistrationStatus;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  notes?: string | null;
+  waitlistPosition?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ClubSummary {
   id: string;
   name: string;

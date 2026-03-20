@@ -10,6 +10,7 @@ import {
   ApiGuardianEvent,
   ApiGuardianRsvpEntry,
   ApiPlayer,
+  ApiRegistration,
   ApiTeam,
   ApiTeamDetailResponse,
   ApiUserSummary,
@@ -36,6 +37,7 @@ import {
   GuardianEventPlayer,
   GuardianRsvpEntry,
   Player,
+  Registration,
   Season,
   Team,
   TeamDetail,
@@ -125,6 +127,24 @@ export function mapGuardian(api: ApiGuardian): Guardian {
     status: api.status ?? "active",
     notes: api.notes ?? null,
     linkedPlayers: [],
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export function mapRegistration(api: ApiRegistration): Registration {
+  return {
+    id: api.id,
+    orgId: api.org_id,
+    seasonId: api.season_id,
+    playerId: api.player_id,
+    guardianId: api.guardian_id,
+    status: api.status,
+    submittedAt: api.submitted_at ?? null,
+    reviewedAt: api.reviewed_at ?? null,
+    reviewedBy: api.reviewed_by ?? null,
+    notes: api.notes ?? null,
+    waitlistPosition: api.waitlist_position ?? null,
     createdAt: api.created_at,
     updatedAt: api.updated_at,
   };
