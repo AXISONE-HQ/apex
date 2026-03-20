@@ -143,8 +143,11 @@ export function RegistrationDetailPageClient({ orgId, registrationId }: Registra
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[var(--color-navy-700)]">Status</label>
+            <label className="text-sm font-medium text-[var(--color-navy-700)]" htmlFor="registration-status-select">
+              Status
+            </label>
             <select
+              id="registration-status-select"
               value={statusDraft}
               onChange={(event) => setStatusDraft(event.target.value as RegistrationStatus)}
               className="rounded-md border border-[var(--color-navy-200)] px-3 py-2 text-sm"
@@ -157,8 +160,11 @@ export function RegistrationDetailPageClient({ orgId, registrationId }: Registra
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[var(--color-navy-700)]">Notes</label>
+            <label className="text-sm font-medium text-[var(--color-navy-700)]" htmlFor="registration-notes-input">
+              Notes
+            </label>
             <textarea
+              id="registration-notes-input"
               rows={4}
               value={notesDraft}
               onChange={(event) => setNotesDraft(event.target.value)}

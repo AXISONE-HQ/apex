@@ -56,6 +56,7 @@ export function RegistrationList({
         {registrations.map((registration) => (
           <TableRow
             key={registration.id}
+            data-testid={`registration-row-${registration.id}`}
             className={onSelect ? "cursor-pointer hover:bg-[var(--color-muted)]" : undefined}
             onClick={handleSelect(registration.id)}
           >

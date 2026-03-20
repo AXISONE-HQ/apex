@@ -23,7 +23,7 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
   const router = useRouter();
   const { seasons, isLoading, isError, error, refetch } = useSeasons(orgId);
   const { mutateAsync: createRegistration, isPending } = useCreateRegistration(orgId);
-  const [seasonId, setSeasonId] = useState("");
+  const [seasonId, setSeasonId] = useState<string>(() => selectActiveSeasons(seasons)[0]?.id ?? "");
   const [playerId, setPlayerId] = useState("");
   const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -34,14 +34,6 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
       setSeasonId(seasonOptions[0].id);
     }
   }, [seasonOptions, seasonId]);
-
-  useEffect(() => {
-    if (!alert) return;
-    if (alert.type === "success") {
-      const timeout = setTimeout(() => router.push("/app/guardian/registrations"), 1200);
-      return () => clearTimeout(timeout);
-    }
-  }, [alert, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,6 +51,7 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
       await createRegistration({ seasonId, playerId: playerId.trim() });
       setPlayerId("");
       setAlert({ type: "success", message: "Registration submitted" });
+      router.push("/app/guardian/registrations");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to submit registration";
       setAlert({ type: "error", message });
@@ -75,7 +68,13 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
   }
 
   if (!seasonOptions.length) {
-    return <EmptyState message="No seasons available for registration." actionLabel="Back" onAction={() => router.push("/app/guardian/registrations") } />;
+    return (
+      <EmptyState
+        message="No seasons available for registration."
+        actionLabel="Back"
+        onAction={() => router.push("/app/guardian/registrations")}
+      />
+    );
   }
 
   return (
@@ -104,8 +103,11 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[var(--color-navy-700)]">Season</label>
+            <label className="text-sm font-medium text-[var(--color-navy-700)]" htmlFor="registration-season-select">
+              Season
+            </label>
             <select
+              id="registration-season-select"
               value={seasonId}
               onChange={(event) => setSeasonId(event.target.value)}
               className="rounded-md border border-[var(--color-navy-200)] px-3 py-2 text-sm"
@@ -122,8 +124,11 @@ export function CreateRegistrationPageClient({ orgId }: CreateRegistrationPageCl
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[var(--color-navy-700)]">Player ID</label>
+            <label className="text-sm font-medium text-[var(--color-navy-700)]" htmlFor="registration-player-input">
+              Player ID
+            </label>
             <Input
+              id="registration-player-input"
               value={playerId}
               onChange={(event) => setPlayerId(event.target.value)}
               placeholder="e.g. player_1234"
