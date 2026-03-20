@@ -31,6 +31,24 @@ export interface ApiSeason {
   updated_at?: string;
 }
 
+export type ApiRegistrationStatus = "pending" | "approved" | "rejected" | "waitlisted" | "withdrawn";
+
+export interface ApiRegistration {
+  id: string;
+  org_id: string;
+  season_id: string;
+  player_id: string;
+  guardian_id: string;
+  status: ApiRegistrationStatus;
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  notes?: string | null;
+  waitlist_position?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ApiPlayer {
   id: string;
   org_id: string;
@@ -140,13 +158,25 @@ export interface ApiListResponse<T> {
   items: T[];
 }
 
+export interface ApiPagedListResponse<T> extends ApiListResponse<T> {
+  paging?: {
+    limit?: number;
+    offset?: number;
+  } | null;
+}
+
 export type TeamsResponse = ApiListResponse<ApiTeam>;
 export type PlayersResponse = ApiListResponse<ApiPlayer>;
 export type EventsResponse = ApiListResponse<ApiEvent>;
 export type SeasonsResponse = ApiListResponse<ApiSeason>;
+export type RegistrationsResponse = ApiPagedListResponse<ApiRegistration>;
 
 export interface SeasonResponse {
   item: ApiSeason;
+}
+
+export interface RegistrationResponse {
+  registration: ApiRegistration;
 }
 
 export interface GuardiansResponse {
