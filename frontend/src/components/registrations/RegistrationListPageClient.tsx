@@ -1,18 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AdminRegistrationsPanel } from "./AdminRegistrationsPanel";
 import { GuardianRegistrationsPanel } from "./GuardianRegistrationsPanel";
-import { Button } from "@/components/ui/Button";
 
 interface RegistrationListPageClientProps {
   orgId: string;
   mode?: "admin" | "guardian";
-  onSelectRegistration?: (registrationId: string) => void;
 }
 
-export function RegistrationListPageClient({ orgId, mode = "admin", onSelectRegistration }: RegistrationListPageClientProps) {
+export function RegistrationListPageClient({ orgId, mode = "admin" }: RegistrationListPageClientProps) {
   const isGuardian = mode === "guardian";
+  const router = useRouter();
+
+  const handleSelectRegistration = (registrationId: string) => {
+    if (isGuardian) return;
+    router.push(`/app/registrations/${registrationId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -28,16 +33,19 @@ export function RegistrationListPageClient({ orgId, mode = "admin", onSelectRegi
           </p>
         </div>
         {isGuardian ? (
-          <Button asChild>
-            <Link href="/app/guardian/registrations/create">New registration</Link>
-          </Button>
+          <Link
+            href="/app/guardian/registrations/create"
+            className="inline-flex h-10 items-center rounded-md bg-[var(--color-blue-600)] px-4 text-sm font-medium text-white hover:bg-[var(--color-blue-700)]"
+          >
+            New registration
+          </Link>
         ) : null}
       </div>
 
       {isGuardian ? (
-        <GuardianRegistrationsPanel orgId={orgId} onSelectRegistration={onSelectRegistration} />
+        <GuardianRegistrationsPanel orgId={orgId} />
       ) : (
-        <AdminRegistrationsPanel orgId={orgId} onSelectRegistration={onSelectRegistration} />
+        <AdminRegistrationsPanel orgId={orgId} onSelectRegistration={handleSelectRegistration} />
       )}
     </div>
   );
