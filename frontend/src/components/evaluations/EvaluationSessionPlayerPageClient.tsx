@@ -220,7 +220,7 @@ function ManualEvaluationsPanel({ evaluations, isLoading, hasError, onRetry, onC
         ) : null}
       </div>
 
-      <form className="space-y-3" onSubmit={handleSubmit}>
+      <form className="space-y-3" onSubmit={handleSubmit} data-testid="manual-evaluations-form">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-400)]">Title *</label>

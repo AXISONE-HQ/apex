@@ -38,6 +38,7 @@ export function SessionPlayerList({ players, activePlayerId, onSelect, progress,
     <div className="space-y-3">
       <div className="space-y-1">
         <Input
+          data-testid="session-player-search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search players"
@@ -45,6 +46,7 @@ export function SessionPlayerList({ players, activePlayerId, onSelect, progress,
         />
         <label className="flex items-center gap-2 text-xs text-[var(--color-navy-500)]">
           <input
+            data-testid="session-player-remaining-toggle"
             type="checkbox"
             checked={showRemainingOnly}
             onChange={(event) => setShowRemainingOnly(event.target.checked)}
@@ -57,7 +59,7 @@ export function SessionPlayerList({ players, activePlayerId, onSelect, progress,
       {!filtered.length ? (
         <p className="text-sm text-[var(--color-navy-500)]">No players match this filter.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" data-testid="session-player-list">
           {filtered.map((player) => {
             const completedBlocks = progress[player.id] ?? 0;
             const isComplete = totalBlocks > 0 && completedBlocks >= totalBlocks;
@@ -65,6 +67,8 @@ export function SessionPlayerList({ players, activePlayerId, onSelect, progress,
               <button
                 key={player.id}
                 type="button"
+                data-testid={`session-player-row-${player.id}`}
+                data-player-id={player.id}
                 disabled={disabled}
                 onClick={() => onSelect(player.id)}
                 className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
@@ -78,9 +82,13 @@ export function SessionPlayerList({ players, activePlayerId, onSelect, progress,
                   <p className="text-xs text-[var(--color-navy-500)]">#{player.jerseyNumber ?? "—"}</p>
                 </div>
                 {isComplete ? (
-                  <Badge variant="success">Done</Badge>
+                  <Badge variant="success" data-testid="session-player-status-done">
+                    Done
+                  </Badge>
                 ) : (
-                  <Badge variant="info">{completedBlocks}/{totalBlocks}</Badge>
+                  <Badge variant="info" data-testid="session-player-status-progress">
+                    {completedBlocks}/{totalBlocks}
+                  </Badge>
                 )}
               </button>
             );

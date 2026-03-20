@@ -107,7 +107,7 @@ export function EvaluationSessionsPageClient({ orgId }: EvaluationSessionsPageCl
       </div>
 
       {!filteredSessions.length ? (
-        <EmptyState message="No sessions yet. Start one to begin scoring." actionLabel="Start session" onAction={() => setModalOpen(true)} />
+        <EmptyState message="No sessions match these filters." actionLabel="Start session" onAction={() => setModalOpen(true)} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[var(--color-navy-200)] bg-white shadow-sm">
           <Table>
