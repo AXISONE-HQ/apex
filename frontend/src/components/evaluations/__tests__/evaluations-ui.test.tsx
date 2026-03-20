@@ -256,6 +256,19 @@ describe("evaluations UI flows", () => {
     expect(playersScoredLabel.nextElementSibling).toHaveTextContent("1/1");
   });
 
+  it("saves a score for the active player", async () => {
+    const submitScore = vi.fn().mockResolvedValue(sampleScore);
+    mockUseSubmitPlayerScore.mockReturnValue({ mutateAsync: submitScore, isPending: false });
+    mockUseSessionScores.mockReturnValue({ data: [], isLoading: false, isError: false });
+    render(<EvaluationSessionDetailPageClient orgId="org-1" sessionId="session-1" />);
+    const numericInput = await screen.findByTestId("score-numeric-input");
+    fireEvent.change(numericInput, { target: { value: "9" } });
+    fireEvent.click(screen.getByTestId("score-save-button"));
+    await waitFor(() =>
+      expect(submitScore).toHaveBeenCalledWith({ playerId: "player-1", blockId: "block-1", score: { value: 9 }, notes: "" })
+    );
+  });
+
   it("creates and edits manual player evaluations", async () => {
     render(<EvaluationSessionPlayerPageClient orgId="org-1" sessionId="session-1" playerId="player-1" />);
     await waitFor(() => expect(screen.getByText(/Coach evaluations/i)).toBeInTheDocument());
