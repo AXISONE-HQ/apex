@@ -8,6 +8,7 @@ import { useEvents } from "@/queries/events";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/State";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { StartSessionModal } from "@/components/evaluations/StartSessionModal";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { EvaluationSession } from "@/types/domain";
@@ -25,6 +26,8 @@ export function EvaluationSessionsPageClient({ orgId }: EvaluationSessionsPageCl
   const startSession = useStartEvaluationSession(orgId);
   const [isModalOpen, setModalOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   if (sessionsQuery.isLoading) {
     return <LoadingState message="Loading evaluation sessions" />;
@@ -37,6 +40,22 @@ export function EvaluationSessionsPageClient({ orgId }: EvaluationSessionsPageCl
   const sessions = sessionsQuery.data ?? [];
   const planLookup = new Map((plansQuery.data ?? []).map((plan) => [plan.id, plan.name]));
   const eventLookup = new Map((eventsQuery.data ?? []).map((event) => [event.id, event.title]));
+
+  const filteredSessions = sessions.filter((session) => {
+    const isComplete = Boolean(session.completedAt);
+    if (statusFilter === "active" && isComplete) return false;
+    if (statusFilter === "completed" && !isComplete) return false;
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      const planName = planLookup.get(session.evaluationPlanId)?.toLowerCase() ?? "";
+      const eventName = eventLookup.get(session.eventId)?.toLowerCase() ?? "";
+      const sessionLabel = session.id.slice(0, 8).toLowerCase();
+      if (!planName.includes(term) && !eventName.includes(term) && !sessionLabel.includes(term)) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const handleStartSession = async ({ planId, eventId }: { planId: string; eventId: string }) => {
     try {
@@ -64,7 +83,30 @@ export function EvaluationSessionsPageClient({ orgId }: EvaluationSessionsPageCl
 
       <EvaluationSectionNav />
 
-      {!sessions.length ? (
+      <div className="flex flex-wrap gap-3 rounded-2xl border border-[var(--color-navy-200)] bg-white p-4 shadow-sm">
+        <div className="min-w-[200px] flex-1 space-y-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-400)]">Search</label>
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by session, plan, or event"
+          />
+        </div>
+        <div className="w-40 space-y-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-400)]">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "completed")}
+            className="h-10 w-full rounded-md border border-[var(--color-navy-200)] bg-white px-3 text-sm text-[var(--color-navy-900)]"
+          >
+            <option value="all">All</option>
+            <option value="active">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      {!filteredSessions.length ? (
         <EmptyState message="No sessions yet. Start one to begin scoring." actionLabel="Start session" onAction={() => setModalOpen(true)} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[var(--color-navy-200)] bg-white shadow-sm">
@@ -81,7 +123,7 @@ export function EvaluationSessionsPageClient({ orgId }: EvaluationSessionsPageCl
               </TableRow>
             </TableHead>
             <TableBody>
-              {sessions.map((session) => (
+              {filteredSessions.map((session) => (
                 <TableRow key={session.id}>
                   <TableCell>{session.id.slice(0, 8)}</TableCell>
                   <TableCell>{eventLookup.get(session.eventId) ?? session.eventId.slice(0, 8)}</TableCell>

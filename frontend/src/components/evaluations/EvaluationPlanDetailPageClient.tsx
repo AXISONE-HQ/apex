@@ -23,7 +23,7 @@ import { CreatePlanFormValues } from "@/components/evaluations/CreatePlanModal";
 import { AISuggestionPanel } from "@/components/evaluations/AISuggestionPanel";
 import { formatPlanScope } from "@/lib/evaluation-format";
 import { EvaluationDifficulty, EvaluationScoringMethod } from "@/types/domain";
-import { useCreateEvaluationBlock, EvaluationBlockInput, AISuggestion, GenerateEvaluationSuggestionsInput } from "@/queries/evaluations";
+import { useCreateEvaluationBlock, EvaluationBlockInput, AISuggestion, GenerateEvaluationSuggestionsInput, EvaluationBlockFilters } from "@/queries/evaluations";
 
 interface EvaluationPlanDetailPageClientProps {
   orgId: string;
@@ -35,6 +35,7 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
   const planBlocksQuery = useEvaluationPlanBlocks(orgId, planId);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState("");
+  const [libraryDifficulty, setLibraryDifficulty] = useState("");
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const [pendingPlanBlockId, setPendingPlanBlockId] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<"library" | "ai">("library");
@@ -42,7 +43,12 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const plan = planQuery.data;
-  const blockFilters = plan?.sport ? { sport: plan.sport } : undefined;
+  const blockFilters = useMemo<EvaluationBlockFilters | undefined>(() => {
+    const filters: EvaluationBlockFilters = {} as EvaluationBlockFilters;
+    if (plan?.sport) filters.sport = plan.sport;
+    if (libraryDifficulty) filters.difficulty = libraryDifficulty;
+    return Object.keys(filters).length ? filters : undefined;
+  }, [plan?.sport, libraryDifficulty]);
   const blocksQuery = useEvaluationBlocks(orgId, blockFilters);
 
   const addPlanBlock = useAddPlanBlock(orgId, planId);
@@ -211,6 +217,8 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
               onSearchChange={setLibrarySearch}
               category={libraryCategory}
               onCategoryChange={setLibraryCategory}
+              difficulty={libraryDifficulty}
+              onDifficultyChange={setLibraryDifficulty}
               onAddBlock={handleAddBlock}
               pendingBlockId={pendingBlockId}
             />
