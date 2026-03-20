@@ -10,9 +10,9 @@ import { linkGuardianToPlayer } from "../src/repositories/guardianPlayersRepo.js
 const ORG_ID = "00000000-0000-0000-0000-000000000e01";
 const SEASON_ACTIVE = "00000000-0000-0000-0000-00000000a111";
 const SEASON_INACTIVE = "00000000-0000-0000-0000-00000000a222";
-const GUARDIAN_ID = "00000000-0000-0000-0000-00000000g111";
+const GUARDIAN_ID = "00000000-0000-0000-0000-0000000000a1";
 const ADMIN_USER_ID = "00000000-0000-0000-0000-00000000a999";
-const GUARDIAN_USER_ID = "00000000-0000-0000-0000-00000000g999";
+const GUARDIAN_USER_ID = "00000000-0000-0000-0000-0000000000b9";
 
 const RUN_ID = Date.now().toString(36);
 
@@ -49,19 +49,6 @@ async function seedDb() {
     );
 
     const now = new Date();
-    const insertPlayer = async (playerId) => {
-      await query(
-        `INSERT INTO players (id, org_id, first_name, last_name, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, 'active', $5, $5)
-         ON CONFLICT (id) DO UPDATE SET org_id = excluded.org_id`,
-        [playerId, ORG_ID, `Player-${playerId.slice(-4)}`, "Test", now]
-      );
-    };
-
-    // Pre-seed two linked players plus one unlinked fixture when a database is available.
-    await insertPlayer("00000000-0000-0000-0000-00000000p111");
-    await insertPlayer("00000000-0000-0000-0000-00000000p222");
-    await insertPlayer("00000000-0000-0000-0000-00000000p333");
 
     await query(
       `INSERT INTO guardians (id, org_id, first_name, last_name, email, created_at, updated_at)
@@ -70,20 +57,7 @@ async function seedDb() {
       [GUARDIAN_ID, ORG_ID, `guardian-${RUN_ID}@example.com`, now]
     );
 
-    await query(
-      `INSERT INTO guardian_players (guardian_id, player_id, org_id)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (guardian_id, player_id) DO NOTHING`,
-      [GUARDIAN_ID, "00000000-0000-0000-0000-00000000p111", ORG_ID]
-    );
-
-    await query(
-      `INSERT INTO guardian_players (guardian_id, player_id, org_id)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (guardian_id, player_id) DO NOTHING`,
-      [GUARDIAN_ID, "00000000-0000-0000-0000-00000000p222", ORG_ID]
-    );
-
+    guardianId = GUARDIAN_ID;
     return;
   }
 
