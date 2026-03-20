@@ -340,6 +340,41 @@ export function useCreateEvaluationPlan(orgId: string) {
   });
 }
 
+export interface UpdateEvaluationPlanInput {
+  planId: string;
+  values: Partial<CreateEvaluationPlanInput>;
+}
+
+export function useUpdateEvaluationPlan(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId, values }: UpdateEvaluationPlanInput) => {
+      const payload: Record<string, unknown> = {};
+      if (values.name !== undefined) payload.name = values.name;
+      if (values.sport !== undefined) payload.sport = values.sport;
+      if (values.ageGroup !== undefined) payload.age_group = values.ageGroup ? values.ageGroup : null;
+      if (values.gender !== undefined) payload.gender = values.gender ? values.gender : null;
+      if (values.evaluationCategory !== undefined) payload.evaluation_category = values.evaluationCategory;
+      if (values.scope !== undefined) payload.scope = values.scope;
+      if (values.teamId !== undefined) payload.team_id = values.teamId ? values.teamId : null;
+
+      if (!Object.keys(payload).length) {
+        throw new Error("plan_update_requires_fields");
+      }
+
+      const response = await apiClient<EvaluationPlanResponse>(`/admin/clubs/${orgId}/evaluation-plans/${planId}`, {
+        method: "PATCH",
+        body: payload,
+      });
+      return response.item ? mapEvaluationPlan(response.item) : null;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationPlan(orgId, variables.planId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationPlans(orgId) });
+    },
+  });
+}
+
 export function useAddPlanBlock(orgId: string, planId: string) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import {
   useEvaluationPlan,
   useEvaluationPlanBlocks,
@@ -11,12 +10,16 @@ import {
   useRemovePlanBlock,
   useDuplicatePlanBlock,
   useReorderPlanBlocks,
+  useUpdateEvaluationPlan,
 } from "@/queries/evaluations";
 import { LoadingState, ErrorState } from "@/components/ui/State";
 import { EvaluationSectionNav } from "@/components/evaluations/EvaluationSectionNav";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { PlanBuilderSidebar } from "@/components/evaluations/PlanBuilderSidebar";
 import { PlanBlockList } from "@/components/evaluations/PlanBlockList";
+import { PlanSettingsModal } from "@/components/evaluations/PlanSettingsModal";
+import { CreatePlanFormValues } from "@/components/evaluations/CreatePlanModal";
 import { AISuggestionPanel } from "@/components/evaluations/AISuggestionPanel";
 import { formatPlanScope } from "@/lib/evaluation-format";
 import { EvaluationDifficulty, EvaluationScoringMethod } from "@/types/domain";
@@ -35,6 +38,8 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const [pendingPlanBlockId, setPendingPlanBlockId] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<"library" | "ai">("library");
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const plan = planQuery.data;
   const blockFilters = plan?.sport ? { sport: plan.sport } : undefined;
@@ -45,11 +50,44 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
   const duplicatePlanBlock = useDuplicatePlanBlock(orgId, planId);
   const reorderPlanBlocks = useReorderPlanBlocks(orgId, planId);
   const createBlockFromSuggestion = useCreateEvaluationBlock(orgId);
+  const updatePlan = useUpdateEvaluationPlan(orgId);
 
   const planBlocks = useMemo(() => {
     const items = planBlocksQuery.data ?? [];
     return [...items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   }, [planBlocksQuery.data]);
+
+  const planFormValues = useMemo<CreatePlanFormValues>(() => ({
+    name: plan?.name ?? "",
+    sport: plan?.sport ?? "",
+    ageGroup: plan?.ageGroup ?? "",
+    gender: plan?.gender ?? "",
+    evaluationCategory: plan?.evaluationCategory ?? "skill",
+    scope: (plan?.scope as "club" | "team") ?? "club",
+    teamId: plan?.teamId ?? "",
+  }), [plan]);
+
+  const handleUpdatePlan = async (formValues: CreatePlanFormValues) => {
+    try {
+      setSettingsError(null);
+      const normalized = {
+        name: formValues.name,
+        sport: formValues.sport,
+        ageGroup: formValues.ageGroup?.trim() ? formValues.ageGroup : null,
+        gender: formValues.gender?.trim() ? formValues.gender : null,
+        evaluationCategory: formValues.evaluationCategory,
+        scope: formValues.scope,
+        teamId: formValues.scope === "team" ? (formValues.teamId?.trim() || null) : null,
+      };
+      await updatePlan.mutateAsync({
+        planId,
+        values: normalized,
+      });
+      setSettingsOpen(false);
+    } catch {
+      setSettingsError("Unable to update plan");
+    }
+  };
 
   const handleAddBlock = async (blockId: string) => {
     try {
@@ -137,7 +175,12 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
           <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">{plan.name}</h1>
           <p className="text-sm text-[var(--color-navy-500)]">{plan.sport}</p>
         </div>
-        <Badge variant="info">{plan.scope === "team" ? "Team" : "Club"}</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="info">{plan.scope === "team" ? "Team" : "Club"}</Badge>
+          <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)}>
+            Edit plan
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 text-sm text-[var(--color-navy-700)] sm:grid-cols-2 lg:grid-cols-4">
@@ -198,6 +241,15 @@ export function EvaluationPlanDetailPageClient({ orgId, planId }: EvaluationPlan
           />
         </div>
       </div>
+      <PlanSettingsModal
+        key={isSettingsOpen ? `${plan.id}-open` : `${plan.id}-closed`}
+        open={isSettingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialValues={planFormValues}
+        onSubmit={handleUpdatePlan}
+        isSubmitting={updatePlan.isPending}
+        errorMessage={settingsError ?? undefined}
+      />
     </div>
   );
 }
