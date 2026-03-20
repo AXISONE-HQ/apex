@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import logger from "../../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 import { requireSession } from "../../middleware/requireSession.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
 import { badRequest, notFound, parsePagination } from "./_helpers.js";
@@ -22,6 +22,10 @@ const PAYMENT_MANAGE_PERMISSION = "payments.function.manage";
 const PAYMENTS_VIEW_PERMISSION = "payments.page.view";
 const PAYMENTS_VIEW_OWN = "payments.page.view_own";
 const PAY_PERMISSION = "payments.function.pay";
+
+function resolvePaymentsHelper(req, key, fallback) {
+  return req.app?.locals?.payments?.[key] || fallback;
+}
 
 router.get("/fees", requireSession, requirePermission(PAYMENTS_VIEW_PERMISSION), async (req, res) => {
   const orgId = req.user?.activeOrgId;
@@ -179,7 +183,8 @@ router.post("/invoices/:id/checkout", requireSession, requirePermission(PAY_PERM
     return badRequest(res, "Stripe account not connected for this club");
   }
 
-  const session = await createCheckoutSession({
+  const checkoutImpl = resolvePaymentsHelper(req, "createCheckoutSession", createCheckoutSession);
+  const session = await checkoutImpl({
     orgId,
     invoiceId: invoice.id,
     amountCents: invoice.amount_cents,
@@ -207,9 +212,10 @@ router.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     const signature = req.headers["stripe-signature"];
+    const constructEventImpl = resolvePaymentsHelper(req, "constructWebhookEvent", constructWebhookEvent);
     let event;
     try {
-      event = constructWebhookEvent(req.body, signature);
+      event = constructEventImpl(req.body, signature);
     } catch (err) {
       logger.error({ err }, "Stripe webhook signature verification failed");
       return res.status(400).json({ error: "invalid_signature" });

@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import logger from "./logger.js";
+import { logger } from "./logger.js";
 
 const STRIPE_API_VERSION = "2024-06-20";
 
