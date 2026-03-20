@@ -187,7 +187,7 @@ beforeEach(() => {
   mockUseEvaluationSession.mockReturnValue({ data: sampleSession, isLoading: false, isError: false, refetch: vi.fn() });
   mockUseTeamPlayers.mockReturnValue({ data: [samplePlayer], isLoading: false, isError: false });
   mockUseSessionScores.mockReturnValue({ data: [sampleScore], isLoading: false, isError: false });
-  mockUseEvaluationSessionSummary.mockReturnValue({ data: { sessionId: "session-1", playersEvaluated: 1, blocksEvaluated: 1, averageScoresByBlock: [], topPlayers: [], lowestPlayers: [] }, isLoading: false, isError: false });
+  mockUseEvaluationSessionSummary.mockReturnValue({ data: { sessionId: "session-1", playersEvaluated: 1, blocksEvaluated: 1, averageScoresByBlock: [], topPlayers: [], lowestPlayers: [] }, isLoading: false, isError: false, refetch: vi.fn() });
   mockUseEvaluationPlayerSummary.mockReturnValue({ data: { playerId: "player-1", playerName: "Alex Forward", overallScore: 85, blocks: [] }, isLoading: false, isError: false, refetch: vi.fn() });
   mockUseStartEvaluationSession.mockReturnValue({ mutateAsync: startSessionMutation, isPending: false });
   mockUseCompleteEvaluationSession.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(sampleSession), isPending: false });
@@ -267,6 +267,51 @@ describe("evaluations UI flows", () => {
     await waitFor(() =>
       expect(submitScore).toHaveBeenCalledWith({ playerId: "player-1", blockId: "block-1", score: { value: 9 }, notes: "" })
     );
+  });
+
+  it("starts and completes a session", async () => {
+    const startSessionMutation = vi.fn().mockResolvedValue({ id: "session-1" });
+    mockUseStartEvaluationSession.mockReturnValue({ mutateAsync: startSessionMutation, isPending: false });
+    mockUseEvaluationSessions.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    const sessionsView = render(<EvaluationSessionsPageClient orgId="org-1" />);
+    const startButtons = screen.getAllByRole("button", { name: /^Start session$/i });
+    fireEvent.click(startButtons[0]);
+    fireEvent.change(screen.getByLabelText(/Evaluation plan/i), { target: { value: "plan-1" } });
+    fireEvent.change(screen.getByLabelText(/^Event/i), { target: { value: "event-1" } });
+    const modalStartButton = screen.getAllByRole("button", { name: /^Start session$/i }).pop();
+    expect(modalStartButton).toBeTruthy();
+    fireEvent.click(modalStartButton!);
+    await waitFor(() =>
+      expect(startSessionMutation).toHaveBeenCalledWith({ evaluationPlanId: "plan-1", eventId: "event-1" })
+    );
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/app/evaluations/sessions/session-1"));
+    sessionsView.unmount();
+
+    mockUseEvaluationSessions.mockReturnValue({ data: [{ ...sampleSession, completedAt: null }], isLoading: false, isError: false, refetch: vi.fn() });
+    const sessionsTableView = render(<EvaluationSessionsPageClient orgId="org-1" />);
+    const sessionRow = within(screen.getByRole("table")).getAllByRole("row")[1];
+    await waitFor(() => expect(within(sessionRow).getByText(/In progress/i)).toBeInTheDocument());
+    sessionsTableView.unmount();
+
+    let currentSession = { ...sampleSession, completedAt: null };
+    const refreshSession = () => ({ data: currentSession, isLoading: false, isError: false, refetch: vi.fn() });
+    mockUseEvaluationSession.mockReturnValue(refreshSession());
+    const completeSessionMutation = vi.fn().mockImplementation(async () => {
+      currentSession = { ...currentSession, completedAt: "2026-03-21T12:00:00Z" };
+      mockUseEvaluationSession.mockReturnValue(refreshSession());
+    });
+    mockUseCompleteEvaluationSession.mockReturnValue({ mutateAsync: completeSessionMutation, isPending: false });
+
+    const detailView = render(<EvaluationSessionDetailPageClient orgId="org-1" sessionId="session-1" />);
+    const completeButton = await screen.findByRole("button", { name: /Complete session/i });
+    fireEvent.click(completeButton);
+    await waitFor(() => expect(completeSessionMutation).toHaveBeenCalled());
+    detailView.rerender(<EvaluationSessionDetailPageClient orgId="org-1" sessionId="session-1" />);
+    await waitFor(() => expect(screen.getByText(/Completed/i, { selector: "span" })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Complete session/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId("score-save-button")).toBeDisabled();
+    detailView.unmount();
   });
 
   it("creates and edits manual player evaluations", async () => {
