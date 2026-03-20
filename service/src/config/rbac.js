@@ -19,7 +19,8 @@ export const rolePermissions = {
     "admin.function.user.disable",
     "admin.function.role.assign",
     "admin.function.audit.view",
-    "profile.*"
+    "profile.*",
+    "payments.*"
   ],
   ManagerCoach: [
     "dashboard.*",
@@ -82,6 +83,8 @@ export const rolePermissions = {
     "matches.card.schedule.view",
     "matches.card.result.view",
     "analytics.page.view",
-    "analytics.card.team.view"
+    "analytics.card.team.view",
+    "payments.page.view_own",
+    "payments.function.pay"
   ]
 };
