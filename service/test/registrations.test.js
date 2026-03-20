@@ -13,6 +13,7 @@ const SEASON_INACTIVE = "00000000-0000-0000-0000-00000000a222";
 const GUARDIAN_ID = "00000000-0000-0000-0000-0000000000a1";
 const ADMIN_USER_ID = "00000000-0000-0000-0000-00000000a999";
 const GUARDIAN_USER_ID = "00000000-0000-0000-0000-0000000000b9";
+const UNAUTHORIZED_USER_ID = "00000000-0000-0000-0000-00000000bbbb";
 
 const RUN_ID = Date.now().toString(36);
 
@@ -56,6 +57,21 @@ async function seedDb() {
        ON CONFLICT (id) DO UPDATE SET org_id = excluded.org_id`,
       [GUARDIAN_ID, ORG_ID, `guardian-${RUN_ID}@example.com`, now]
     );
+
+    const seededUsers = [
+      { id: ADMIN_USER_ID, name: "Org Admin", email: `admin-${RUN_ID}@example.com` },
+      { id: GUARDIAN_USER_ID, name: "Guardian User", email: `guardian-user-${RUN_ID}@example.com` },
+      { id: UNAUTHORIZED_USER_ID, name: "Coach User", email: `coach-${RUN_ID}@example.com` },
+    ];
+
+    for (const { id, name, email } of seededUsers) {
+      await query(
+        `INSERT INTO users (id, external_uid, email, name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET email = excluded.email`,
+        [id, email, email, name]
+      );
+    }
 
     guardianId = GUARDIAN_ID;
     return;
@@ -120,7 +136,7 @@ const adminUser = makeUser({
 });
 
 const unauthorizedUser = makeUser({
-  id: "00000000-0000-0000-0000-00000000bbbb",
+  id: UNAUTHORIZED_USER_ID,
   roles: ["Coach"],
   permissions: [],
 });
