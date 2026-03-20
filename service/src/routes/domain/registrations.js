@@ -150,9 +150,10 @@ router.delete(
     if (!orgId) return badRequest(res, "active org required");
     const guardianId = req.user?.guardianId;
     if (!guardianId) return res.status(403).json({ error: "forbidden", reason: "guardian_only" });
+    const actingUserId = req.user?.id || null;
 
     try {
-      const registration = await withdrawRegistration(orgId, req.params.id, guardianId);
+      const registration = await withdrawRegistration(orgId, req.params.id, guardianId, actingUserId);
       if (!registration) return notFound(res, "registration_not_found");
       return res.status(200).json({ registration });
     } catch (err) {

@@ -203,7 +203,7 @@ export async function updateRegistrationStatus(
   return serializeRow(updated);
 }
 
-export async function withdrawRegistration(orgId, registrationId, guardianId) {
+export async function withdrawRegistration(orgId, registrationId, guardianId, actingUserId = null) {
   const registration = await getRegistration(orgId, registrationId);
   if (!registration) return null;
   if (String(registration.guardian_id) !== String(guardianId)) {
@@ -218,7 +218,7 @@ export async function withdrawRegistration(orgId, registrationId, guardianId) {
   }
   return updateRegistrationStatus(orgId, registrationId, {
     status: "withdrawn",
-    reviewedBy: guardianId,
+    reviewedBy: actingUserId ?? guardianId,
   });
 }
 

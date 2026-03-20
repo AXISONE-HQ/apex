@@ -55,6 +55,14 @@ async function seedDb() {
      ON CONFLICT DO NOTHING`,
     [USER_PLATFORM, "ext-platform-1", "platform@example.com", "Platform Admin"]
   );
+
+  // Ensure deterministic state before each suite run so the first GET sees an empty object.
+  await query(
+    `UPDATE organizations
+     SET settings = '{}'::jsonb
+     WHERE id = ANY($1::uuid[])`,
+    [[ORG_1, ORG_2, ORG_3]]
+  );
 }
 
 test.before(async () => {
