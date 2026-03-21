@@ -19,6 +19,38 @@ export interface Team {
   linkedAt?: string | null;
 }
 
+export type SeasonStatus = "draft" | "active" | "completed" | "archived";
+
+export interface Season {
+  id: string;
+  orgId: string;
+  label: string;
+  year: number | null;
+  status: SeasonStatus;
+  startsOn?: string | null;
+  endsOn?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type RegistrationStatus = "pending" | "approved" | "rejected" | "waitlisted" | "withdrawn";
+
+export interface Registration {
+  id: string;
+  orgId: string;
+  seasonId: string;
+  playerId: string;
+  guardianId: string;
+  status: RegistrationStatus;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  notes?: string | null;
+  waitlistPosition?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ClubSummary {
   id: string;
   name: string;
@@ -286,4 +318,22 @@ export interface SessionScore {
     jerseyNumber?: number | null;
   } | null;
   block?: EvaluationBlock | null;
+}
+
+export type PlayerEvaluationStatus = "draft" | "published";
+
+export interface PlayerEvaluation {
+  id: string;
+  orgId: string;
+  playerId: string;
+  eventId?: string | null;
+  authorUserId?: string | null;
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status: PlayerEvaluationStatus;
+  createdAt?: string;
+  updatedAt?: string;
 }

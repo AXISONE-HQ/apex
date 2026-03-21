@@ -13,8 +13,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app/dashboard", label: "Dashboard" },
-  { href: "/app/schedule", label: "Schedule" },
   { href: "/app/teams", label: "Teams" },
+  { href: "/app/seasons", label: "Seasons" },
+  { href: "/app/registrations", label: "Registrations" },
+  { href: "/app/schedule", label: "Schedule" },
   { href: "/app/players", label: "Players" },
   { href: "/app/guardians", label: "Guardians" },
   { href: "/app/events", label: "Events" },

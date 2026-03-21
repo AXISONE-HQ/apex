@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import app from "../src/server.js";
 
@@ -28,7 +29,7 @@ function headersFor(user) {
 
 async function createTeamRecord(orgId, user) {
   const payload = {
-    name: `Team ${teamCounter++}`,
+    name: `Team ${teamCounter++}-${randomUUID().slice(0, 8)}`,
     season_year: 2026,
     season_label: "2026 Outdoor",
     sport: "soccer",

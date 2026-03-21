@@ -62,7 +62,9 @@ it("shows validation error when names are missing", async () => {
 
   await userEvent.click(screen.getByRole("button", { name: /create player/i }));
 
-  const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent(/first and last name are required/i);
+  await waitFor(() => {
+    expect(screen.getByText(/first name is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/last name is required/i)).toBeInTheDocument();
+  });
   expect(mutateAsync).not.toHaveBeenCalled();
 });

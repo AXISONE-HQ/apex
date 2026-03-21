@@ -19,6 +19,36 @@ export interface ApiTeam {
   updated_at?: string;
 }
 
+export interface ApiSeason {
+  id: string;
+  org_id: string;
+  label: string;
+  year?: number | null;
+  status: "draft" | "active" | "completed" | "archived";
+  starts_on?: string | null;
+  ends_on?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type ApiRegistrationStatus = "pending" | "approved" | "rejected" | "waitlisted" | "withdrawn";
+
+export interface ApiRegistration {
+  id: string;
+  org_id: string;
+  season_id: string;
+  player_id: string;
+  guardian_id: string;
+  status: ApiRegistrationStatus;
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  notes?: string | null;
+  waitlist_position?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ApiPlayer {
   id: string;
   org_id: string;
@@ -128,9 +158,26 @@ export interface ApiListResponse<T> {
   items: T[];
 }
 
+export interface ApiPagedListResponse<T> extends ApiListResponse<T> {
+  paging?: {
+    limit?: number;
+    offset?: number;
+  } | null;
+}
+
 export type TeamsResponse = ApiListResponse<ApiTeam>;
 export type PlayersResponse = ApiListResponse<ApiPlayer>;
 export type EventsResponse = ApiListResponse<ApiEvent>;
+export type SeasonsResponse = ApiListResponse<ApiSeason>;
+export type RegistrationsResponse = ApiPagedListResponse<ApiRegistration>;
+
+export interface SeasonResponse {
+  item: ApiSeason;
+}
+
+export interface RegistrationResponse {
+  registration: ApiRegistration;
+}
 
 export interface GuardiansResponse {
   guardians: ApiGuardian[];
@@ -452,4 +499,29 @@ export interface ApiEvaluationPlanStrengthResponse {
   };
   recommendations: string[];
   evaluated_at?: string;
+}
+
+
+export interface ApiPlayerEvaluation {
+  id: string;
+  org_id: string;
+  player_id: string;
+  event_id?: string | null;
+  author_user_id?: string | null;
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status: "draft" | "published";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlayerEvaluationsResponse {
+  evaluations: ApiPlayerEvaluation[];
+}
+
+export interface PlayerEvaluationResponse {
+  evaluation: ApiPlayerEvaluation;
 }
