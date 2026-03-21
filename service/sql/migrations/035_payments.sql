@@ -25,9 +25,11 @@ CREATE TABLE IF NOT EXISTS payment_fees (
   fee_type payment_fee_type NOT NULL DEFAULT 'registration',
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(org_id, season_id, lower(name))
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_fees_org_season_name_lower
+  ON payment_fees(org_id, season_id, lower(name));
 
 CREATE INDEX IF NOT EXISTS idx_payment_fees_org_season
   ON payment_fees(org_id, season_id);
@@ -79,7 +81,7 @@ ALTER TABLE payment_club_stripe_accounts ENABLE ROW LEVEL SECURITY;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE polname = 'payment_fees_org_policy'
+    SELECT 1 FROM pg_policies WHERE policyname = 'payment_fees_org_policy'
   ) THEN
     CREATE POLICY payment_fees_org_policy ON payment_fees
       USING (
@@ -96,7 +98,7 @@ END$$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE polname = 'payment_invoices_org_policy'
+    SELECT 1 FROM pg_policies WHERE policyname = 'payment_invoices_org_policy'
   ) THEN
     CREATE POLICY payment_invoices_org_policy ON payment_invoices
       USING (
@@ -113,7 +115,7 @@ END$$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE polname = 'payment_invoices_guardian_read'
+    SELECT 1 FROM pg_policies WHERE policyname = 'payment_invoices_guardian_read'
   ) THEN
     CREATE POLICY payment_invoices_guardian_read ON payment_invoices
       FOR SELECT
@@ -133,7 +135,7 @@ END$$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE polname = 'payment_club_stripe_accounts_org_policy'
+    SELECT 1 FROM pg_policies WHERE policyname = 'payment_club_stripe_accounts_org_policy'
   ) THEN
     CREATE POLICY payment_club_stripe_accounts_org_policy ON payment_club_stripe_accounts
       USING (

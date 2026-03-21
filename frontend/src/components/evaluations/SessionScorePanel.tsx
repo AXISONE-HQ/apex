@@ -65,7 +65,7 @@ export function SessionScorePanel({
           onChange={(event) => onFormChange({ ...formState, notes: event.target.value })}
         />
       </div>
-      <Button onClick={onSave} disabled={disableInputs || isSaving}>
+      <Button data-testid="score-save-button" onClick={onSave} disabled={disableInputs || isSaving}>
         {isSaving ? "Saving…" : "Save score"}
       </Button>
     </div>
@@ -86,6 +86,7 @@ function ScoreInputs({ method, config, value, onChange, disabled }: ScoreInputsP
     const max = Number(config?.max ?? 10);
     return (
       <Input
+        data-testid="score-numeric-input"
         type="number"
         value={value.numericValue ?? ""}
         min={min}
@@ -103,6 +104,7 @@ function ScoreInputs({ method, config, value, onChange, disabled }: ScoreInputsP
           <Button
             key={option}
             type="button"
+            data-testid={`score-rating-${option}`}
             variant={value.ratingValue === option ? "primary" : "secondary"}
             size="sm"
             disabled={disabled}
@@ -118,6 +120,7 @@ function ScoreInputs({ method, config, value, onChange, disabled }: ScoreInputsP
     return (
       <div className="flex items-center gap-2">
         <Input
+          data-testid="score-custom-input"
           type="number"
           value={value.customValue ?? ""}
           disabled={disabled}

@@ -22,6 +22,7 @@ import {
   ApiEvaluationPlayerSummary,
   ApiEvaluationPlanStrengthResponse,
   ApiSessionScore,
+  ApiPlayerEvaluation,
 } from "@/types/api";
 import {
   AttendanceRecord,
@@ -50,6 +51,7 @@ import {
   EvaluationSessionSummary,
   EvaluationPlayerSummary,
   SessionScore,
+  PlayerEvaluation,
 } from "@/types/domain";
 
 export function mapTeam(api: ApiTeam): Team {
@@ -431,5 +433,23 @@ export function mapEvaluationPlanStrength(api: ApiEvaluationPlanStrengthResponse
     },
     recommendations: Array.isArray(api.recommendations) ? api.recommendations : [],
     evaluatedAt: api.evaluated_at ?? null,
+  };
+}
+
+export function mapPlayerEvaluation(api: ApiPlayerEvaluation): PlayerEvaluation {
+  return {
+    id: api.id,
+    orgId: api.org_id,
+    playerId: api.player_id,
+    eventId: api.event_id ?? null,
+    authorUserId: api.author_user_id ?? null,
+    title: api.title,
+    summary: api.summary ?? null,
+    strengths: api.strengths ?? null,
+    improvements: api.improvements ?? null,
+    rating: typeof api.rating === "number" ? api.rating : null,
+    status: api.status,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
   };
 }

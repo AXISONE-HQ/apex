@@ -96,4 +96,9 @@ export const queryKeys = {
     sessionId,
     playerId,
   ] as const,
+  playerEvaluations: (orgId: string, playerId: string) => [
+    "player-evaluations",
+    orgId,
+    playerId,
+  ] as const,
 };

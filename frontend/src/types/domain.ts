@@ -319,3 +319,21 @@ export interface SessionScore {
   } | null;
   block?: EvaluationBlock | null;
 }
+
+export type PlayerEvaluationStatus = "draft" | "published";
+
+export interface PlayerEvaluation {
+  id: string;
+  orgId: string;
+  playerId: string;
+  eventId?: string | null;
+  authorUserId?: string | null;
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status: PlayerEvaluationStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}

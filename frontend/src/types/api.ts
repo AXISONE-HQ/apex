@@ -500,3 +500,28 @@ export interface ApiEvaluationPlanStrengthResponse {
   recommendations: string[];
   evaluated_at?: string;
 }
+
+
+export interface ApiPlayerEvaluation {
+  id: string;
+  org_id: string;
+  player_id: string;
+  event_id?: string | null;
+  author_user_id?: string | null;
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status: "draft" | "published";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlayerEvaluationsResponse {
+  evaluations: ApiPlayerEvaluation[];
+}
+
+export interface PlayerEvaluationResponse {
+  evaluation: ApiPlayerEvaluation;
+}

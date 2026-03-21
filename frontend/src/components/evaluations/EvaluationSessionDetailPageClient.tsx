@@ -57,6 +57,7 @@ function SessionDetailInner({ orgId, sessionId, session, refetchSession }: { org
   const sessionScores = scoresQuery.data ?? EMPTY_SESSION_SCORES;
   const summaryQuery = useEvaluationSessionSummary(orgId, sessionId);
   const completeSession = useCompleteEvaluationSession(orgId, sessionId);
+  const totalBlocks = planBlocks.length;
 
   const submitScore = useSubmitPlayerScore(orgId, sessionId);
   const updateScore = useUpdatePlayerScore(orgId, sessionId);
@@ -113,6 +114,11 @@ function SessionDetailInner({ orgId, sessionId, session, refetchSession }: { org
     return map;
   }, [sessionScores]);
 
+  const completedPlayersCount = useMemo(() => {
+    if (!totalBlocks) return 0;
+    return players.filter((player) => (progressMap[player.id] ?? 0) >= totalBlocks).length;
+  }, [players, progressMap, totalBlocks]);
+
   const handleNextPlayer = () => {
     if (!players.length) return;
     const nextIndex = (safePlayerIndex + 1) % players.length;
@@ -156,6 +162,8 @@ function SessionDetailInner({ orgId, sessionId, session, refetchSession }: { org
         <Metadata label="Scope" value={formatPlanScope("team", session.teamId)} />
         <Metadata label="Started" value={session.startedAt ? new Date(session.startedAt).toLocaleString() : "—"} />
         <Metadata label="Completed" value={session.completedAt ? new Date(session.completedAt).toLocaleString() : "—"} />
+        <Metadata label="Players scored" value={`${completedPlayersCount}/${players.length}`} />
+        <Metadata label="Blocks" value={String(totalBlocks)} />
       </div>
 
       <EvaluationSectionNav />
@@ -178,7 +186,7 @@ function SessionDetailInner({ orgId, sessionId, session, refetchSession }: { org
               activePlayerId={activePlayerId}
               onSelect={(playerId) => { const index = players.findIndex((player) => player.id === playerId); if (index >= 0) setPlayerIndex(index); }}
               progress={progressMap}
-              totalBlocks={planBlocks.length}
+              totalBlocks={totalBlocks}
               disabled={sessionCompleted}
             />
           </div>
