@@ -28,6 +28,25 @@ async function ensureOrgExists(orgId) {
   );
 }
 
+async function ensureUserExists({ userId, orgId }) {
+  if (!hasDatabase()) return;
+  const emailSlug = userId.slice(0, 8);
+  await query(
+    `INSERT INTO users (id, external_uid, email, name)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (id) DO NOTHING`,
+    [userId, `practice-coach-${emailSlug}`, `practice-coach-${emailSlug}@example.com`, "Practice Coach"]
+  );
+  if (orgId) {
+    await query(
+      `INSERT INTO memberships (user_id, org_id)
+       VALUES ($1,$2)
+       ON CONFLICT (user_id, org_id) DO NOTHING`,
+      [userId, orgId]
+    );
+  }
+}
+
 async function makePlan(title = "Weeknight Session") {
   return await createPracticePlanForOrg({
     orgId: TEST_ORG_ID,
@@ -43,6 +62,7 @@ async function makePlan(title = "Weeknight Session") {
 
 test("practice plan service CRUD + block management (in-memory)", async () => {
   await ensureOrgExists(TEST_ORG_ID);
+  await ensureUserExists({ userId: TEST_COACH_ID, orgId: TEST_ORG_ID });
   const plan = await makePlan();
   assert.ok(plan.id, "plan should have id");
   assert.equal(plan.status, "draft");
