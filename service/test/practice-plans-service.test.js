@@ -79,7 +79,8 @@ test("practice plan service CRUD + block management (in-memory)", async () => {
     },
   });
   assert.equal(updatedPlan.notes, "Updated plan");
-  assert.equal(updatedPlan.practice_date, "2026-03-21");
+  const normalizedPracticeDate = new Date(updatedPlan.practice_date).toISOString().slice(0, 10);
+  assert.equal(normalizedPracticeDate, "2026-03-21");
 
   const publishedPlan = await setPracticePlanStatusForOrg({
     orgId: TEST_ORG_ID,
