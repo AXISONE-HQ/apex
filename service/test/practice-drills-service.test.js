@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import {
   createPracticeDrillForOrg,
@@ -9,7 +10,7 @@ import {
   updatePracticeDrillForOrg,
 } from "../src/services/practiceDrillsService.js";
 
-const TEST_ORG_ID = `org_practice_drills_${Date.now()}`;
+const TEST_ORG_ID = randomUUID();
 
 test("practice drill service CRUD + validation (in-memory)", async () => {
   const basePayload = {

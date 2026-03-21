@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import {
   addPracticePlanBlockForOrg,
@@ -15,7 +16,7 @@ import {
   updatePracticePlanForOrg,
 } from "../src/services/practicePlansService.js";
 
-const TEST_ORG_ID = `org_practice_plans_${Date.now()}`;
+const TEST_ORG_ID = randomUUID();
 
 async function makePlan(title = "Weeknight Session") {
   return await createPracticePlanForOrg({
