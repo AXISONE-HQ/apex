@@ -112,7 +112,31 @@ const samplePlanBlock = {
   },
 };
 
-const sampleBlockLibrary = [samplePlanBlock.block!];
+const samplePlanBlockTwo = {
+  id: "plan-block-2",
+  planId: "plan-1",
+  blockId: "block-2",
+  position: 2,
+  createdAt: "2026-03-20T10:05:00Z",
+  block: {
+    id: "block-2",
+    orgId: "org-1",
+    teamId: null,
+    name: "Finishing Drill",
+    sport: "soccer",
+    evaluationType: "technical",
+    scoringMethod: "numeric_scale" as const,
+    scoringConfig: { min: 0, max: 10 },
+    instructions: "Shoot it",
+    categories: ["finishing"],
+    difficulty: "hard",
+    objective: "goals",
+    createdAt: "2026-03-20T09:10:00Z",
+    updatedAt: "2026-03-20T09:40:00Z",
+  },
+};
+
+const sampleBlockLibrary = [samplePlanBlock.block!, samplePlanBlockTwo.block!];
 
 const sampleSession = {
   id: "session-1",
@@ -145,6 +169,16 @@ const sampleScore = {
   updatedAt: "2026-03-21T10:15:00Z",
 };
 
+const sampleScoreTwo = {
+  id: "score-2",
+  sessionId: "session-1",
+  playerId: "player-1",
+  blockId: "block-2",
+  score: { value: 9 },
+  notes: "Finish",
+  updatedAt: "2026-03-21T10:20:00Z",
+};
+
 
 let createPlanMutation: ReturnType<typeof vi.fn>;
 let addPlanBlockMutation: ReturnType<typeof vi.fn>;
@@ -175,7 +209,7 @@ beforeEach(() => {
   mockUseCreateEvaluationPlan.mockReturnValue({ mutateAsync: createPlanMutation, isPending: false, error: null });
   mockUseUpdateEvaluationPlan.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(samplePlan), isPending: false, error: null });
   mockUseEvaluationPlan.mockReturnValue({ data: samplePlan, isLoading: false, isError: false, refetch: vi.fn() });
-  mockUseEvaluationPlanBlocks.mockReturnValue({ data: [samplePlanBlock], isLoading: false, isError: false, refetch: vi.fn(), isFetching: false });
+  mockUseEvaluationPlanBlocks.mockReturnValue({ data: [samplePlanBlock, samplePlanBlockTwo], isLoading: false, isError: false, refetch: vi.fn(), isFetching: false });
   mockUseEvaluationBlocks.mockReturnValue({ data: sampleBlockLibrary, isLoading: false, isError: false });
   mockUseAddPlanBlock.mockReturnValue({ mutateAsync: addPlanBlockMutation, isPending: false });
   mockUseRemovePlanBlock.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(true), isPending: false });
@@ -225,8 +259,83 @@ describe("evaluations UI flows", () => {
   it("adds a block from plan detail", async () => {
     render(<EvaluationPlanDetailPageClient orgId="org-1" planId="plan-1" />);
     await waitFor(() => expect(screen.getByText(/Plan blocks/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /add/i }));
+    const libraryPanel = screen.getByText(/Block library/i).closest("div")?.parentElement?.parentElement;
+    const addButtons = within(libraryPanel as HTMLElement).getAllByRole("button", { name: /^Add$/i });
+    fireEvent.click(addButtons[0]);
     await waitFor(() => expect(addPlanBlockMutation).toHaveBeenCalledWith("block-1"));
+  });
+
+  it("reorders plan blocks", async () => {
+    let planBlocksState = [
+      { ...samplePlanBlock, position: 1 },
+      { ...samplePlanBlockTwo, position: 2 },
+    ];
+    const updatePlanBlocks = (next) => {
+      planBlocksState = next;
+      mockUseEvaluationPlanBlocks.mockReturnValue({
+        data: planBlocksState,
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+        isFetching: false,
+      });
+    };
+    updatePlanBlocks(planBlocksState);
+    const reorderMutation = vi.fn().mockResolvedValue(planBlocksState);
+    mockUseReorderPlanBlocks.mockReturnValue({ mutateAsync: reorderMutation, isPending: false });
+
+    const view = render(<EvaluationPlanDetailPageClient orgId="org-1" planId="plan-1" />);
+    fireEvent.click(screen.getAllByRole("button", { name: "↓" })[0]);
+    await waitFor(() => expect(reorderMutation).toHaveBeenCalledWith(["plan-block-2", "plan-block-1"]));
+    updatePlanBlocks([
+      { ...samplePlanBlockTwo, position: 1 },
+      { ...samplePlanBlock, position: 2 },
+    ]);
+    view.rerender(<EvaluationPlanDetailPageClient orgId="org-1" planId="plan-1" />);
+    const planBlocksSection = screen.getByRole("heading", { name: /Plan blocks/i }).parentElement?.parentElement;
+    const blockHeadings = within(planBlocksSection as HTMLElement).getAllByRole("heading", { level: 3 });
+    expect(blockHeadings[0]).toHaveTextContent("Finishing Drill");
+    view.unmount();
+  });
+
+  it("duplicates a plan block", async () => {
+    let planBlocksState = [
+      { ...samplePlanBlock, position: 1 },
+      { ...samplePlanBlockTwo, position: 2 },
+    ];
+    const updatePlanBlocks = (next) => {
+      planBlocksState = next;
+      mockUseEvaluationPlanBlocks.mockReturnValue({
+        data: planBlocksState,
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+        isFetching: false,
+      });
+    };
+    updatePlanBlocks(planBlocksState);
+    const duplicateMutation = vi.fn().mockImplementation(async () => {
+      const duplicated = {
+        ...samplePlanBlock,
+        id: "plan-block-3",
+        blockId: "block-3",
+        position: 3,
+        block: { ...samplePlanBlock.block, id: "block-3", name: "Dribble Drill (copy)" },
+      };
+      updatePlanBlocks([...planBlocksState, duplicated]);
+    });
+    mockUseDuplicatePlanBlock.mockReturnValue({ mutateAsync: duplicateMutation, isPending: false });
+
+    const view = render(<EvaluationPlanDetailPageClient orgId="org-1" planId="plan-1" />);
+    const duplicateButtons = screen.getAllByRole("button", { name: /Duplicate/i });
+    fireEvent.click(duplicateButtons[0]);
+    await waitFor(() => expect(duplicateMutation).toHaveBeenCalledWith("plan-block-1"));
+    view.rerender(<EvaluationPlanDetailPageClient orgId="org-1" planId="plan-1" />);
+    const planBlocksSection = screen.getByRole("heading", { name: /Plan blocks/i }).parentElement?.parentElement;
+    const blockHeadings = within(planBlocksSection as HTMLElement).getAllByRole("heading", { level: 3 });
+    expect(blockHeadings).toHaveLength(3);
+    expect(blockHeadings[2]).toHaveTextContent("Dribble Drill (copy)");
+    view.unmount();
   });
 
   it("filters sessions by search and status", async () => {
@@ -246,6 +355,7 @@ describe("evaluations UI flows", () => {
   });
 
   it("filters player roster and shows completion badge", async () => {
+    mockUseSessionScores.mockReturnValue({ data: [sampleScore, sampleScoreTwo], isLoading: false, isError: false });
     render(<EvaluationSessionDetailPageClient orgId="org-1" sessionId="session-1" />);
     await waitFor(() => expect(screen.getByRole("heading", { name: /Session/i })).toBeInTheDocument());
     fireEvent.change(screen.getByTestId("session-player-search"), { target: { value: "alex" } });
