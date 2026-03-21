@@ -473,7 +473,7 @@ export function SeasonDetailPageClient({ orgId, seasonId }: SeasonDetailPageClie
                       <div>
                         <p className="font-medium text-[var(--color-navy-800)]">{team.name}</p>
                         <p className="text-xs text-[var(--color-navy-500)]">
-                          {team.seasonLabel ? `Season ${team.seasonLabel}` : "No season"} · {team.teamLevel ?? team.competitionLevel ?? "—"}
+                          {team.seasonLabel ? `Season ${team.seasonLabel}` : "No season"} · {team.competitionLevel ?? team.ageCategory ?? "—"}
                         </p>
                       </div>
                     </label>
