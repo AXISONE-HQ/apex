@@ -17,11 +17,12 @@ import {
 } from "../src/services/practicePlansService.js";
 
 const TEST_ORG_ID = randomUUID();
+const TEST_COACH_ID = randomUUID();
 
 async function makePlan(title = "Weeknight Session") {
   return await createPracticePlanForOrg({
     orgId: TEST_ORG_ID,
-    userId: "coach_456",
+    userId: TEST_COACH_ID,
     payload: {
       title,
       durationMinutes: 90,

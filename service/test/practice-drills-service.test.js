@@ -11,6 +11,7 @@ import {
 } from "../src/services/practiceDrillsService.js";
 
 const TEST_ORG_ID = randomUUID();
+const TEST_COACH_ID = randomUUID();
 
 test("practice drill service CRUD + validation (in-memory)", async () => {
   const basePayload = {
@@ -23,7 +24,7 @@ test("practice drill service CRUD + validation (in-memory)", async () => {
 
   const created = await createPracticeDrillForOrg({
     orgId: TEST_ORG_ID,
-    userId: "coach_123",
+    userId: TEST_COACH_ID,
     payload: basePayload,
   });
 
