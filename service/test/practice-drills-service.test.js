@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { hasDatabase, query } from "../src/db/client.js";
 
 import {
   createPracticeDrillForOrg,
@@ -10,10 +11,20 @@ import {
   updatePracticeDrillForOrg,
 } from "../src/services/practiceDrillsService.js";
 
+
 const TEST_ORG_ID = "00000000-0000-0000-0000-000000000001";
 const TEST_COACH_ID = randomUUID();
 
+async function ensureOrgExists(orgId) {
+  if (!hasDatabase()) return;
+  await query(
+    `INSERT INTO organizations (id, name, slug) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING`,
+    [orgId, `Practice Test Org ${orgId.slice(0, 8)}`, `practice-tests-${orgId.slice(0, 8)}`]
+  );
+}
+
 test("practice drill service CRUD + validation (in-memory)", async () => {
+  await ensureOrgExists(TEST_ORG_ID);
   const basePayload = {
     name: "Rapid Fire",
     category: "shooting",
