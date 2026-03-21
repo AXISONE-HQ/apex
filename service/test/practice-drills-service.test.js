@@ -10,7 +10,7 @@ import {
   updatePracticeDrillForOrg,
 } from "../src/services/practiceDrillsService.js";
 
-const TEST_ORG_ID = randomUUID();
+const TEST_ORG_ID = "00000000-0000-0000-0000-000000000001";
 const TEST_COACH_ID = randomUUID();
 
 test("practice drill service CRUD + validation (in-memory)", async () => {

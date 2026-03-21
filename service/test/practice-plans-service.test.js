@@ -16,7 +16,7 @@ import {
   updatePracticePlanForOrg,
 } from "../src/services/practicePlansService.js";
 
-const TEST_ORG_ID = randomUUID();
+const TEST_ORG_ID = "00000000-0000-0000-0000-000000000001";
 const TEST_COACH_ID = randomUUID();
 
 async function makePlan(title = "Weeknight Session") {
