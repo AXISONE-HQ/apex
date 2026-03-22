@@ -15,6 +15,7 @@ import { useCheckInPlayer, useTryout, useTryoutAttendance } from "@/queries/tryo
 import { useEvaluationSessionSummary, useSessionScores } from "@/queries/evaluations";
 import { useTeams } from "@/queries/teams";
 import type {
+  EvaluationSessionSummary,
   TryoutAttendanceData,
   TryoutAttendanceRecord,
   TryoutDetail,
@@ -156,6 +157,7 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
         <Button variant="secondary">Begin Scoring</Button>
         <Button variant="ghost">Finalize Results</Button>
       </div>
+
     </div>
   );
 }
@@ -477,6 +479,188 @@ function QuickCheckInPanel({ sessions, records, onQuickCheckIn, isSubmitting }: 
     </div>
   );
 }
+function EvaluationSummaryPanel({ summary }: { summary?: EvaluationSessionSummary | null }) {
+  if (!summary) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Evaluation highlights</CardTitle>
+          <CardDescription>Scores will appear here once evaluators submit results.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          <EmptyState message="No evaluation data for this session yet." />
+        </div>
+      </Card>
+    );
+  }
+
+  const blockAverages = summary.averageScoresByBlock.slice(0, 6);
+  const topPlayers = summary.topPlayers.slice(0, 5);
+  const lowestPlayers = summary.lowestPlayers.slice(0, 3);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Block averages</CardTitle>
+          <CardDescription>Per-block scoring snapshots for this session.</CardDescription>
+        </CardHeader>
+        <div className="divide-y divide-[var(--color-navy-100)]">
+          {blockAverages.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-[var(--color-navy-500)]">Evaluations will populate once scoring starts.</div>
+          ) : (
+            blockAverages.map((block, index) => (
+              <div key={block.blockId || index} className="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                  <p className="font-semibold text-[var(--color-navy-900)]">{block.blockName ?? `Block ${index + 1}`}</p>
+                  <p className="text-xs text-[var(--color-navy-500)]">Average score</p>
+                </div>
+                <span className="text-base font-semibold text-[var(--color-navy-800)]">{block.averageScore.toFixed(1)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>AI ranking highlights</CardTitle>
+          <CardDescription>Top performers and watch list.</CardDescription>
+        </CardHeader>
+        <div className="space-y-4 p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Top players</p>
+            <ul className="mt-2 space-y-2">
+              {topPlayers.length === 0 ? (
+                <li className="text-sm text-[var(--color-navy-500)]">Rankings will appear after first scores.</li>
+              ) : (
+                topPlayers.map((player, index) => (
+                  <li key={player.playerId || index} className="flex items-center justify-between text-sm">
+                    <span>
+                      <span className="mr-2 rounded-full bg-[var(--color-blue-100)] px-2 py-0.5 text-xs font-semibold text-[var(--color-blue-700)]">#{index + 1}</span>
+                      {player.playerName ?? "Unnamed"}
+                    </span>
+                    <span className="font-semibold text-[var(--color-navy-800)]">{player.overallScore.toFixed(1)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Watch list</p>
+            <ul className="mt-2 space-y-2">
+              {lowestPlayers.length === 0 ? (
+                <li className="text-sm text-[var(--color-navy-500)]">No watch list yet.</li>
+              ) : (
+                lowestPlayers.map((player) => (
+                  <li key={player.playerId} className="flex items-center justify-between text-sm">
+                    <span>{player.playerName ?? "Player"}</span>
+                    <span>{player.overallScore.toFixed(1)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+interface TeamAssignmentStat {
+  id: string;
+  name: string;
+  count: number;
+}
+
+interface RosterGenerationPanelProps {
+  isFinalized: boolean;
+  rosterGenerated: boolean;
+  isGenerating: boolean;
+  assignedCount: number;
+  lockedLabel: string | null;
+  teamStats: TeamAssignmentStat[];
+  onGenerateRosters: () => void;
+  onViewTeams: () => void;
+}
+
+function RosterGenerationPanel({
+  isFinalized,
+  rosterGenerated,
+  isGenerating,
+  assignedCount,
+  lockedLabel,
+  teamStats,
+  onGenerateRosters,
+  onViewTeams,
+}: RosterGenerationPanelProps) {
+  if (!isFinalized) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Roster generation</CardTitle>
+          <CardDescription>Finalize placements to unlock roster exports.</CardDescription>
+        </CardHeader>
+        <div className="p-6 text-sm text-[var(--color-navy-600)]">Finalize placements above to enable roster generation and syncing to Teams.</div>
+      </Card>
+    );
+  }
+
+  const activeTeams = teamStats.filter((stat) => stat.count > 0);
+  const hasAssignments = assignedCount > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Roster generation</CardTitle>
+        <CardDescription>{lockedLabel ? `Placements locked ${lockedLabel}.` : "Placements locked."}</CardDescription>
+      </CardHeader>
+      <div className="space-y-5 p-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetric label="Players Assigned" value={assignedCount} />
+          <SummaryMetric label="Teams Tagged" value={activeTeams.length} />
+          <SummaryMetric label="Roster Status" value={rosterGenerated ? "Generated" : hasAssignments ? "Ready" : "Needs assignments"} />
+          <SummaryMetric label="Last Action" value={lockedLabel ?? "Just now"} />
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-[var(--color-navy-800)]">Assignment preview</p>
+          {activeTeams.length === 0 ? (
+            <p className="text-sm text-[var(--color-navy-500)]">Assign players to teams above to preview rosters.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {activeTeams.slice(0, 6).map((team) => (
+                <div key={team.id} className="rounded-xl border border-[var(--color-navy-100)] px-3 py-2">
+                  <p className="text-sm font-semibold text-[var(--color-navy-900)]">{team.name}</p>
+                  <p className="text-xs text-[var(--color-navy-500)]">{team.count} player{team.count === 1 ? "" : "s"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[var(--color-navy-600)]">
+            {rosterGenerated
+              ? "Rosters synced — share them with coaches or jump to Teams."
+              : hasAssignments
+              ? "Generate official rosters and sync those teams instantly."
+              : "Assign players to teams to enable automated roster generation."}
+          </p>
+          {rosterGenerated ? (
+            <Button size="sm" variant="secondary" onClick={onViewTeams}>
+              View Teams
+            </Button>
+          ) : (
+            <Button size="sm" onClick={onGenerateRosters} disabled={!hasAssignments || isGenerating}>
+              {isGenerating ? "Generating..." : "Generate Rosters"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 const RESULT_STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "offered", label: "Offered" },
@@ -500,10 +684,23 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const scoresQuery = useSessionScores(orgId, selectedSessionId);
   const teamsQuery = useTeams(orgId);
   const teams = useMemo(() => teamsQuery.data ?? [], [teamsQuery.data]);
+  const sessionSummary = summaryQuery.data;
   const [playerStatuses, setPlayerStatuses] = useState<Record<string, ResultStatus>>(() =>
     initializeResultStatuses(tryout.participants)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
+  const teamAssignmentStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    Object.values(teamAssignments).forEach((teamId) => {
+      if (!teamId) return;
+      counts.set(teamId, (counts.get(teamId) ?? 0) + 1);
+    });
+    return teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      count: counts.get(team.id) ?? 0,
+    }));
+  }, [teamAssignments, teams]);
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
@@ -658,6 +855,17 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         </div>
       </Card>
 
+      <Card>
+        <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetric label="Players Evaluated" value={sessionSummary?.playersEvaluated ?? rows.length} />
+          <SummaryMetric label="Blocks Logged" value={sessionSummary?.blocksEvaluated ?? blockNames.length} />
+          <SummaryMetric label="Top Block Avg" value={formatScore(sessionSummary?.averageScoresByBlock?.[0]?.averageScore ?? null)} />
+          <SummaryMetric label="Ranked Players" value={sessionSummary?.topPlayers.length ?? 0} />
+        </div>
+      </Card>
+
+      <EvaluationSummaryPanel summary={sessionSummary} />
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-[var(--color-navy-900)]">AI Ranking ready</p>
@@ -688,19 +896,9 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           <Button variant="ghost" size="sm">Compare Players</Button>
           <Button variant="ghost" size="sm">Export CSV</Button>
           {isFinalized ? (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleGenerateRosters}
-                disabled={isGeneratingRosters || rosterGenerated}
-              >
-                {isGeneratingRosters ? "Generating..." : rosterGenerated ? "Rosters Generated" : "Generate Rosters"}
-              </Button>
-              <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
-                Locked {lockedLabel ?? "just now"}
-              </div>
-            </>
+            <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
+              Locked {lockedLabel ?? "just now"}
+            </div>
           ) : (
             <Button onClick={handleFinalizePlacements} disabled={isFinalizing}>
               {isFinalizing ? "Locking..." : "Finalize Placements"}
@@ -708,22 +906,6 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           )}
         </div>
       </div>
-
-      {isFinalized && rosterGenerated ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-green-200)] bg-[var(--color-green-50)] px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-green-800)]">Rosters generated</p>
-            <p className="text-xs text-[var(--color-green-700)]">
-              {assignedCount
-                ? `${assignedCount} player${assignedCount === 1 ? "" : "s"} linked to teams — view on Teams page.`
-                : "Assign players to teams above to include them in roster exports."}
-            </p>
-          </div>
-          <Button size="sm" variant="secondary" onClick={() => router.push("/app/teams")}>
-            View Teams
-          </Button>
-        </div>
-      ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-[var(--color-navy-100)]">
         <Table>
@@ -797,6 +979,17 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           </TableBody>
         </Table>
       </div>
+
+      <RosterGenerationPanel
+        isFinalized={isFinalized}
+        rosterGenerated={rosterGenerated}
+        isGenerating={isGeneratingRosters}
+        assignedCount={assignedCount}
+        lockedLabel={lockedLabel}
+        teamStats={teamAssignmentStats}
+        onGenerateRosters={handleGenerateRosters}
+        onViewTeams={() => router.push("/app/teams")}
+      />
     </div>
   );
 }
