@@ -839,8 +839,7 @@ interface RosterGenerationPanelProps {
   lockedLabel: string | null;
   teamStats: TeamAssignmentStat[];
   history: { downloadedAt: string; filename: string; sessionId: string | null }[];
-  historyFilter: "all" | "current";
-  onHistoryFilterChange: (value: "all" | "current") => void;
+  currentSessionId: string | null;
   onGenerateRosters: () => void;
   onViewTeams: () => void;
   onDownloadSummary: () => void;
@@ -854,12 +853,17 @@ function RosterGenerationPanel({
   lockedLabel,
   teamStats,
   history,
-  historyFilter,
-  onHistoryFilterChange,
+  currentSessionId,
   onGenerateRosters,
   onViewTeams,
   onDownloadSummary,
 }: RosterGenerationPanelProps) {
+  const [historyFilter, setHistoryFilter] = useState<"all" | "current">("all");
+  const visibleHistory = useMemo(() => {
+    if (historyFilter === "all") return history;
+    return history.filter((entry) => (entry.sessionId ?? null) === (currentSessionId ?? null));
+  }, [currentSessionId, history, historyFilter]);
+
   if (!isFinalized) {
     return (
       <Card>
@@ -912,27 +916,27 @@ function RosterGenerationPanel({
               <button
                 type="button"
                 className={historyFilter === "all" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
-                onClick={() => onHistoryFilterChange("all")}
+                onClick={() => setHistoryFilter("all")}
               >
                 All
               </button>
               <button
                 type="button"
                 className={historyFilter === "current" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
-                onClick={() => onHistoryFilterChange("current")}
+                onClick={() => setHistoryFilter("current")}
               >
                 Current
               </button>
             </div>
           </div>
-          {history.length === 0 ? (
+          {visibleHistory.length === 0 ? (
             <p className="text-xs text-[var(--color-navy-500)]">Download history will appear after the first roster export.</p>
           ) : (
             <ul className="space-y-1 text-xs text-[var(--color-navy-600)]">
-              {history.map((entry) => (
-                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
-                  <span>{entry.filename}</span>
-                  <span>{entry.sessionId ? `Session ${entry.sessionId}` : "All"}</span>
+              {visibleHistory.map((entry) => (
+                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap gap-2 text-xs">
+                  <span className="font-medium">{entry.filename}</span>
+                  <span>{entry.sessionId ? `Session ${entry.sessionId}` : "All sessions"}</span>
                   <span>{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
                 </li>
               ))}
@@ -1046,7 +1050,6 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
   const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string; sessionId: string | null }[]>(() => loadRosterHistory());
   const [favoritePlayers, setFavoritePlayers] = useState<string[]>(() => loadFavoritePlayers());
-  const [historyFilter, setHistoryFilter] = useState<"all" | "current">("all");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const teamAssignmentStats = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1143,11 +1146,6 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
 
   const assignedCount = useMemo(() => Object.values(teamAssignments).filter(Boolean).length, [teamAssignments]);
   const lockedLabel = finalizedAt ? dateTimeFormatter.format(new Date(finalizedAt)) : null;
-
-  const filteredHistory = useMemo(() => {
-    if (historyFilter === "all") return rosterHistory;
-    return rosterHistory.filter((entry) => (entry.sessionId ?? null) === (selectedSessionId || null));
-  }, [historyFilter, rosterHistory, selectedSessionId]);
 
   const sortedRows = useMemo(() => {
     if (!sortConfig) return rows;
@@ -1594,9 +1592,8 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         assignedCount={assignedCount}
         lockedLabel={lockedLabel}
         teamStats={teamAssignmentStats}
-        history={filteredHistory}
-        historyFilter={historyFilter}
-        onHistoryFilterChange={setHistoryFilter}
+        history={rosterHistory}
+        currentSessionId={selectedSessionId || null}
         onGenerateRosters={handleGenerateRosters}
         onViewTeams={() => router.push("/app/teams")}
         onDownloadSummary={downloadRosterSummary}
