@@ -171,8 +171,16 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
       if (!custom.detail || custom.detail.tryoutId !== tryout.id) return;
       load();
     };
+    const storageHandler = (event: StorageEvent) => {
+      if (event.key !== `tryout-roster-history-${tryout.id}`) return;
+      load();
+    };
     window.addEventListener("tryout-roster-history-updated", handler);
-    return () => window.removeEventListener("tryout-roster-history-updated", handler);
+    window.addEventListener("storage", storageHandler);
+    return () => {
+      window.removeEventListener("tryout-roster-history-updated", handler);
+      window.removeEventListener("storage", storageHandler);
+    };
   }, [tryout.id]);
   return (
     <div className="space-y-6">
@@ -628,7 +636,10 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, 
           <CardTitle>Compare players</CardTitle>
           <CardDescription>Key metrics for the pinned players.</CardDescription>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-[var(--color-yellow-100)] px-3 py-1 text-xs font-semibold text-[var(--color-yellow-800)]">
+            {favorites.length} favorite{favorites.length === 1 ? "" : "s"}
+          </span>
           <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
