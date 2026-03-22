@@ -253,6 +253,9 @@ function EventDetails({ tryout }: { tryout: TryoutDetail }) {
           label="Divisions"
           value={tryout.divisions.length ? tryout.divisions.join(", ") : "Not specified"}
         />
+      <div className="border-t border-[var(--color-navy-100)] bg-[var(--color-navy-50)] px-4 py-2 text-xs text-[var(--color-navy-600)]">
+        Tip: Star players in the Results table to keep them surfaced in this badge even when the drawer is closed.
+      </div>
       </div>
     </Card>
   );
