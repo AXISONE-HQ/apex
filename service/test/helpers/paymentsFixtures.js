@@ -11,13 +11,14 @@ export async function seedPaymentFixtures() {
   const guardianId = randomUUID();
   const playerId = randomUUID();
   const registrationId = randomUUID();
+  const seasonLabel = `Payments Season ${RUN_ID}-${randomUUID().slice(0, 8)}`;
   const now = new Date();
 
   await query(
     `INSERT INTO seasons (id, org_id, label, status, created_at, updated_at)
      VALUES ($1, $2, $3, 'active', $4, $4)
      ON CONFLICT (id) DO NOTHING`,
-    [seasonId, TEST_ORG_ID, `Payments Season ${RUN_ID}`, now]
+    [seasonId, TEST_ORG_ID, seasonLabel, now]
   );
 
   await query(
