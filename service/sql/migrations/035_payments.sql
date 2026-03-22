@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS payment_fees (
   fee_type payment_fee_type NOT NULL DEFAULT 'registration',
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(org_id, season_id, name)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_fees_org_season_name_lower
