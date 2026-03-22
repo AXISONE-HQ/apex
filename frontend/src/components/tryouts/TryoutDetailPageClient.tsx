@@ -637,8 +637,9 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, 
           <CardDescription>Key metrics for the pinned players.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-[var(--color-yellow-100)] px-3 py-1 text-xs font-semibold text-[var(--color-yellow-800)]">
-            {favorites.length} favorite{favorites.length === 1 ? "" : "s"}
+          <span className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${favorites.length ? "border-[var(--color-yellow-300)] bg-[var(--color-yellow-50)] text-[var(--color-yellow-800)]" : "border-[var(--color-navy-200)] bg-white text-[var(--color-navy-500)]"}`}>
+            <span aria-hidden="true">★</span>
+            {favorites.length ? `${favorites.length} favorite${favorites.length === 1 ? "" : "s"}` : "No favorites yet"}
           </span>
           <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
@@ -1318,6 +1319,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
       const next = [{ downloadedAt: new Date().toISOString(), filename, sessionId }, ...prev].slice(0, 5);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(buildRosterHistoryKey(), JSON.stringify(next));
+        // Notify other client surfaces (Overview tab, future widgets) to refresh their cached roster history.
         window.dispatchEvent(new CustomEvent("tryout-roster-history-updated", { detail: { tryoutId: tryout.id } }));
       }
       return next;
