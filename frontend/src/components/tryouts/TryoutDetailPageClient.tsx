@@ -114,7 +114,7 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="results-tab">
       <div>
         <Button variant="ghost" onClick={() => router.push("/app/tryouts")}>← Back</Button>
       </div>
@@ -192,7 +192,7 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
           <CardTitle>Roster exports</CardTitle>
           <CardDescription>Latest CSV downloads for this tryout.</CardDescription>
         </CardHeader>
-        <div className="p-6">
+        <div className="p-6 space-y-3">
           {overviewHistory.length === 0 ? (
             <p className="text-sm text-[var(--color-navy-500)]">No roster exports yet.</p>
           ) : (
@@ -205,6 +205,12 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
               ))}
             </ul>
           )}
+          <Button size="sm" variant="ghost" onClick={() => {
+            const el = document.getElementById("results-tab");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}>
+            Open results
+          </Button>
         </div>
       </Card>
 
@@ -595,9 +601,11 @@ interface ComparePlayersPanelProps {
   onClose: () => void;
   onClear: () => void;
   onRemove: (playerId: string) => void;
+  favorites: string[];
+  onToggleFavorite: (playerId: string) => void;
 }
 
-function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove }: ComparePlayersPanelProps) {
+function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, favorites, onToggleFavorite }: ComparePlayersPanelProps) {
   if (players.length === 0) {
     return (
       <Card>
@@ -643,7 +651,19 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove }
           <TableBody>
             {players.map((player) => (
               <TableRow key={player.playerId}>
-                <TableCell className="font-semibold text-[var(--color-navy-900)]">{player.playerName}</TableCell>
+                <TableCell className="font-semibold text-[var(--color-navy-900)]">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className={`text-xs ${favorites.includes(player.playerId) ? "text-[var(--color-yellow-600)]" : "text-[var(--color-navy-400)]"}`}
+                      onClick={() => onToggleFavorite(player.playerId)}
+                      aria-label={favorites.includes(player.playerId) ? "Unfavorite player" : "Favorite player"}
+                    >
+                      {favorites.includes(player.playerId) ? "★" : "☆"}
+                    </button>
+                    <span>{player.playerName}</span>
+                  </div>
+                </TableCell>
                 <TableCell>{player.age ?? "—"}</TableCell>
                 <TableCell>{player.position ?? "—"}</TableCell>
                 <TableCell>{formatScore(player.overallScore)}</TableCell>
@@ -907,6 +927,19 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     }
   };
 
+  const buildFavoriteStorageKey = () => `tryout-compare-favorites-${tryout.id}`;
+
+  const loadFavoritePlayers = () => {
+    if (typeof window === "undefined") return [] as string[];
+    try {
+      const stored = window.localStorage.getItem(buildFavoriteStorageKey());
+      if (!stored) return [];
+      return JSON.parse(stored) as string[];
+    } catch {
+      return [];
+    }
+  };
+
   const loadStoredStatuses = (sessionId: string) => {
     const baseline = initializeResultStatuses(tryout.participants);
     if (typeof window === "undefined") return baseline;
@@ -930,6 +963,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
   const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string }[]>(() => loadRosterHistory());
+  const [favoritePlayers, setFavoritePlayers] = useState<string[]>(() => loadFavoritePlayers());
   const teamAssignmentStats = useMemo(() => {
     const counts = new Map<string, number>();
     Object.values(teamAssignments).forEach((teamId) => {
@@ -1079,6 +1113,15 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
 
   const handleToggleComparePanel = () => {
     setShowComparePanel((prev) => !prev);
+  };
+
+  const toggleFavoritePlayer = (playerId: string) => {
+    setFavoritePlayers((prev) => {
+      if (prev.includes(playerId)) {
+        return prev.filter((entry) => entry !== playerId);
+      }
+      return [...prev, playerId];
+    });
   };
 
   const clearCompareSelection = () => {
@@ -1310,6 +1353,8 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           onClose={handleToggleComparePanel}
           onClear={clearCompareSelection}
           onRemove={toggleComparePlayer}
+          favorites={favoritePlayers}
+          onToggleFavorite={toggleFavoritePlayer}
         />
       ) : null}
 
@@ -1374,6 +1419,14 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                     ) : (
                       <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
                     )}
+                    <button
+                      type="button"
+                      className={`mt-1 text-xs ${favoritePlayers.includes(row.playerId) ? "text-[var(--color-yellow-700)]" : "text-[var(--color-navy-400)]"}`}
+                      onClick={() => toggleFavoritePlayer(row.playerId)}
+                      aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
+                    >
+                      {favoritePlayers.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
+                    </button>
                     {showComparePanel ? (
                       <button
                         type="button"
