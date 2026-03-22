@@ -500,3 +500,112 @@ export interface ApiEvaluationPlanStrengthResponse {
   recommendations: string[];
   evaluated_at?: string;
 }
+
+
+export interface ApiPlayerEvaluation {
+  id: string;
+  org_id: string;
+  player_id: string;
+  event_id?: string | null;
+  author_user_id?: string | null;
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status: "draft" | "published";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlayerEvaluationsResponse {
+  evaluations: ApiPlayerEvaluation[];
+}
+
+export interface PlayerEvaluationResponse {
+  evaluation: ApiPlayerEvaluation;
+}
+
+export type ApiTryoutStatus = "scheduled" | "in_progress" | "completed";
+
+export type ApiTryoutParticipantStatus = "registered" | "checked_in" | "evaluated" | "no_show";
+
+export interface ApiTryoutSession {
+  id: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+}
+
+export interface ApiTryoutSessionAttendance {
+  session_id: string;
+  status: "present" | "absent" | "pending";
+  checked_in_at?: string | null;
+}
+
+export interface ApiTryoutParticipant {
+  player_id: string;
+  player_name: string;
+  age?: number | null;
+  position?: string | null;
+  status: ApiTryoutParticipantStatus;
+  check_in_time?: string | null;
+  waitlist_position?: number | null;
+  sessions: ApiTryoutSessionAttendance[];
+}
+
+export interface ApiTryoutListItem {
+  id: string;
+  org_id: string;
+  name: string;
+  season_id?: string | null;
+  season_label?: string | null;
+  status: ApiTryoutStatus;
+  starts_at: string;
+  ends_at: string;
+  venue_name?: string | null;
+  registered_count: number;
+  checked_in_count: number;
+  waitlist_count?: number | null;
+  spots_available?: number | null;
+}
+
+export interface ApiTryoutDetail extends ApiTryoutListItem {
+  description?: string | null;
+  average_score?: number | null;
+  evaluators?: ApiUserSummary[];
+  divisions?: string[];
+  sessions: ApiTryoutSession[];
+  summary_metrics?: {
+    registered?: number;
+    checked_in?: number;
+    waitlisted?: number;
+    spots_available?: number;
+    average_score?: number | null;
+  } | null;
+  participants: ApiTryoutParticipant[];
+}
+
+export interface ApiTryoutAttendanceSummary {
+  total_registered: number;
+  checked_in: number;
+  no_shows: number;
+  attendance_rate: number;
+}
+
+export type ApiTryoutAttendanceRecord = ApiTryoutParticipant;
+
+export type TryoutsResponse = ApiListResponse<ApiTryoutListItem>;
+
+export interface TryoutResponse {
+  tryout: ApiTryoutDetail;
+}
+
+export interface TryoutAttendanceResponse {
+  summary: ApiTryoutAttendanceSummary;
+  attendance: ApiTryoutAttendanceRecord[];
+}
+
+export interface TryoutCheckInResponse {
+  attendance: ApiTryoutAttendanceRecord;
+}

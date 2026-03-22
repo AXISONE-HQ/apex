@@ -4,7 +4,7 @@ import { EvaluationBlock } from "@/types/domain";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { BLOCK_CATEGORIES } from "@/components/evaluations/blockConstants";
+import { BLOCK_CATEGORIES, BLOCK_DIFFICULTY_OPTIONS } from "@/components/evaluations/blockConstants";
 import { EmptyState, LoadingState } from "@/components/ui/State";
 
 interface PlanBuilderSidebarProps {
@@ -15,6 +15,8 @@ interface PlanBuilderSidebarProps {
   onSearchChange: (value: string) => void;
   category: string;
   onCategoryChange: (value: string) => void;
+  difficulty: string;
+  onDifficultyChange: (value: string) => void;
   onAddBlock: (blockId: string) => void;
   pendingBlockId?: string | null;
 }
@@ -27,13 +29,16 @@ export function PlanBuilderSidebar({
   onSearchChange,
   category,
   onCategoryChange,
+  difficulty,
+  onDifficultyChange,
   onAddBlock,
   pendingBlockId,
 }: PlanBuilderSidebarProps) {
   const filtered = blocks.filter((block) => {
     const matchesSearch = search ? block.name.toLowerCase().includes(search.toLowerCase()) : true;
     const matchesCategory = category ? block.categories.includes(category) : true;
-    return matchesSearch && matchesCategory;
+    const matchesDifficulty = difficulty ? block.difficulty === difficulty : true;
+    return matchesSearch && matchesCategory && matchesDifficulty;
   });
 
   return (
@@ -44,6 +49,18 @@ export function PlanBuilderSidebar({
           <p className="text-xs text-[var(--color-navy-500)]">Search your block catalog and add to this plan</p>
         </div>
         <Input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Search blocks" />
+        <select
+          value={difficulty}
+          onChange={(event) => onDifficultyChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-[var(--color-navy-200)] bg-white px-3 text-sm text-[var(--color-navy-900)]"
+        >
+          <option value="">All difficulty levels</option>
+          {BLOCK_DIFFICULTY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         <select
           value={category}
           onChange={(event) => onCategoryChange(event.target.value)}

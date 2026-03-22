@@ -13,6 +13,8 @@ import {
   EvaluationPlayerSummary,
   EvaluationDifficulty,
   EvaluationScoringMethod,
+  PlayerEvaluation,
+  PlayerEvaluationStatus,
 } from "@/types/domain";
 import {
   EvaluationBlocksResponse,
@@ -30,6 +32,8 @@ import {
   SessionScoresResponse,
   ApiSessionScore,
   ApiEvaluationPlanStrengthResponse,
+  PlayerEvaluationsResponse,
+  PlayerEvaluationResponse,
 } from "@/types/api";
 import {
   mapEvaluationBlock,
@@ -40,6 +44,7 @@ import {
   mapEvaluationPlayerSummary,
   mapEvaluationPlanStrength,
   mapSessionScore,
+  mapPlayerEvaluation,
 } from "@/lib/mappers";
 
 export interface EvaluationBlockFilters {
@@ -340,6 +345,41 @@ export function useCreateEvaluationPlan(orgId: string) {
   });
 }
 
+export interface UpdateEvaluationPlanInput {
+  planId: string;
+  values: Partial<CreateEvaluationPlanInput>;
+}
+
+export function useUpdateEvaluationPlan(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId, values }: UpdateEvaluationPlanInput) => {
+      const payload: Record<string, unknown> = {};
+      if (values.name !== undefined) payload.name = values.name;
+      if (values.sport !== undefined) payload.sport = values.sport;
+      if (values.ageGroup !== undefined) payload.age_group = values.ageGroup ? values.ageGroup : null;
+      if (values.gender !== undefined) payload.gender = values.gender ? values.gender : null;
+      if (values.evaluationCategory !== undefined) payload.evaluation_category = values.evaluationCategory;
+      if (values.scope !== undefined) payload.scope = values.scope;
+      if (values.teamId !== undefined) payload.team_id = values.teamId ? values.teamId : null;
+
+      if (!Object.keys(payload).length) {
+        throw new Error("plan_update_requires_fields");
+      }
+
+      const response = await apiClient<EvaluationPlanResponse>(`/admin/clubs/${orgId}/evaluation-plans/${planId}`, {
+        method: "PATCH",
+        body: payload,
+      });
+      return response.item ? mapEvaluationPlan(response.item) : null;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationPlan(orgId, variables.planId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationPlans(orgId) });
+    },
+  });
+}
+
 export function useAddPlanBlock(orgId: string, planId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -579,6 +619,114 @@ export function useUpdatePlayerScore(orgId: string, sessionId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-scores", orgId, sessionId] });
+    },
+  });
+}
+
+export async function fetchPlayerEvaluations(orgId: string, playerId: string): Promise<PlayerEvaluation[]> {
+  const response = await apiClient<PlayerEvaluationsResponse>(
+    `/admin/clubs/${orgId}/players/${playerId}/evaluations`
+  );
+  const items = Array.isArray(response.evaluations) ? response.evaluations : [];
+  return items.map(mapPlayerEvaluation);
+}
+
+export function usePlayerEvaluations(orgId: string, playerId: string) {
+  return useQuery({
+    queryKey: queryKeys.playerEvaluations(orgId, playerId),
+    queryFn: () => fetchPlayerEvaluations(orgId, playerId),
+    enabled: Boolean(orgId && playerId),
+  });
+}
+
+export interface PlayerEvaluationInput {
+  title: string;
+  summary?: string | null;
+  strengths?: string | null;
+  improvements?: string | null;
+  rating?: number | null;
+  status?: PlayerEvaluationStatus;
+  eventId?: string | null;
+}
+
+function buildPlayerEvaluationPayload(
+  input: Partial<PlayerEvaluationInput>,
+  { partial = false }: { partial?: boolean } = {}
+) {
+  const payload: Record<string, unknown> = {};
+
+  if (!partial || input.title !== undefined) {
+    if (input.title === undefined || !input.title.trim()) {
+      throw new Error("title_required");
+    }
+    payload.title = input.title;
+  }
+
+  if (input.summary !== undefined) {
+    payload.summary = input.summary ?? null;
+  }
+  if (input.strengths !== undefined) {
+    payload.strengths = input.strengths ?? null;
+  }
+  if (input.improvements !== undefined) {
+    payload.improvements = input.improvements ?? null;
+  }
+  if (input.rating !== undefined) {
+    payload.rating = input.rating ?? null;
+  }
+  if (input.status !== undefined) {
+    payload.status = input.status;
+  }
+  if (input.eventId !== undefined) {
+    payload.event_id = input.eventId ?? null;
+  }
+
+  return payload;
+}
+
+export function useCreatePlayerEvaluation(orgId: string, playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PlayerEvaluationInput) => {
+      const response = await apiClient<PlayerEvaluationResponse>(
+        `/admin/clubs/${orgId}/players/${playerId}/evaluations`,
+        {
+          method: "POST",
+          body: buildPlayerEvaluationPayload(input),
+        }
+      );
+      return response.evaluation ? mapPlayerEvaluation(response.evaluation) : null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(orgId, playerId) });
+    },
+  });
+}
+
+export interface UpdatePlayerEvaluationInput {
+  evaluationId: string;
+  values: Partial<PlayerEvaluationInput>;
+}
+
+export function useUpdatePlayerEvaluation(orgId: string, playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ evaluationId, values }: UpdatePlayerEvaluationInput) => {
+      const payload = buildPlayerEvaluationPayload(values, { partial: true });
+      if (!Object.keys(payload).length) {
+        throw new Error("evaluation_update_requires_fields");
+      }
+      const response = await apiClient<PlayerEvaluationResponse>(
+        `/admin/clubs/${orgId}/players/${playerId}/evaluations/${evaluationId}`,
+        {
+          method: "PATCH",
+          body: payload,
+        }
+      );
+      return response.evaluation ? mapPlayerEvaluation(response.evaluation) : null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(orgId, playerId) });
     },
   });
 }
