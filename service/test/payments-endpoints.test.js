@@ -142,7 +142,11 @@ test("payments invoice endpoints cover listing, guardian view, bulk create, patc
     return;
   }
 
-  const { seasonId, registrationId } = await seedPaymentFixtures();
+  const firstSeed = await seedPaymentFixtures();
+  const secondSeed = await seedPaymentFixtures();
+  const seasonId = firstSeed.seasonId;
+  const { registrationId } = firstSeed;
+  const { registrationId: secondRegistrationId } = secondSeed;
   const adminHeaders = jsonHeaders(makeAdminUser());
   const guardianHeaders = jsonHeaders(makeGuardianUser());
   const { server, baseUrl } = await startServer();
@@ -182,7 +186,7 @@ test("payments invoice endpoints cover listing, guardian view, bulk create, patc
             notes: "First invoice",
           },
           {
-            registrationId,
+            registrationId: secondRegistrationId,
             feeId: secondFee.id,
             guardianUserId: TEST_USER_UUIDS.u2,
             amountCents: 2500,
