@@ -149,6 +149,31 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
 
 function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
   const router = useRouter();
+  const [overviewHistory, setOverviewHistory] = useState<{ downloadedAt: string; filename: string }[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const load = () => {
+      try {
+        const stored = window.localStorage.getItem(`tryout-roster-history-${tryout.id}`);
+        if (!stored) {
+          setOverviewHistory([]);
+          return;
+        }
+        setOverviewHistory(JSON.parse(stored));
+      } catch {
+        setOverviewHistory([]);
+      }
+    };
+    load();
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ tryoutId: string }>;
+      if (!custom.detail || custom.detail.tryoutId !== tryout.id) return;
+      load();
+    };
+    window.addEventListener("tryout-roster-history-updated", handler);
+    return () => window.removeEventListener("tryout-roster-history-updated", handler);
+  }, [tryout.id]);
   return (
     <div className="space-y-6">
       <EventDetails tryout={tryout} />
@@ -161,6 +186,28 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
           Link template
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Roster exports</CardTitle>
+          <CardDescription>Latest CSV downloads for this tryout.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          {overviewHistory.length === 0 ? (
+            <p className="text-sm text-[var(--color-navy-500)]">No roster exports yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm text-[var(--color-navy-700)]">
+              {overviewHistory.map((entry) => (
+                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
+                  <span className="font-medium">{entry.filename}</span>
+                  <span className="text-xs text-[var(--color-navy-500)]">{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Card>
+
       <RegisteredPlayersTable tryout={tryout} />
       <div className="flex flex-wrap gap-3">
         <Button>Start Check-In</Button>
@@ -541,13 +588,16 @@ interface ComparePlayersPanelProps {
     position?: string | null;
     overallScore: number | null;
     blockScores: Record<string, number | null>;
+    status: ResultStatus;
+    teamName: string;
   }>;
   blockNames: string[];
   onClose: () => void;
+  onClear: () => void;
   onRemove: (playerId: string) => void;
 }
 
-function ComparePlayersPanel({ players, blockNames, onClose, onRemove }: ComparePlayersPanelProps) {
+function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove }: ComparePlayersPanelProps) {
   if (players.length === 0) {
     return (
       <Card>
@@ -569,7 +619,10 @@ function ComparePlayersPanel({ players, blockNames, onClose, onRemove }: Compare
           <CardTitle>Compare players</CardTitle>
           <CardDescription>Key metrics for the pinned players.</CardDescription>
         </div>
-        <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
+        </div>
       </CardHeader>
       <div className="overflow-x-auto">
         <Table>
@@ -579,6 +632,8 @@ function ComparePlayersPanel({ players, blockNames, onClose, onRemove }: Compare
               <TableHeaderCell>Age</TableHeaderCell>
               <TableHeaderCell>Pos</TableHeaderCell>
               <TableHeaderCell>Overall</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Team</TableHeaderCell>
               {blockNames.map((block) => (
                 <TableHeaderCell key={`compare-${block}`}>{block}</TableHeaderCell>
               ))}
@@ -1010,12 +1065,24 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
 
   const compareEntries = useMemo(() => {
     return playersToCompare
-      .map((playerId) => sortedRows.find((row) => row.playerId === playerId))
-      .filter((row): row is typeof sortedRows[number] => Boolean(row));
-  }, [playersToCompare, sortedRows]);
+      .map((playerId) => {
+        const row = sortedRows.find((entry) => entry.playerId === playerId);
+        if (!row) return null;
+        return {
+          ...row,
+          status: playerStatuses[playerId] ?? "pending",
+          teamName: teamNameMap.get(teamAssignments[playerId] ?? "") ?? "",
+        };
+      })
+      .filter((row): row is (typeof sortedRows[number] & { status: ResultStatus; teamName: string }) => Boolean(row));
+  }, [playersToCompare, sortedRows, playerStatuses, teamAssignments, teamNameMap]);
 
   const handleToggleComparePanel = () => {
     setShowComparePanel((prev) => !prev);
+  };
+
+  const clearCompareSelection = () => {
+    setPlayersToCompare([]);
   };
 
   const toggleComparePlayer = (playerId: string) => {
@@ -1104,6 +1171,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
       const next = [{ downloadedAt: new Date().toISOString(), filename }, ...prev].slice(0, 5);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(buildRosterHistoryKey(), JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent("tryout-roster-history-updated", { detail: { tryoutId: tryout.id } }));
       }
       return next;
     });
@@ -1240,6 +1308,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           players={compareEntries}
           blockNames={blockNames}
           onClose={handleToggleComparePanel}
+          onClear={clearCompareSelection}
           onRemove={toggleComparePlayer}
         />
       ) : null}
