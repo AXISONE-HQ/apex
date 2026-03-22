@@ -668,7 +668,7 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, 
             {displayedRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
-                  {showFavoritesOnly ? "No favorites yet." : "No players available."}
+                  {showFavoritesOnly ? "No favorites yet — star players to populate this view." : "No players available."}
                 </TableCell>
               </TableRow>
             ) : (
