@@ -707,6 +707,7 @@ interface RosterGenerationPanelProps {
   assignedCount: number;
   lockedLabel: string | null;
   teamStats: TeamAssignmentStat[];
+  history: { downloadedAt: string; filename: string }[];
   onGenerateRosters: () => void;
   onViewTeams: () => void;
   onDownloadSummary: () => void;
@@ -719,6 +720,7 @@ function RosterGenerationPanel({
   assignedCount,
   lockedLabel,
   teamStats,
+  history,
   onGenerateRosters,
   onViewTeams,
   onDownloadSummary,
@@ -765,6 +767,22 @@ function RosterGenerationPanel({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Recent exports</p>
+          {history.length === 0 ? (
+            <p className="text-xs text-[var(--color-navy-500)]">Download history will appear after the first roster export.</p>
+          ) : (
+            <ul className="space-y-1 text-xs text-[var(--color-navy-600)]">
+              {history.map((entry) => (
+                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
+                  <span>{entry.filename}</span>
+                  <span>{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
@@ -821,6 +839,19 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
 
   const buildFinalizeStorageKey = () => `tryout-finalize-${tryout.id}`;
 
+  const buildRosterHistoryKey = () => `tryout-roster-history-${tryout.id}`;
+
+  const loadRosterHistory = () => {
+    if (typeof window === "undefined") return [] as { downloadedAt: string; filename: string }[];
+    try {
+      const stored = window.localStorage.getItem(buildRosterHistoryKey());
+      if (!stored) return [];
+      return JSON.parse(stored) as { downloadedAt: string; filename: string }[];
+    } catch {
+      return [];
+    }
+  };
+
   const loadStoredStatuses = (sessionId: string) => {
     const baseline = initializeResultStatuses(tryout.participants);
     if (typeof window === "undefined") return baseline;
@@ -843,6 +874,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     loadStoredStatuses(selectedSessionId)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
+  const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string }[]>(() => loadRosterHistory());
   const teamAssignmentStats = useMemo(() => {
     const counts = new Map<string, number>();
     Object.values(teamAssignments).forEach((teamId) => {
@@ -1065,6 +1097,18 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     }));
   };
 
+  const buildRosterSummaryFilename = () => `tryout-roster-${tryout.id}-${selectedSessionId || "session"}.csv`;
+
+  const recordRosterDownload = (filename: string) => {
+    setRosterHistory((prev) => {
+      const next = [{ downloadedAt: new Date().toISOString(), filename }, ...prev].slice(0, 5);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(buildRosterHistoryKey(), JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
   const downloadRosterSummary = () => {
     const rowsForExport = buildRosterSummaryRows();
     const headers = ["Player ID", "Player", "Position", "Overall", "Status", "Team"].map(toCsvValue).join(",");
@@ -1074,13 +1118,15 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     const csv = [headers, ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
+    const filename = buildRosterSummaryFilename();
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `tryout-roster-${tryout.id}-${selectedSessionId || "session"}.csv`);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    recordRosterDownload(filename);
   };
 
   const handleSort = (column: string) => {
@@ -1163,6 +1209,16 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
       </Card>
 
       <EvaluationSummaryPanel summary={sessionSummary} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--color-blue-200)] bg-white px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">Need to tweak the plan?</p>
+          <p className="text-xs text-[var(--color-navy-600)]">Open the builder to update blocks before sharing final results.</p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => router.push("/app/practice-plans")}>
+          Open builder
+        </Button>
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
         <div>
@@ -1310,6 +1366,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         assignedCount={assignedCount}
         lockedLabel={lockedLabel}
         teamStats={teamAssignmentStats}
+        history={rosterHistory}
         onGenerateRosters={handleGenerateRosters}
         onViewTeams={() => router.push("/app/teams")}
         onDownloadSummary={downloadRosterSummary}
