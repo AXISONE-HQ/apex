@@ -131,6 +131,74 @@ export function useTryoutAttendance(orgId: string, tryoutId: string) {
   };
 }
 
+
+export interface CreateTryoutPayload {
+  name: string;
+  season_id: string;
+  age_group: string;
+  divisions: string[];
+  description?: string;
+  schedule: {
+    mode: "single" | "multi";
+    venue: string;
+    capacity: number;
+    single_day?: {
+      date: string;
+      starts_at: string | null;
+      ends_at: string | null;
+    };
+    sessions: Array<{
+      name: string;
+      date: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      description?: string;
+    }>;
+  };
+  evaluation_plan: {
+    sport: string;
+    category: string;
+    complexity: "easy" | "medium" | "hard";
+    criteria: Array<{ name: string; weight: number; description?: string }>;
+    blocks: Array<{
+      block_id?: string;
+      name: string;
+      duration_minutes: number;
+      linked_criteria: string[];
+      categories?: string[];
+      difficulty?: string | null;
+    }>;
+  };
+  evaluators: {
+    assignments: Array<{
+      evaluator_id: string;
+      role: "lead" | "scoring";
+      session_ids: string[];
+    }>;
+    external_invites: string[];
+  };
+}
+
+export function useCreateTryout(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateTryoutPayload) => {
+      const response = await apiClient<TryoutResponse>(`/tryouts`, {
+        method: "POST",
+        body: payload,
+        orgId,
+      });
+      return mapTryoutDetail(response.tryout);
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["tryouts", orgId] });
+      if (created?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.tryout(orgId, created.id) });
+      }
+    },
+  });
+}
+
 export interface CheckInPlayerPayload {
   playerId: string;
   sessionId?: string | null;

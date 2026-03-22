@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/State";
 import { useSeasons } from "@/queries/seasons";
 import { useEvaluationBlocks, useGenerateEvaluationSuggestions } from "@/queries/evaluations";
+import { useCreateTryout } from "@/queries/tryouts";
 import { useCoaches } from "@/queries/coaches";
+import type { CreateTryoutPayload } from "@/queries/tryouts";
 import type { Season } from "@/types/domain";
 
 interface TryoutCreateWizardPageProps {
@@ -215,7 +217,7 @@ export function TryoutCreateWizardPage({ orgId }: TryoutCreateWizardPageProps) {
           onChange={(value) => setForm((prev) => ({ ...prev, evaluators: value }))}
         />
       ) : currentStep === "review" ? (
-        <ReviewStep form={form} sessions={derivedSessions} />
+        <ReviewStep orgId={orgId} form={form} sessions={derivedSessions} />
       ) : (
         <PlaceholderStep stepId={currentStep} />
       )}
@@ -1062,12 +1064,25 @@ function EvaluatorsStep({
     </Card>
   );
 }
-function ReviewStep({ form, sessions }: { form: TryoutWizardDraft; sessions: { id: string; label: string }[] }) {
+function ReviewStep({ orgId, form, sessions }: { orgId: string; form: TryoutWizardDraft; sessions: { id: string; label: string }[] }) {
   const router = useRouter();
-  const handleCreate = () => {
-    console.log("tryout_payload", form);
-    alert("Tryout creation will be connected to the backend in the next drop. Draft saved in console for now.");
-    router.push("/app/tryouts");
+  const createTryout = useCreateTryout(orgId);
+  const [creationError, setCreationError] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    setCreationError(null);
+    try {
+      const payload = buildCreateTryoutPayload(form);
+      const created = await createTryout.mutateAsync(payload);
+      if (created?.id) {
+        router.push(`/app/tryouts/${created.id}`);
+      } else {
+        router.push("/app/tryouts");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to create tryout";
+      setCreationError(message);
+    }
   };
 
   return (
@@ -1114,7 +1129,7 @@ function ReviewStep({ form, sessions }: { form: TryoutWizardDraft; sessions: { i
                   <div key={assignment.id} className="text-sm text-[var(--color-navy-700)]">
                     {assignment.name} — {assignment.role === "lead" ? "Lead" : "Scoring"} · Sessions: {assignment.sessionIds
                       .map((sessionId) => sessions.find((session) => session.id === sessionId)?.label ?? sessionId)
-                      .join(", ")}
+                      .join(", " )}
                   </div>
                 ))}
                 {form.evaluators.externalInvites.map((email) => (
@@ -1125,10 +1140,13 @@ function ReviewStep({ form, sessions }: { form: TryoutWizardDraft; sessions: { i
               </div>
             )}
           </div>
-          <div className="flex justify-end">
-            <Button onClick={handleCreate} disabled>
-              Create Tryout (API wiring next)
+          <div className="flex flex-col items-end gap-2">
+            <Button onClick={handleCreate} disabled={createTryout.isPending}>
+              {createTryout.isPending ? "Creating..." : "Create Tryout"}
             </Button>
+            {creationError ? (
+              <p className="text-sm text-[var(--color-red-600)]">{creationError}</p>
+            ) : null}
           </div>
         </div>
       </Card>
@@ -1143,6 +1161,84 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <p className="text-sm text-[var(--color-navy-900)]">{value}</p>
     </div>
   );
+}
+
+function buildCreateTryoutPayload(form: TryoutWizardDraft): CreateTryoutPayload {
+  const sessionDrafts: TryoutSessionDraft[] =
+    form.schedule.mode === "multi"
+      ? form.schedule.sessions
+      : [
+          {
+            id: "single-session",
+            name: form.schedule.sessions[0]?.name || `${form.basic.name || "Session"} 1`,
+            date: form.schedule.singleDate,
+            startTime: form.schedule.singleStartTime,
+            endTime: form.schedule.singleEndTime,
+            description: form.schedule.sessions[0]?.description ?? "",
+          },
+        ];
+
+  return {
+    name: form.basic.name.trim(),
+    season_id: form.basic.seasonId,
+    age_group: form.basic.ageGroup,
+    divisions: form.basic.divisions,
+    description: form.basic.description?.trim() || undefined,
+    schedule: {
+      mode: form.schedule.mode,
+      venue: form.schedule.venue,
+      capacity: Number(form.schedule.capacity) || 0,
+      single_day:
+        form.schedule.mode === "single"
+          ? {
+              date: form.schedule.singleDate,
+              starts_at: combineDateAndTime(form.schedule.singleDate, form.schedule.singleStartTime),
+              ends_at: combineDateAndTime(form.schedule.singleDate, form.schedule.singleEndTime),
+            }
+          : undefined,
+      sessions: sessionDrafts.map((session, index) => ({
+        name: session.name || `Session ${index + 1}`,
+        date: session.date || "",
+        starts_at: combineDateAndTime(session.date, session.startTime),
+        ends_at: combineDateAndTime(session.date, session.endTime),
+        description: session.description || undefined,
+      })),
+    },
+    evaluation_plan: {
+      sport: form.criteria.sport,
+      category: form.criteria.evaluationCategory,
+      complexity: form.criteria.complexity,
+      criteria: form.criteria.criteria.map((criterion) => ({
+        name: criterion.name,
+        weight: criterion.weight,
+        description: criterion.description || undefined,
+      })),
+      blocks: form.criteria.blocks.map((block) => ({
+        block_id: block.blockId,
+        name: block.name,
+        duration_minutes: Number(block.duration) || 0,
+        linked_criteria: block.linkedCriteria,
+        categories: block.categories ?? [],
+        difficulty: block.difficulty ?? null,
+      })),
+    },
+    evaluators: {
+      assignments: form.evaluators.assigned.map((assignment) => ({
+        evaluator_id: assignment.id,
+        role: assignment.role,
+        session_ids: assignment.sessionIds,
+      })),
+      external_invites: form.evaluators.externalInvites,
+    },
+  };
+}
+
+function combineDateAndTime(date?: string, time?: string) {
+  if (!date) return null;
+  const safeTime = time && time.length ? time : "00:00";
+  const iso = new Date(`${date}T${safeTime}`);
+  if (Number.isNaN(iso.getTime())) return null;
+  return iso.toISOString();
 }
 
 function buildAssignmentSessions(schedule: TryoutWizardDraft["schedule"]): { id: string; label: string }[] {

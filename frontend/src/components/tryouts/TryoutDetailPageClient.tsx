@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
@@ -15,6 +15,7 @@ import { useCheckInPlayer, useTryout, useTryoutAttendance } from "@/queries/tryo
 import { useEvaluationSessionSummary, useSessionScores } from "@/queries/evaluations";
 import { useTeams } from "@/queries/teams";
 import type {
+  EvaluationSessionSummary,
   TryoutAttendanceData,
   TryoutAttendanceRecord,
   TryoutDetail,
@@ -113,7 +114,7 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="results-tab">
       <div>
         <Button variant="ghost" onClick={() => router.push("/app/tryouts")}>← Back</Button>
       </div>
@@ -147,15 +148,88 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
 }
 
 function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
+  const router = useRouter();
+  const [overviewHistory, setOverviewHistory] = useState<{ downloadedAt: string; filename: string }[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const load = () => {
+      try {
+        const stored = window.localStorage.getItem(`tryout-roster-history-${tryout.id}`);
+        if (!stored) {
+          setOverviewHistory([]);
+          return;
+        }
+        setOverviewHistory(JSON.parse(stored));
+      } catch {
+        setOverviewHistory([]);
+      }
+    };
+    load();
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ tryoutId: string }>;
+      if (!custom.detail || custom.detail.tryoutId !== tryout.id) return;
+      load();
+    };
+    const storageHandler = (event: StorageEvent) => {
+      if (event.key !== `tryout-roster-history-${tryout.id}`) return;
+      load();
+    };
+    window.addEventListener("tryout-roster-history-updated", handler);
+    window.addEventListener("storage", storageHandler);
+    return () => {
+      window.removeEventListener("tryout-roster-history-updated", handler);
+      window.removeEventListener("storage", storageHandler);
+    };
+  }, [tryout.id]);
   return (
     <div className="space-y-6">
       <EventDetails tryout={tryout} />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">Link the evaluation plan</p>
+          <p className="text-xs text-[var(--color-navy-600)]">Connect an AI-generated plan so evaluators see the block list across tabs.</p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => router.push("/app/practice-plans")}>
+          Link template
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Roster exports</CardTitle>
+          <CardDescription>Latest CSV downloads for this tryout.</CardDescription>
+        </CardHeader>
+        <div className="p-6 space-y-3">
+          {overviewHistory.length === 0 ? (
+            <p className="text-sm text-[var(--color-navy-500)]">No roster exports yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm text-[var(--color-navy-700)]">
+              {overviewHistory.map((entry) => (
+                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
+                  <span className="font-medium">{entry.filename}</span>
+                  <span className="text-xs text-[var(--color-navy-500)]">{entry.sessionId ? `Session ${entry.sessionId}` : "All sessions"}</span>
+                  <span className="text-xs text-[var(--color-navy-500)]">{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => {
+            const el = document.getElementById("results-tab");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}>
+            Open results
+          </Button>
+        </div>
+      </Card>
+
       <RegisteredPlayersTable tryout={tryout} />
       <div className="flex flex-wrap gap-3">
         <Button>Start Check-In</Button>
         <Button variant="secondary">Begin Scoring</Button>
         <Button variant="ghost">Finalize Results</Button>
       </div>
+
     </div>
   );
 }
@@ -179,6 +253,9 @@ function EventDetails({ tryout }: { tryout: TryoutDetail }) {
           label="Divisions"
           value={tryout.divisions.length ? tryout.divisions.join(", ") : "Not specified"}
         />
+      <div className="border-t border-[var(--color-navy-100)] bg-[var(--color-navy-50)] px-4 py-2 text-xs text-[var(--color-navy-600)]">
+        Tip: Star players in the Results table to keep them surfaced in this badge even when the drawer is closed.
+      </div>
       </div>
     </Card>
   );
@@ -209,36 +286,36 @@ function RegisteredPlayersTable({ tryout }: { tryout: TryoutDetail }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {participants.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4 + sessions.length} className="text-center text-sm text-[var(--color-navy-500)]">
-                  No players registered yet.
+          {participants.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={4 + sessions.length} className="text-center text-sm text-[var(--color-navy-500)]">
+                No players registered yet.
+              </TableCell>
+            </TableRow>
+          ) : (
+            participants.map((participant) => (
+              <TableRow key={participant.playerId}>
+                <TableCell className="font-medium text-[var(--color-navy-900)]">{participant.playerName}</TableCell>
+                <TableCell>{participant.age ?? "—"}</TableCell>
+                <TableCell>{participant.position ?? "—"}</TableCell>
+                <TableCell>
+                  <StatusBadge status={participant.status} />
                 </TableCell>
-              </TableRow>
-            ) : (
-              participants.map((participant) => (
-                <TableRow key={participant.playerId}>
-                  <TableCell className="font-medium text-[var(--color-navy-900)]">{participant.playerName}</TableCell>
-                  <TableCell>{participant.age ?? "—"}</TableCell>
-                  <TableCell>{participant.position ?? "—"}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={participant.status} />
+                {sessions.map((session) => (
+                  <TableCell key={`${participant.playerId}-${session.id}`} className="text-center">
+                    <input
+                      type="checkbox"
+                      disabled
+                      checked={participant.sessions.some(
+                        (entry) => entry.sessionId === session.id && entry.status === "present"
+                      )}
+                      aria-label={`Attendance for ${participant.playerName} in ${session.name}`}
+                    />
                   </TableCell>
-                  {sessions.map((session) => (
-                    <TableCell key={`${participant.playerId}-${session.id}`} className="text-center">
-                      <input
-                        type="checkbox"
-                        disabled
-                        checked={participant.sessions.some(
-                          (entry) => entry.sessionId === session.id && entry.status === "present"
-                        )}
-                        aria-label={`Attendance for ${participant.playerName} in ${session.name}`}
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
+                ))}
+              </TableRow>
+            ))
+          )}
           </TableBody>
         </Table>
       </div>
@@ -247,16 +324,60 @@ function RegisteredPlayersTable({ tryout }: { tryout: TryoutDetail }) {
 }
 
 function PlanTab() {
+  const router = useRouter();
+  const checkpoints = [
+    "Select or create the evaluation template for this tryout.",
+    "Assign activity blocks to each session so coaches know the flow.",
+    "Share the exported PDF with evaluators before the event.",
+  ];
+  const sampleBlocks = [
+    { title: "Warm-up edges", duration: "10 min", detail: "Full-ice edge control" },
+    { title: "Puck control gauntlet", duration: "12 min", detail: "Stations w/ timers" },
+    { title: "Compete drills", duration: "15 min", detail: "1v1 + net drives" },
+  ];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Evaluation plan</CardTitle>
-        <CardDescription>Plan blocks render here once linked to the tryout</CardDescription>
-      </CardHeader>
-      <div className="rounded-xl border border-dashed border-[var(--color-navy-200)] px-4 py-8 text-center text-sm text-[var(--color-navy-500)]">
-        Wire this tab to EvaluationPlanBlocks in Drop 2 once the plan assignment API lands.
-      </div>
-    </Card>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan checklist</CardTitle>
+          <CardDescription>Quick reminders before tryout day.</CardDescription>
+        </CardHeader>
+        <div className="space-y-4 p-6">
+          <ul className="space-y-3">
+            {checkpoints.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm text-[var(--color-navy-700)]">
+                <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-blue-100)] text-xs font-semibold text-[var(--color-blue-700)]">•</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <Button size="sm" onClick={() => router.push("/app/practice-plans")}>
+            Open builder
+          </Button>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming activity blocks</CardTitle>
+          <CardDescription>Link a template to see the real block list here.</CardDescription>
+        </CardHeader>
+        <div className="space-y-3 p-6">
+          {sampleBlocks.map((block) => (
+            <div key={block.title} className="rounded-xl border border-[var(--color-navy-100)] px-3 py-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-[var(--color-navy-900)]">{block.title}</p>
+                <span className="text-xs font-semibold text-[var(--color-navy-600)]">{block.duration}</span>
+              </div>
+              <p className="text-xs text-[var(--color-navy-500)]">{block.detail}</p>
+            </div>
+          ))}
+          <div className="rounded-xl border border-dashed border-[var(--color-navy-200)] px-4 py-3 text-sm text-[var(--color-navy-500)]">
+            Linking an evaluation plan will replace this sample list.
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -477,6 +598,395 @@ function QuickCheckInPanel({ sessions, records, onQuickCheckIn, isSubmitting }: 
     </div>
   );
 }
+interface ComparePlayersPanelProps {
+  players: Array<{
+    playerId: string;
+    playerName: string;
+    age?: number | null;
+    position?: string | null;
+    overallScore: number | null;
+    blockScores: Record<string, number | null>;
+    status: ResultStatus;
+    teamName: string;
+  }>;
+  blockNames: string[];
+  onClose: () => void;
+  onClear: () => void;
+  onRemove: (playerId: string) => void;
+  favorites: string[];
+  onToggleFavorite: (playerId: string) => void;
+}
+
+function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, favorites, onToggleFavorite }: ComparePlayersPanelProps) {
+  if (players.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Compare players</CardTitle>
+          <CardDescription>Select players above to see them side by side.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          <EmptyState message="Use the compare toggle in the table to pin players." />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <CardTitle>Compare players</CardTitle>
+          <CardDescription>Key metrics for the pinned players.</CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${favorites.length ? "border-[var(--color-yellow-300)] bg-[var(--color-yellow-50)] text-[var(--color-yellow-800)]" : "border-[var(--color-navy-200)] bg-white text-[var(--color-navy-500)]"}`}>
+            <span aria-hidden="true">★</span>
+            {favorites.length ? `${favorites.length} favorite${favorites.length === 1 ? "" : "s"}` : "No favorites yet"}
+          </span>
+          <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </CardHeader>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Player</TableHeaderCell>
+              <TableHeaderCell>Age</TableHeaderCell>
+              <TableHeaderCell>Pos</TableHeaderCell>
+              <TableHeaderCell>Overall</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Team</TableHeaderCell>
+              {blockNames.map((block) => (
+                <TableHeaderCell key={`compare-${block}`}>{block}</TableHeaderCell>
+              ))}
+              <TableHeaderCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {displayedRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
+                  {showFavoritesOnly ? "No favorites yet — star players to populate this view." : "No players available."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              displayedRows.map((row) => (
+                <TableRow
+                  key={row.playerId}
+                  className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
+                >
+                  <TableCell>
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
+                      {rosterGenerated && teamAssignments[row.playerId] ? (
+                        <p className="text-xs text-[var(--color-green-700)]">
+                          Tried out for {teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "assigned team"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                      )}
+                      <button
+                        type="button"
+                        className={favoritePlayers.includes(row.playerId) ? "mt-1 text-xs text-[var(--color-yellow-700)]" : "mt-1 text-xs text-[var(--color-navy-400)]"}
+                        onClick={() => toggleFavoritePlayer(row.playerId)}
+                        aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
+                      >
+                        {favoritePlayers.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
+                      </button>
+                      {showComparePanel ? (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs font-semibold text-[var(--color-blue-700)]"
+                          onClick={() => toggleComparePlayer(row.playerId)}
+                        >
+                          {playersToCompare.includes(row.playerId) ? "Remove from compare" : "Add to compare"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>{row.age ?? "—"}</TableCell>
+                  <TableCell>{row.position ?? "—"}</TableCell>
+                  <TableCell>{formatScore(row.overallScore)}</TableCell>
+                  {blockNames.map((blockName) => (
+                    <TableCell key={`${row.playerId}-${blockName}`}>{formatScore(row.blockScores[blockName])}</TableCell>
+                  ))}
+                  <TableCell>
+                    <select
+                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                      value={playerStatuses[row.playerId] ?? "pending"}
+                      onChange={(event) =>
+                        setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
+                      }
+                    >
+                      {RESULT_STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                      value={teamAssignments[row.playerId] ?? ""}
+                      onChange={(event) =>
+                        setTeamAssignments((prev) => ({ ...prev, [row.playerId]: event.target.value }))
+                      }
+                    >
+                      <option value="">Select team</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+function EvaluationSummaryPanel({ summary }: { summary?: EvaluationSessionSummary | null }) {
+  if (!summary) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Evaluation highlights</CardTitle>
+          <CardDescription>Scores will appear here once evaluators submit results.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          <EmptyState message="No evaluation data for this session yet." />
+        </div>
+      </Card>
+    );
+  }
+
+  const blockAverages = summary.averageScoresByBlock.slice(0, 6);
+  const topPlayers = summary.topPlayers.slice(0, 5);
+  const lowestPlayers = summary.lowestPlayers.slice(0, 3);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Block averages</CardTitle>
+          <CardDescription>Per-block scoring snapshots for this session.</CardDescription>
+        </CardHeader>
+        <div className="divide-y divide-[var(--color-navy-100)]">
+          {blockAverages.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-[var(--color-navy-500)]">Evaluations will populate once scoring starts.</div>
+          ) : (
+            blockAverages.map((block, index) => (
+              <div key={block.blockId || index} className="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                  <p className="font-semibold text-[var(--color-navy-900)]">{block.blockName ?? `Block ${index + 1}`}</p>
+                  <p className="text-xs text-[var(--color-navy-500)]">Average score</p>
+                </div>
+                <span className="text-base font-semibold text-[var(--color-navy-800)]">{block.averageScore.toFixed(1)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>AI ranking highlights</CardTitle>
+          <CardDescription>Top performers and watch list.</CardDescription>
+        </CardHeader>
+        <div className="space-y-4 p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Top players</p>
+            <ul className="mt-2 space-y-2">
+              {topPlayers.length === 0 ? (
+                <li className="text-sm text-[var(--color-navy-500)]">Rankings will appear after first scores.</li>
+              ) : (
+                topPlayers.map((player, index) => (
+                  <li key={player.playerId || index} className="flex items-center justify-between text-sm">
+                    <span>
+                      <span className="mr-2 rounded-full bg-[var(--color-blue-100)] px-2 py-0.5 text-xs font-semibold text-[var(--color-blue-700)]">#{index + 1}</span>
+                      {player.playerName ?? "Unnamed"}
+                    </span>
+                    <span className="font-semibold text-[var(--color-navy-800)]">{player.overallScore.toFixed(1)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Watch list</p>
+            <ul className="mt-2 space-y-2">
+              {lowestPlayers.length === 0 ? (
+                <li className="text-sm text-[var(--color-navy-500)]">No watch list yet.</li>
+              ) : (
+                lowestPlayers.map((player) => (
+                  <li key={player.playerId} className="flex items-center justify-between text-sm">
+                    <span>{player.playerName ?? "Player"}</span>
+                    <span>{player.overallScore.toFixed(1)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+interface TeamAssignmentStat {
+  id: string;
+  name: string;
+  count: number;
+}
+
+interface RosterGenerationPanelProps {
+  isFinalized: boolean;
+  rosterGenerated: boolean;
+  isGenerating: boolean;
+  assignedCount: number;
+  lockedLabel: string | null;
+  teamStats: TeamAssignmentStat[];
+  history: { downloadedAt: string; filename: string; sessionId: string | null }[];
+  currentSessionId: string | null;
+  onGenerateRosters: () => void;
+  onViewTeams: () => void;
+  onDownloadSummary: () => void;
+}
+
+function RosterGenerationPanel({
+  isFinalized,
+  rosterGenerated,
+  isGenerating,
+  assignedCount,
+  lockedLabel,
+  teamStats,
+  history,
+  currentSessionId,
+  onGenerateRosters,
+  onViewTeams,
+  onDownloadSummary,
+}: RosterGenerationPanelProps) {
+  const [historyFilter, setHistoryFilter] = useState<"all" | "current">("all");
+  const visibleHistory = useMemo(() => {
+    if (historyFilter === "all") return history;
+    return history.filter((entry) => (entry.sessionId ?? null) === (currentSessionId ?? null));
+  }, [currentSessionId, history, historyFilter]);
+
+  if (!isFinalized) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Roster generation</CardTitle>
+          <CardDescription>Finalize placements to unlock roster exports.</CardDescription>
+        </CardHeader>
+        <div className="p-6 text-sm text-[var(--color-navy-600)]">Finalize placements above to enable roster generation and syncing to Teams.</div>
+      </Card>
+    );
+  }
+
+  const activeTeams = teamStats.filter((stat) => stat.count > 0);
+  const hasAssignments = assignedCount > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Roster generation</CardTitle>
+        <CardDescription>{lockedLabel ? `Placements locked ${lockedLabel}.` : "Placements locked."}</CardDescription>
+      </CardHeader>
+      <div className="space-y-5 p-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetric label="Players Assigned" value={assignedCount} />
+          <SummaryMetric label="Teams Tagged" value={activeTeams.length} />
+          <SummaryMetric label="Roster Status" value={rosterGenerated ? "Generated" : hasAssignments ? "Ready" : "Needs assignments"} />
+          <SummaryMetric label="Last Action" value={lockedLabel ?? "Just now"} />
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-[var(--color-navy-800)]">Assignment preview</p>
+          {activeTeams.length === 0 ? (
+            <p className="text-sm text-[var(--color-navy-500)]">Assign players to teams above to preview rosters.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {activeTeams.slice(0, 6).map((team) => (
+                <div key={team.id} className="rounded-xl border border-[var(--color-navy-100)] px-3 py-2">
+                  <p className="text-sm font-semibold text-[var(--color-navy-900)]">{team.name}</p>
+                  <p className="text-xs text-[var(--color-navy-500)]">{team.count} player{team.count === 1 ? "" : "s"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Recent exports</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={historyFilter === "all" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
+                onClick={() => setHistoryFilter("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={historyFilter === "current" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
+                onClick={() => setHistoryFilter("current")}
+              >
+                Current
+              </button>
+            </div>
+          </div>
+          {visibleHistory.length === 0 ? (
+            <p className="text-xs text-[var(--color-navy-500)]">Download history will appear after the first roster export.</p>
+          ) : (
+            <ul className="space-y-1 text-xs text-[var(--color-navy-600)]">
+              {visibleHistory.map((entry) => (
+                <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap gap-2 text-xs">
+                  <span className="font-medium">{entry.filename}</span>
+                  <span>{entry.sessionId ? `Session ${entry.sessionId}` : "All sessions"}</span>
+                  <span>{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[var(--color-navy-600)]">
+            {rosterGenerated
+              ? "Rosters synced — share them with coaches or jump to Teams."
+              : hasAssignments
+              ? "Generate official rosters and sync those teams instantly."
+              : "Assign players to teams to enable automated roster generation."}
+          </p>
+          {rosterGenerated ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={onDownloadSummary}>
+                Download summary
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onViewTeams}>
+                View Teams
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" onClick={onGenerateRosters} disabled={!hasAssignments || isGenerating}>
+              {isGenerating ? "Generating..." : "Generate Rosters"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 const RESULT_STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "offered", label: "Offered" },
@@ -496,20 +1006,114 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const router = useRouter();
   const sessionOptions = tryout.sessions.length ? tryout.sessions : [{ id: "default", name: "Overall" }];
   const [selectedSessionId, setSelectedSessionId] = useState(sessionOptions[0]?.id ?? "");
+  const [showComparePanel, setShowComparePanel] = useState(false);
+  const [playersToCompare, setPlayersToCompare] = useState<string[]>([]);
+  const buildStatusStorageKey = (sessionId: string) => `tryout-status-${tryout.id}-${sessionId}`;
+
+  const buildFinalizeStorageKey = () => `tryout-finalize-${tryout.id}`;
+
+  const buildRosterHistoryKey = () => `tryout-roster-history-${tryout.id}`;
+
+  const loadRosterHistory = () => {
+    if (typeof window === "undefined") return [] as { downloadedAt: string; filename: string; sessionId: string | null }[];
+    try {
+      const stored = window.localStorage.getItem(buildRosterHistoryKey());
+      if (!stored) return [];
+      return (JSON.parse(stored) as { downloadedAt: string; filename: string; sessionId?: string }[]).map((entry) => ({
+        ...entry,
+        sessionId: entry.sessionId ?? null,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const buildFavoriteStorageKey = () => `tryout-compare-favorites-${tryout.id}`;
+
+  const loadFavoritePlayers = () => {
+    if (typeof window === "undefined") return [] as string[];
+    try {
+      const stored = window.localStorage.getItem(buildFavoriteStorageKey());
+      if (!stored) return [];
+      return JSON.parse(stored) as string[];
+    } catch {
+      return [];
+    }
+  };
+
+  const loadStoredStatuses = (sessionId: string) => {
+    const baseline = initializeResultStatuses(tryout.participants);
+    if (typeof window === "undefined") return baseline;
+    try {
+      const stored = window.localStorage.getItem(buildStatusStorageKey(sessionId));
+      if (!stored) return baseline;
+      const parsed = JSON.parse(stored) as Record<string, ResultStatus>;
+      return { ...baseline, ...parsed };
+    } catch {
+      return baseline;
+    }
+  };
+
   const summaryQuery = useEvaluationSessionSummary(orgId, selectedSessionId);
   const scoresQuery = useSessionScores(orgId, selectedSessionId);
   const teamsQuery = useTeams(orgId);
   const teams = useMemo(() => teamsQuery.data ?? [], [teamsQuery.data]);
+  const sessionSummary = summaryQuery.data;
   const [playerStatuses, setPlayerStatuses] = useState<Record<string, ResultStatus>>(() =>
-    initializeResultStatuses(tryout.participants)
+    loadStoredStatuses(selectedSessionId)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
+  const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string; sessionId: string | null }[]>(() => loadRosterHistory());
+  const [favoritePlayers, setFavoritePlayers] = useState<string[]>(() => loadFavoritePlayers());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const teamAssignmentStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    Object.values(teamAssignments).forEach((teamId) => {
+      if (!teamId) return;
+      counts.set(teamId, (counts.get(teamId) ?? 0) + 1);
+    });
+    return teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      count: counts.get(team.id) ?? 0,
+    }));
+  }, [teamAssignments, teams]);
+
+  useEffect(() => {
+    setPlayerStatuses(loadStoredStatuses(selectedSessionId));
+  }, [selectedSessionId, tryout.participants]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildStatusStorageKey(selectedSessionId), JSON.stringify(playerStatuses));
+  }, [playerStatuses, selectedSessionId]);
+
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
   const [isGeneratingRosters, setIsGeneratingRosters] = useState(false);
   const [rosterGenerated, setRosterGenerated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(buildFinalizeStorageKey());
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as { isFinalized?: boolean; finalizedAt?: string | null; rosterGenerated?: boolean };
+      setIsFinalized(Boolean(parsed.isFinalized));
+      setFinalizedAt(parsed.finalizedAt ?? null);
+      setRosterGenerated(Boolean(parsed.rosterGenerated));
+    } catch {
+      // ignore parse errors
+    }
+  }, [tryout.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = { isFinalized, finalizedAt, rosterGenerated };
+    window.localStorage.setItem(buildFinalizeStorageKey(), JSON.stringify(payload));
+  }, [isFinalized, finalizedAt, rosterGenerated, tryout.id]);
 
   const blockNames = useMemo(() => {
     const set = new Set<string>();
@@ -570,6 +1174,12 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     });
   }, [rows, sortConfig]);
 
+  useEffect(() => {
+    if (!showComparePanel) return;
+    if (playersToCompare.length > 0) return;
+    setPlayersToCompare(sortedRows.slice(0, 3).map((row) => row.playerId));
+  }, [showComparePanel, playersToCompare.length, sortedRows]);
+
   const resultCounts = useMemo(() => {
     return tryout.participants.reduce(
       (acc, participant) => {
@@ -588,6 +1198,156 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     if (values.length === 0) return tryout.summaryMetrics.averageScore ?? null;
     return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
   }, [rows, tryout.summaryMetrics.averageScore]);
+
+  const displayedRows = useMemo(() => {
+    if (!showFavoritesOnly) return sortedRows;
+    return sortedRows.filter((row) => favoritePlayers.includes(row.playerId));
+  }, [favoritePlayers, showFavoritesOnly, sortedRows]);
+
+  const compareEntries = useMemo(() => {
+    return playersToCompare
+      .map((playerId) => {
+        const row = sortedRows.find((entry) => entry.playerId === playerId);
+        if (!row) return null;
+        return {
+          ...row,
+          status: playerStatuses[playerId] ?? "pending",
+          teamName: teamNameMap.get(teamAssignments[playerId] ?? "") ?? "",
+        };
+      })
+      .filter((row): row is (typeof sortedRows[number] & { status: ResultStatus; teamName: string }) => Boolean(row));
+  }, [playersToCompare, sortedRows, playerStatuses, teamAssignments, teamNameMap]);
+
+  const handleToggleComparePanel = () => {
+    setShowComparePanel((prev) => !prev);
+  };
+
+  const toggleFavoritePlayer = (playerId: string) => {
+    setFavoritePlayers((prev) => {
+      if (prev.includes(playerId)) {
+        return prev.filter((entry) => entry !== playerId);
+      }
+      return [...prev, playerId];
+    });
+  };
+
+  const clearCompareSelection = () => {
+    setPlayersToCompare([]);
+  };
+
+  const toggleComparePlayer = (playerId: string) => {
+    setPlayersToCompare((prev) => {
+      if (prev.includes(playerId)) {
+        return prev.filter((id) => id !== playerId);
+      }
+      const trimmed = prev.length >= 3 ? prev.slice(prev.length - 2) : prev;
+      return [...trimmed, playerId];
+    });
+  };
+
+  const toCsvValue = (value: string | number | null | undefined) => {
+    const normalized = value ?? "";
+    const safe = String(normalized).replace(/"/g, '""');
+    return `"${safe}"`;
+  };
+
+  const handleExportCsv = () => {
+    if (!sortedRows.length) return;
+    const headers = ["Player", "Age", "Position", "Overall", ...blockNames, "Status", "Team"]
+      .map(toCsvValue)
+      .join(",");
+    const csvRows = sortedRows.map((row) => {
+      const status = playerStatuses[row.playerId] ?? "pending";
+      const teamName = teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "";
+      const blockValues = blockNames.map((block) => formatScore(row.blockScores[block]));
+      const values = [
+        row.playerName,
+        row.age ?? "",
+        row.position ?? "",
+        formatScore(row.overallScore),
+        ...blockValues,
+        status,
+        teamName,
+      ];
+      return values.map(toCsvValue).join(",");
+    });
+    const csv = [headers, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `tryout-results-${selectedSessionId || "session"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    if (typeof window === "undefined") return;
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) return;
+    const rowsHtml = sortedRows
+      .slice(0, 25)
+      .map((row, index) =>
+        `<tr><td>${index + 1}</td><td>${row.playerName}</td><td>${row.position ?? ""}</td><td>${formatScore(
+          row.overallScore
+        )}</td><td>${playerStatuses[row.playerId] ?? "pending"}</td></tr>`
+      )
+      .join("");
+    reportWindow.document.write(
+      `<!doctype html><html><head><title>${tryout.name} Results</title><style>body{font-family:system-ui;padding:24px;}table{width:100%;border-collapse:collapse;margin-top:16px;}th,td{border:1px solid #d7dbe7;padding:6px 8px;font-size:12px;text-align:left;}th{background:#f0f4ff;}</style></head><body><h1>${tryout.name} — Results Snapshot</h1><table><thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Overall</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
+    );
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+  };
+
+  const buildRosterSummaryRows = () => {
+    return sortedRows.map((row) => ({
+      playerId: row.playerId,
+      playerName: row.playerName,
+      position: row.position ?? "",
+      overall: formatScore(row.overallScore),
+      status: playerStatuses[row.playerId] ?? "pending",
+      team: teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "",
+    }));
+  };
+
+  const buildRosterSummaryFilename = () => `tryout-roster-${tryout.id}-${selectedSessionId || "session"}.csv`;
+
+  const recordRosterDownload = (filename: string) => {
+    const sessionId = selectedSessionId || null;
+    setRosterHistory((prev) => {
+      const next = [{ downloadedAt: new Date().toISOString(), filename, sessionId }, ...prev].slice(0, 5);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(buildRosterHistoryKey(), JSON.stringify(next));
+        // Notify other client surfaces (Overview tab, future widgets) to refresh their cached roster history.
+        window.dispatchEvent(new CustomEvent("tryout-roster-history-updated", { detail: { tryoutId: tryout.id } }));
+      }
+      return next;
+    });
+  };
+
+  const downloadRosterSummary = () => {
+    const rowsForExport = buildRosterSummaryRows();
+    const headers = ["Player ID", "Player", "Position", "Overall", "Status", "Team"].map(toCsvValue).join(",");
+    const csvRows = rowsForExport.map((row) =>
+      [row.playerId, row.playerName, row.position, row.overall, row.status, row.team].map(toCsvValue).join(",")
+    );
+    const csv = [headers, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const filename = buildRosterSummaryFilename();
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    recordRosterDownload(filename);
+  };
 
   const handleSort = (column: string) => {
     setSortConfig((prev) => {
@@ -618,6 +1378,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     setTimeout(() => {
       setIsGeneratingRosters(false);
       setRosterGenerated(true);
+      downloadRosterSummary();
     }, 1200);
   };
 
@@ -658,6 +1419,27 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         </div>
       </Card>
 
+      <Card>
+        <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetric label="Players Evaluated" value={sessionSummary?.playersEvaluated ?? rows.length} />
+          <SummaryMetric label="Blocks Logged" value={sessionSummary?.blocksEvaluated ?? blockNames.length} />
+          <SummaryMetric label="Top Block Avg" value={formatScore(sessionSummary?.averageScoresByBlock?.[0]?.averageScore ?? null)} />
+          <SummaryMetric label="Ranked Players" value={sessionSummary?.topPlayers.length ?? 0} />
+        </div>
+      </Card>
+
+      <EvaluationSummaryPanel summary={sessionSummary} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--color-blue-200)] bg-white px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">Need to tweak the plan?</p>
+          <p className="text-xs text-[var(--color-navy-600)]">Open the builder to update blocks before sharing final results.</p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => router.push("/app/practice-plans")}>
+          Open builder
+        </Button>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-[var(--color-navy-900)]">AI Ranking ready</p>
@@ -666,10 +1448,24 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm">Compare Players</Button>
-          <Button variant="ghost" size="sm">Export PDF</Button>
+          <Button variant="secondary" size="sm" onClick={handleToggleComparePanel}>
+            {showComparePanel ? "Hide Compare" : "Compare Players"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportPdf}>Export PDF</Button>
         </div>
       </div>
+
+      {showComparePanel ? (
+        <ComparePlayersPanel
+          players={compareEntries}
+          blockNames={blockNames}
+          onClose={handleToggleComparePanel}
+          onClear={clearCompareSelection}
+          onRemove={toggleComparePlayer}
+          favorites={favoritePlayers}
+          onToggleFavorite={toggleFavoritePlayer}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm font-medium text-[var(--color-navy-700)]">Session</label>
@@ -685,22 +1481,17 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           ))}
         </select>
         <div className="flex flex-wrap gap-2 ml-auto">
-          <Button variant="ghost" size="sm">Compare Players</Button>
-          <Button variant="ghost" size="sm">Export CSV</Button>
+          <Button variant="ghost" size="sm" onClick={handleToggleComparePanel}>
+            {showComparePanel ? "Hide Compare" : "Compare Players"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportCsv}>Export CSV</Button>
+          <Button variant={showFavoritesOnly ? "secondary" : "ghost"} size="sm" onClick={() => setShowFavoritesOnly((prev) => !prev)}>
+            {showFavoritesOnly ? "Show all players" : "Show favorites"}
+          </Button>
           {isFinalized ? (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleGenerateRosters}
-                disabled={isGeneratingRosters || rosterGenerated}
-              >
-                {isGeneratingRosters ? "Generating..." : rosterGenerated ? "Rosters Generated" : "Generate Rosters"}
-              </Button>
-              <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
-                Locked {lockedLabel ?? "just now"}
-              </div>
-            </>
+            <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
+              Locked {lockedLabel ?? "just now"}
+            </div>
           ) : (
             <Button onClick={handleFinalizePlacements} disabled={isFinalizing}>
               {isFinalizing ? "Locking..." : "Finalize Placements"}
@@ -708,22 +1499,6 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           )}
         </div>
       </div>
-
-      {isFinalized && rosterGenerated ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-green-200)] bg-[var(--color-green-50)] px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-green-800)]">Rosters generated</p>
-            <p className="text-xs text-[var(--color-green-700)]">
-              {assignedCount
-                ? `${assignedCount} player${assignedCount === 1 ? "" : "s"} linked to teams — view on Teams page.`
-                : "Assign players to teams above to include them in roster exports."}
-            </p>
-          </div>
-          <Button size="sm" variant="secondary" onClick={() => router.push("/app/teams")}>
-            View Teams
-          </Button>
-        </div>
-      ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-[var(--color-navy-100)]">
         <Table>
@@ -741,8 +1516,18 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedRows.map((row) => (
-              <TableRow key={row.playerId}>
+            {displayedRows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
+                {showFavoritesOnly ? "No favorites yet." : "No players available."}
+              </TableCell>
+            </TableRow>
+          ) : (
+            displayedRows.map((row) => (
+              <TableRow
+                key={row.playerId}
+                className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
+              >
                 <TableCell>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
@@ -753,6 +1538,23 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                     ) : (
                       <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
                     )}
+                    <button
+                      type="button"
+                      className={favoritePlayers.includes(row.playerId) ? "mt-1 text-xs text-[var(--color-yellow-700)]" : "mt-1 text-xs text-[var(--color-navy-400)]"}
+                      onClick={() => toggleFavoritePlayer(row.playerId)}
+                      aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
+                    >
+                      {favoritePlayers.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
+                    </button>
+                    {showComparePanel ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-semibold text-[var(--color-blue-700)]"
+                        onClick={() => toggleComparePlayer(row.playerId)}
+                      >
+                        {playersToCompare.includes(row.playerId) ? "Remove from compare" : "Add to compare"}
+                      </button>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell>{row.age ?? "—"}</TableCell>
@@ -764,7 +1566,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                 <TableCell>
                   <select
                     className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
-                    value={(playerStatuses[row.playerId] ?? "pending")}
+                    value={playerStatuses[row.playerId] ?? "pending"}
                     onChange={(event) =>
                       setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
                     }
@@ -793,10 +1595,25 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                   </select>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+          )}
           </TableBody>
         </Table>
       </div>
+
+      <RosterGenerationPanel
+        isFinalized={isFinalized}
+        rosterGenerated={rosterGenerated}
+        isGenerating={isGeneratingRosters}
+        assignedCount={assignedCount}
+        lockedLabel={lockedLabel}
+        teamStats={teamAssignmentStats}
+        history={rosterHistory}
+        currentSessionId={selectedSessionId || null}
+        onGenerateRosters={handleGenerateRosters}
+        onViewTeams={() => router.push("/app/teams")}
+        onDownloadSummary={downloadRosterSummary}
+      />
     </div>
   );
 }
