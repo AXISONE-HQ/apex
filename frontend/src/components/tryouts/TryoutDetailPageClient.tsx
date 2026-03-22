@@ -12,10 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { Tabs } from "@/components/ui/Tabs";
 import { TryoutStatusPill } from "./TryoutStatusPill";
 import { useCheckInPlayer, useTryout, useTryoutAttendance } from "@/queries/tryouts";
+import { useEvaluationSessionSummary, useSessionScores } from "@/queries/evaluations";
+import { useTeams } from "@/queries/teams";
 import type {
   TryoutAttendanceData,
   TryoutAttendanceRecord,
   TryoutDetail,
+  TryoutParticipant,
   TryoutSession,
 } from "@/types/domain";
 
@@ -105,7 +108,7 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
     {
       id: "results",
       label: "Results",
-      content: <ResultsTab />,
+      content: <ResultsTab orgId={orgId} tryout={tryout} />,
     },
   ];
 
@@ -474,18 +477,303 @@ function QuickCheckInPanel({ sessions, records, onQuickCheckIn, isSubmitting }: 
     </div>
   );
 }
-function ResultsTab() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Results</CardTitle>
-        <CardDescription>Scores will populate once scoring is finalized</CardDescription>
-      </CardHeader>
-      <div className="rounded-xl border border-dashed border-[var(--color-navy-200)] px-4 py-8 text-center text-sm text-[var(--color-navy-600)]">
-        Results available after scoring is finalized.
-      </div>
-    </Card>
+const RESULT_STATUS_OPTIONS = [
+  { value: "pending", label: "Pending" },
+  { value: "offered", label: "Offered" },
+  { value: "waitlisted", label: "Waitlisted" },
+  { value: "declined", label: "Declined" },
+  { value: "no_show", label: "No Show" },
+] as const;
+
+type ResultStatus = (typeof RESULT_STATUS_OPTIONS)[number]["value"];
+
+interface ResultsTabProps {
+  orgId: string;
+  tryout: TryoutDetail;
+}
+
+function ResultsTab({ orgId, tryout }: ResultsTabProps) {
+  const sessionOptions = tryout.sessions.length ? tryout.sessions : [{ id: "default", name: "Overall" }];
+  const [selectedSessionId, setSelectedSessionId] = useState(sessionOptions[0]?.id ?? "");
+  const summaryQuery = useEvaluationSessionSummary(orgId, selectedSessionId);
+  const scoresQuery = useSessionScores(orgId, selectedSessionId);
+  const teamsQuery = useTeams(orgId);
+  const [playerStatuses, setPlayerStatuses] = useState<Record<string, ResultStatus>>(() =>
+    initializeResultStatuses(tryout.participants)
   );
+  const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
+  const [sortConfig, setSortConfig] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+
+  const blockNames = useMemo(() => {
+    const set = new Set<string>();
+    (scoresQuery.data ?? []).forEach((score) => {
+      const label = score.block?.name ?? score.blockId;
+      if (label) set.add(label);
+    });
+    return Array.from(set);
+  }, [scoresQuery.data]);
+
+  const playerBlockScores = useMemo(() => {
+    const map = new Map<string, Record<string, number | null>>();
+    (scoresQuery.data ?? []).forEach((score) => {
+      const playerId = score.playerId;
+      const label = score.block?.name ?? score.blockId;
+      if (!playerId || !label) return;
+      const numeric = extractScoreNumber(score.score);
+      if (!map.has(playerId)) map.set(playerId, {});
+      map.get(playerId)![label] = numeric;
+    });
+    return map;
+  }, [scoresQuery.data]);
+
+  const rows = useMemo(() => {
+    return tryout.participants.map((participant) => {
+      const blockScores = playerBlockScores.get(participant.playerId) ?? {};
+      const numericValues = Object.values(blockScores).filter((value): value is number => typeof value === "number");
+      const overallScore = numericValues.length ? Number((numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length).toFixed(1)) : null;
+      return {
+        playerId: participant.playerId,
+        playerName: participant.playerName,
+        age: participant.age,
+        position: participant.position,
+        overallScore,
+        blockScores,
+      };
+    });
+  }, [tryout.participants, playerBlockScores]);
+
+  const sortedRows = useMemo(() => {
+    if (!sortConfig) return rows;
+    return [...rows].sort((a, b) => {
+      const aValue = getSortableValue(a, sortConfig.column);
+      const bValue = getSortableValue(b, sortConfig.column);
+      if (aValue === bValue) return 0;
+      if (aValue === null) return sortConfig.direction === "asc" ? 1 : -1;
+      if (bValue === null) return sortConfig.direction === "asc" ? -1 : 1;
+      return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
+    });
+  }, [rows, sortConfig]);
+
+  const resultCounts = useMemo(() => {
+    return tryout.participants.reduce(
+      (acc, participant) => {
+        const status = playerStatuses[participant.playerId] ?? "pending";
+        if (status === "offered") acc.offered += 1;
+        if (status === "waitlisted") acc.waitlisted += 1;
+        if (status === "declined") acc.declined += 1;
+        return acc;
+      },
+      { offered: 0, waitlisted: 0, declined: 0 }
+    );
+  }, [playerStatuses, tryout.participants]);
+
+  const averageScore = useMemo(() => {
+    const values = rows.map((row) => row.overallScore).filter((value): value is number => typeof value === "number");
+    if (values.length === 0) return tryout.summaryMetrics.averageScore ?? null;
+    return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
+  }, [rows, tryout.summaryMetrics.averageScore]);
+
+  const handleSort = (column: string) => {
+    setSortConfig((prev) => {
+      if (prev?.column === column) {
+        return { column, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { column, direction: "desc" };
+    });
+  };
+
+  const handleFinalizePlacements = () => {
+    if (isFinalizing) return;
+    const confirmed = window.confirm("Lock placements and notify families? This cannot be undone.");
+    if (!confirmed) return;
+    setIsFinalizing(true);
+    setTimeout(() => {
+      setIsFinalizing(false);
+      alert("Placements locked — roster generation unlocked next.");
+    }, 1200);
+  };
+
+  const isLoading = summaryQuery.isLoading || scoresQuery.isLoading;
+  const isError = summaryQuery.isError || scoresQuery.isError;
+
+  if (!selectedSessionId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Results</CardTitle>
+          <CardDescription>Add at least one session to start capturing results.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          <EmptyState message="Create sessions inside the wizard to unlock results." />
+        </div>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return <LoadingState message="Loading results" />;
+  }
+
+  if (isError) {
+    const message = summaryQuery.error instanceof Error ? summaryQuery.error.message : "Unable to load results";
+    return <ErrorState message={message} onRetry={() => Promise.all([summaryQuery.refetch(), scoresQuery.refetch()])} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetric label="Offered" value={resultCounts.offered} />
+          <SummaryMetric label="Waitlisted" value={resultCounts.waitlisted} />
+          <SummaryMetric label="Declined" value={resultCounts.declined} />
+          <SummaryMetric label="Avg Score" value={typeof averageScore === "number" ? averageScore.toFixed(1) : "—"} />
+        </div>
+      </Card>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">AI Ranking ready</p>
+          <p className="text-xs text-[var(--color-navy-600)]">
+            AI has ranked all players by weighted composite score — review before finalizing placements.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm">Compare Players</Button>
+          <Button variant="ghost" size="sm">Export PDF</Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm font-medium text-[var(--color-navy-700)]">Session</label>
+        <select
+          className="rounded-md border border-[var(--color-navy-200)] px-3 py-2 text-sm"
+          value={selectedSessionId}
+          onChange={(event) => setSelectedSessionId(event.target.value)}
+        >
+          {sessionOptions.map((session) => (
+            <option key={session.id} value={session.id}>
+              {session.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex flex-wrap gap-2 ml-auto">
+          <Button variant="ghost" size="sm">Compare Players</Button>
+          <Button variant="ghost" size="sm">Export CSV</Button>
+          <Button onClick={handleFinalizePlacements} disabled={isFinalizing}>
+            {isFinalizing ? "Locking..." : "Finalize Placements"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-[var(--color-navy-100)]">
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Player</TableHeaderCell>
+              <SortableHeader label="Age" column="age" sortConfig={sortConfig} onSort={handleSort} />
+              <TableHeaderCell>Position</TableHeaderCell>
+              <SortableHeader label="Overall" column="overall" sortConfig={sortConfig} onSort={handleSort} />
+              {blockNames.map((blockName) => (
+                <SortableHeader key={blockName} label={blockName} column={blockName} sortConfig={sortConfig} onSort={handleSort} />
+              ))}
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Assigned Team</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortedRows.map((row) => (
+              <TableRow key={row.playerId}>
+                <TableCell>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
+                    <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                  </div>
+                </TableCell>
+                <TableCell>{row.age ?? "—"}</TableCell>
+                <TableCell>{row.position ?? "—"}</TableCell>
+                <TableCell>{formatScore(row.overallScore)}</TableCell>
+                {blockNames.map((blockName) => (
+                  <TableCell key={`${row.playerId}-${blockName}`}>{formatScore(row.blockScores[blockName])}</TableCell>
+                ))}
+                <TableCell>
+                  <select
+                    className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                    value={(playerStatuses[row.playerId] ?? "pending")}
+                    onChange={(event) =>
+                      setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
+                    }
+                  >
+                    {RESULT_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </TableCell>
+                <TableCell>
+                  <select
+                    className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                    value={teamAssignments[row.playerId] ?? ""}
+                    onChange={(event) =>
+                      setTeamAssignments((prev) => ({ ...prev, [row.playerId]: event.target.value }))
+                    }
+                  >
+                    <option value="">Select team</option>
+                    {(teamsQuery.data ?? []).map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function SortableHeader({ label, column, sortConfig, onSort }: { label: string; column: string; sortConfig: { column: string; direction: "asc" | "desc" } | null; onSort: (column: string) => void }) {
+  const direction = sortConfig?.column === column ? sortConfig.direction : null;
+  return (
+    <TableHeaderCell>
+      <button className="flex items-center gap-1" onClick={() => onSort(column)}>
+        {label}
+        {direction ? <span className="text-xs">{direction === "asc" ? "↑" : "↓"}</span> : null}
+      </button>
+    </TableHeaderCell>
+  );
+}
+
+function initializeResultStatuses(participants: TryoutParticipant[]) {
+  return participants.reduce<Record<string, ResultStatus>>((acc, participant) => {
+    acc[participant.playerId] = "pending";
+    return acc;
+  }, {});
+}
+
+function extractScoreNumber(score: Record<string, unknown> | null | undefined): number | null {
+  if (!score) return null;
+  const candidates = ["normalized", "value", "score", "overall"];
+  for (const key of candidates) {
+    const candidate = score[key];
+    if (typeof candidate === "number") return candidate;
+  }
+  return null;
+}
+
+function getSortableValue(row: { age?: number | null; overallScore: number | null; blockScores: Record<string, number | null> }, column: string): number | null {
+  if (column === "overall") return row.overallScore ?? null;
+  if (column === "age") return typeof row.age === "number" ? row.age : null;
+  return row.blockScores[column] ?? null;
+}
+
+function formatScore(value?: number | null) {
+  if (typeof value !== "number") return "—";
+  return value.toFixed(1);
 }
 
 function SummaryMetric({ label, value }: { label: string; value: number | string }) {

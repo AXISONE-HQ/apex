@@ -16,11 +16,24 @@ const mockUseTryout = vi.fn();
 const mockUseTryoutAttendance = vi.fn();
 const mockUseCheckInPlayer = vi.fn();
 
+const mockUseEvaluationSessionSummary = vi.fn();
+const mockUseSessionScores = vi.fn();
+const mockUseTeams = vi.fn();
+
 vi.mock("@/queries/tryouts", () => ({
   useTryouts: (...args: unknown[]) => mockUseTryouts(...args),
   useTryout: (...args: unknown[]) => mockUseTryout(...args),
   useTryoutAttendance: (...args: unknown[]) => mockUseTryoutAttendance(...args),
   useCheckInPlayer: (...args: unknown[]) => mockUseCheckInPlayer(...args),
+}));
+
+vi.mock("@/queries/evaluations", () => ({
+  useEvaluationSessionSummary: (...args: unknown[]) => mockUseEvaluationSessionSummary(...args),
+  useSessionScores: (...args: unknown[]) => mockUseSessionScores(...args),
+}));
+
+vi.mock("@/queries/teams", () => ({
+  useTeams: (...args: unknown[]) => mockUseTeams(...args),
 }));
 
 const sampleSessions = [
@@ -89,6 +102,41 @@ const sampleTryoutListEntry = {
   spotsAvailable: 5,
 };
 
+const sampleSessionSummary = {
+  sessionId: "session-1",
+  playersEvaluated: 1,
+  blocksEvaluated: 2,
+  averageScoresByBlock: [
+    { blockId: "block-1", blockName: "Skating", averageScore: 3.4 },
+    { blockId: "block-2", blockName: "Skills", averageScore: 3.8 },
+  ],
+  topPlayers: [{ playerId: "player-1", playerName: "Alex Wing", overallScore: 3.6 }],
+  lowestPlayers: [],
+};
+
+const sampleSessionScores = [
+  {
+    id: "score-1",
+    sessionId: "session-1",
+    playerId: "player-1",
+    blockId: "block-1",
+    score: { normalized: 3.4 },
+    block: { id: "block-1", name: "Skating" } as any,
+  },
+  {
+    id: "score-2",
+    sessionId: "session-1",
+    playerId: "player-1",
+    blockId: "block-2",
+    score: { normalized: 3.8 },
+    block: { id: "block-2", name: "Skills" } as any,
+  },
+];
+
+const sampleTeams = [
+  { id: "team-1", name: "U14 Blue", orgId: "org-1" } as any,
+];
+
 const sampleAttendance = {
   summary: {
     totalRegistered: 20,
@@ -120,6 +168,9 @@ afterEach(() => {
   mockUseTryout.mockReset();
   mockUseTryoutAttendance.mockReset();
   mockUseCheckInPlayer.mockReset();
+  mockUseEvaluationSessionSummary.mockReset();
+  mockUseSessionScores.mockReset();
+  mockUseTeams.mockReset();
 });
 
 beforeEach(() => {
@@ -145,6 +196,27 @@ beforeEach(() => {
     refetch: vi.fn(),
   });
   mockUseCheckInPlayer.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(sampleAttendance.records[0]), isPending: false });
+  mockUseEvaluationSessionSummary.mockReturnValue({
+    data: sampleSessionSummary,
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  });
+  mockUseSessionScores.mockReturnValue({
+    data: sampleSessionScores,
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  });
+  mockUseTeams.mockReturnValue({
+    data: sampleTeams,
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  });
 });
 
 describe("tryout UI flows", () => {
