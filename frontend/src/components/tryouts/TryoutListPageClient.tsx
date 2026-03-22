@@ -107,9 +107,9 @@ function Header() {
         <h1 className="text-3xl font-semibold text-[var(--color-navy-900)]">Tryouts</h1>
         <p className="text-sm text-[var(--color-navy-500)]">Manage upcoming, active, and completed tryouts</p>
       </div>
-      <Button asChild>
-        <Link href="/app/tryouts/create">Create Tryout</Link>
-      </Button>
+      <Link href="/app/tryouts/create">
+        <Button>Create Tryout</Button>
+      </Link>
     </div>
   );
 }

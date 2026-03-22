@@ -893,7 +893,7 @@ function EvaluatorsStep({
   const filteredCoaches = coaches.filter((coach) => {
     const target = search.toLowerCase();
     if (!target) return true;
-    const name = `${coach.firstName ?? ""} ${coach.lastName ?? ""}`.toLowerCase();
+    const name = (coach.name ?? "").toLowerCase();
     return name.includes(target) || (coach.email ?? "").toLowerCase().includes(target);
   });
 
@@ -901,13 +901,14 @@ function EvaluatorsStep({
     const coach = coaches.find((entry) => entry.id === coachId);
     if (!coach) return;
     if (value.assigned.some((entry) => entry.id === coachId)) return;
+    const displayName = coach.name?.trim() || coach.email || "Coach";
     onChange({
       ...value,
       assigned: [
         ...value.assigned,
         {
           id: coach.id,
-          name: `${coach.firstName ?? ""} ${coach.lastName ?? ""}`.trim() || coach.email || "Coach",
+          name: displayName,
           role: "scoring",
           sessionIds: sessions.map((session) => session.id),
         },
@@ -977,7 +978,7 @@ function EvaluatorsStep({
               {filteredCoaches.map((coach) => (
                 <div key={coach.id} className="flex items-center justify-between rounded-xl border border-[var(--color-navy-200)] px-3 py-2">
                   <div>
-                    <p className="text-sm font-semibold text-[var(--color-navy-900)]">{`${coach.firstName ?? ""} ${coach.lastName ?? ""}`.trim() || coach.email}</p>
+                    <p className="text-sm font-semibold text-[var(--color-navy-900)]">{coach.name?.trim() || coach.email}</p>
                     <p className="text-xs text-[var(--color-navy-500)]">{coach.email}</p>
                   </div>
                   <Button size="sm" variant="secondary" onClick={() => addCoach(coach.id)} disabled={value.assigned.some((entry) => entry.id === coach.id)}>
