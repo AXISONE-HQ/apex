@@ -11,7 +11,10 @@ export async function seedPaymentFixtures() {
   const guardianId = randomUUID();
   const playerId = randomUUID();
   const registrationId = randomUUID();
-  const seasonLabel = `Payments Season ${RUN_ID}-${randomUUID().slice(0, 8)}`;
+  const fixtureSuffix = `${RUN_ID}-${randomUUID().slice(0, 8)}`;
+  const seasonLabel = `Payments Season ${fixtureSuffix}`;
+  const guardianEmail = `guardian-${fixtureSuffix}@example.com`;
+  const playerEmail = `player-${fixtureSuffix}@example.com`;
   const now = new Date();
 
   await query(
@@ -25,14 +28,14 @@ export async function seedPaymentFixtures() {
     `INSERT INTO guardians (id, org_id, first_name, last_name, email, created_at, updated_at)
      VALUES ($1, $2, 'Pay', 'Guardian', $3, $4, $4)
      ON CONFLICT (id) DO NOTHING`,
-    [guardianId, TEST_ORG_ID, `guardian-${RUN_ID}@example.com`, now]
+    [guardianId, TEST_ORG_ID, guardianEmail, now]
   );
 
   await query(
     `INSERT INTO players (id, org_id, first_name, last_name, email, status, created_at, updated_at)
      VALUES ($1, $2, 'Pay', 'Player', $3, 'active', $4, $4)
      ON CONFLICT (id) DO NOTHING`,
-    [playerId, TEST_ORG_ID, `player-${RUN_ID}@example.com`, now]
+    [playerId, TEST_ORG_ID, playerEmail, now]
   );
 
   await query(
