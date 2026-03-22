@@ -26,8 +26,11 @@ CREATE TABLE IF NOT EXISTS payment_fees (
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(org_id, season_id, lower(name))
+  UNIQUE(org_id, season_id, name)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_fees_org_season_name_lower
+  ON payment_fees(org_id, season_id, lower(name));
 
 CREATE INDEX IF NOT EXISTS idx_payment_fees_org_season
   ON payment_fees(org_id, season_id);
