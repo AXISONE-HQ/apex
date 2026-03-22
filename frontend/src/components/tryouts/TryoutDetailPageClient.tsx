@@ -249,16 +249,60 @@ function RegisteredPlayersTable({ tryout }: { tryout: TryoutDetail }) {
 }
 
 function PlanTab() {
+  const router = useRouter();
+  const checkpoints = [
+    "Select or create the evaluation template for this tryout.",
+    "Assign activity blocks to each session so coaches know the flow.",
+    "Share the exported PDF with evaluators before the event.",
+  ];
+  const sampleBlocks = [
+    { title: "Warm-up edges", duration: "10 min", detail: "Full-ice edge control" },
+    { title: "Puck control gauntlet", duration: "12 min", detail: "Stations w/ timers" },
+    { title: "Compete drills", duration: "15 min", detail: "1v1 + net drives" },
+  ];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Evaluation plan</CardTitle>
-        <CardDescription>Plan blocks render here once linked to the tryout</CardDescription>
-      </CardHeader>
-      <div className="rounded-xl border border-dashed border-[var(--color-navy-200)] px-4 py-8 text-center text-sm text-[var(--color-navy-500)]">
-        Wire this tab to EvaluationPlanBlocks in Drop 2 once the plan assignment API lands.
-      </div>
-    </Card>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan checklist</CardTitle>
+          <CardDescription>Quick reminders before tryout day.</CardDescription>
+        </CardHeader>
+        <div className="space-y-4 p-6">
+          <ul className="space-y-3">
+            {checkpoints.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm text-[var(--color-navy-700)]">
+                <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-blue-100)] text-xs font-semibold text-[var(--color-blue-700)]">•</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <Button size="sm" onClick={() => router.push("/app/practice-plans")}>
+            Open AI Plan Builder
+          </Button>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming activity blocks</CardTitle>
+          <CardDescription>Link a template to see the real block list here.</CardDescription>
+        </CardHeader>
+        <div className="space-y-3 p-6">
+          {sampleBlocks.map((block) => (
+            <div key={block.title} className="rounded-xl border border-[var(--color-navy-100)] px-3 py-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-[var(--color-navy-900)]">{block.title}</p>
+                <span className="text-xs font-semibold text-[var(--color-navy-600)]">{block.duration}</span>
+              </div>
+              <p className="text-xs text-[var(--color-navy-500)]">{block.detail}</p>
+            </div>
+          ))}
+          <div className="rounded-xl border border-dashed border-[var(--color-navy-200)] px-4 py-3 text-sm text-[var(--color-navy-500)]">
+            Linking an evaluation plan will replace this sample list.
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -655,6 +699,7 @@ interface RosterGenerationPanelProps {
   teamStats: TeamAssignmentStat[];
   onGenerateRosters: () => void;
   onViewTeams: () => void;
+  onDownloadSummary: () => void;
 }
 
 function RosterGenerationPanel({
@@ -666,6 +711,7 @@ function RosterGenerationPanel({
   teamStats,
   onGenerateRosters,
   onViewTeams,
+  onDownloadSummary,
 }: RosterGenerationPanelProps) {
   if (!isFinalized) {
     return (
@@ -721,9 +767,14 @@ function RosterGenerationPanel({
               : "Assign players to teams to enable automated roster generation."}
           </p>
           {rosterGenerated ? (
-            <Button size="sm" variant="secondary" onClick={onViewTeams}>
-              View Teams
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={onDownloadSummary}>
+                Download summary
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onViewTeams}>
+                View Teams
+              </Button>
+            </div>
           ) : (
             <Button size="sm" onClick={onGenerateRosters} disabled={!hasAssignments || isGenerating}>
               {isGenerating ? "Generating..." : "Generate Rosters"}
@@ -971,6 +1022,35 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     reportWindow.print();
   };
 
+  const buildRosterSummaryRows = () => {
+    return sortedRows.map((row) => ({
+      playerId: row.playerId,
+      playerName: row.playerName,
+      position: row.position ?? "",
+      overall: formatScore(row.overallScore),
+      status: playerStatuses[row.playerId] ?? "pending",
+      team: teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "",
+    }));
+  };
+
+  const downloadRosterSummary = () => {
+    const rowsForExport = buildRosterSummaryRows();
+    const headers = ["Player ID", "Player", "Position", "Overall", "Status", "Team"].map(toCsvValue).join(",");
+    const csvRows = rowsForExport.map((row) =>
+      [row.playerId, row.playerName, row.position, row.overall, row.status, row.team].map(toCsvValue).join(",")
+    );
+    const csv = [headers, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `tryout-roster-${tryout.id}-${selectedSessionId || "session"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleSort = (column: string) => {
     setSortConfig((prev) => {
       if (prev?.column === column) {
@@ -1000,6 +1080,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     setTimeout(() => {
       setIsGeneratingRosters(false);
       setRosterGenerated(true);
+      downloadRosterSummary();
     }, 1200);
   };
 
@@ -1199,6 +1280,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         teamStats={teamAssignmentStats}
         onGenerateRosters={handleGenerateRosters}
         onViewTeams={() => router.push("/app/teams")}
+        onDownloadSummary={downloadRosterSummary}
       />
     </div>
   );
