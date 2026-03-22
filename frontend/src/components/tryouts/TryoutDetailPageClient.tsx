@@ -493,17 +493,23 @@ interface ResultsTabProps {
 }
 
 function ResultsTab({ orgId, tryout }: ResultsTabProps) {
+  const router = useRouter();
   const sessionOptions = tryout.sessions.length ? tryout.sessions : [{ id: "default", name: "Overall" }];
   const [selectedSessionId, setSelectedSessionId] = useState(sessionOptions[0]?.id ?? "");
   const summaryQuery = useEvaluationSessionSummary(orgId, selectedSessionId);
   const scoresQuery = useSessionScores(orgId, selectedSessionId);
   const teamsQuery = useTeams(orgId);
+  const teams = useMemo(() => teamsQuery.data ?? [], [teamsQuery.data]);
   const [playerStatuses, setPlayerStatuses] = useState<Record<string, ResultStatus>>(() =>
     initializeResultStatuses(tryout.participants)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isFinalized, setIsFinalized] = useState(false);
+  const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
+  const [isGeneratingRosters, setIsGeneratingRosters] = useState(false);
+  const [rosterGenerated, setRosterGenerated] = useState(false);
 
   const blockNames = useMemo(() => {
     const set = new Set<string>();
@@ -542,6 +548,15 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
       };
     });
   }, [tryout.participants, playerBlockScores]);
+
+  const teamNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    teams.forEach((team) => map.set(team.id, team.name));
+    return map;
+  }, [teams]);
+
+  const assignedCount = useMemo(() => Object.values(teamAssignments).filter(Boolean).length, [teamAssignments]);
+  const lockedLabel = finalizedAt ? dateTimeFormatter.format(new Date(finalizedAt)) : null;
 
   const sortedRows = useMemo(() => {
     if (!sortConfig) return rows;
@@ -584,13 +599,25 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   };
 
   const handleFinalizePlacements = () => {
-    if (isFinalizing) return;
+    if (isFinalizing || isFinalized) return;
     const confirmed = window.confirm("Lock placements and notify families? This cannot be undone.");
     if (!confirmed) return;
     setIsFinalizing(true);
     setTimeout(() => {
       setIsFinalizing(false);
+      setIsFinalized(true);
+      setFinalizedAt(new Date().toISOString());
+      setRosterGenerated(false);
       alert("Placements locked — roster generation unlocked next.");
+    }, 1200);
+  };
+
+  const handleGenerateRosters = () => {
+    if (isGeneratingRosters || rosterGenerated) return;
+    setIsGeneratingRosters(true);
+    setTimeout(() => {
+      setIsGeneratingRosters(false);
+      setRosterGenerated(true);
     }, 1200);
   };
 
@@ -660,11 +687,43 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         <div className="flex flex-wrap gap-2 ml-auto">
           <Button variant="ghost" size="sm">Compare Players</Button>
           <Button variant="ghost" size="sm">Export CSV</Button>
-          <Button onClick={handleFinalizePlacements} disabled={isFinalizing}>
-            {isFinalizing ? "Locking..." : "Finalize Placements"}
-          </Button>
+          {isFinalized ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleGenerateRosters}
+                disabled={isGeneratingRosters || rosterGenerated}
+              >
+                {isGeneratingRosters ? "Generating..." : rosterGenerated ? "Rosters Generated" : "Generate Rosters"}
+              </Button>
+              <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
+                Locked {lockedLabel ?? "just now"}
+              </div>
+            </>
+          ) : (
+            <Button onClick={handleFinalizePlacements} disabled={isFinalizing}>
+              {isFinalizing ? "Locking..." : "Finalize Placements"}
+            </Button>
+          )}
         </div>
       </div>
+
+      {isFinalized && rosterGenerated ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-green-200)] bg-[var(--color-green-50)] px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-green-800)]">Rosters generated</p>
+            <p className="text-xs text-[var(--color-green-700)]">
+              {assignedCount
+                ? `${assignedCount} player${assignedCount === 1 ? "" : "s"} linked to teams — view on Teams page.`
+                : "Assign players to teams above to include them in roster exports."}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => router.push("/app/teams")}>
+            View Teams
+          </Button>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-[var(--color-navy-100)]">
         <Table>
@@ -687,7 +746,13 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                 <TableCell>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
-                    <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                    {rosterGenerated && teamAssignments[row.playerId] ? (
+                      <p className="text-xs text-[var(--color-green-700)]">
+                        Tried out for {teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "assigned team"}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{row.age ?? "—"}</TableCell>
@@ -720,7 +785,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                     }
                   >
                     <option value="">Select team</option>
-                    {(teamsQuery.data ?? []).map((team) => (
+                    {teams.map((team) => (
                       <option key={team.id} value={team.id}>
                         {team.name}
                       </option>
