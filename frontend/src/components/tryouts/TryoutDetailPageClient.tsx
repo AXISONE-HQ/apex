@@ -200,6 +200,7 @@ function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
               {overviewHistory.map((entry) => (
                 <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
                   <span className="font-medium">{entry.filename}</span>
+                  <span className="text-xs text-[var(--color-navy-500)]">{entry.sessionId ? `Session ${entry.sessionId}` : "All sessions"}</span>
                   <span className="text-xs text-[var(--color-navy-500)]">{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
                 </li>
               ))}
@@ -274,36 +275,36 @@ function RegisteredPlayersTable({ tryout }: { tryout: TryoutDetail }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {participants.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4 + sessions.length} className="text-center text-sm text-[var(--color-navy-500)]">
-                  No players registered yet.
+          {participants.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={4 + sessions.length} className="text-center text-sm text-[var(--color-navy-500)]">
+                No players registered yet.
+              </TableCell>
+            </TableRow>
+          ) : (
+            participants.map((participant) => (
+              <TableRow key={participant.playerId}>
+                <TableCell className="font-medium text-[var(--color-navy-900)]">{participant.playerName}</TableCell>
+                <TableCell>{participant.age ?? "—"}</TableCell>
+                <TableCell>{participant.position ?? "—"}</TableCell>
+                <TableCell>
+                  <StatusBadge status={participant.status} />
                 </TableCell>
-              </TableRow>
-            ) : (
-              participants.map((participant) => (
-                <TableRow key={participant.playerId}>
-                  <TableCell className="font-medium text-[var(--color-navy-900)]">{participant.playerName}</TableCell>
-                  <TableCell>{participant.age ?? "—"}</TableCell>
-                  <TableCell>{participant.position ?? "—"}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={participant.status} />
+                {sessions.map((session) => (
+                  <TableCell key={`${participant.playerId}-${session.id}`} className="text-center">
+                    <input
+                      type="checkbox"
+                      disabled
+                      checked={participant.sessions.some(
+                        (entry) => entry.sessionId === session.id && entry.status === "present"
+                      )}
+                      aria-label={`Attendance for ${participant.playerName} in ${session.name}`}
+                    />
                   </TableCell>
-                  {sessions.map((session) => (
-                    <TableCell key={`${participant.playerId}-${session.id}`} className="text-center">
-                      <input
-                        type="checkbox"
-                        disabled
-                        checked={participant.sessions.some(
-                          (entry) => entry.sessionId === session.id && entry.status === "present"
-                        )}
-                        aria-label={`Attendance for ${participant.playerName} in ${session.name}`}
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
+                ))}
+              </TableRow>
+            ))
+          )}
           </TableBody>
         </Table>
       </div>
@@ -649,32 +650,87 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, 
             </TableRow>
           </TableHead>
           <TableBody>
-            {players.map((player) => (
-              <TableRow key={player.playerId}>
-                <TableCell className="font-semibold text-[var(--color-navy-900)]">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className={`text-xs ${favorites.includes(player.playerId) ? "text-[var(--color-yellow-600)]" : "text-[var(--color-navy-400)]"}`}
-                      onClick={() => onToggleFavorite(player.playerId)}
-                      aria-label={favorites.includes(player.playerId) ? "Unfavorite player" : "Favorite player"}
-                    >
-                      {favorites.includes(player.playerId) ? "★" : "☆"}
-                    </button>
-                    <span>{player.playerName}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{player.age ?? "—"}</TableCell>
-                <TableCell>{player.position ?? "—"}</TableCell>
-                <TableCell>{formatScore(player.overallScore)}</TableCell>
-                {blockNames.map((block) => (
-                  <TableCell key={`${player.playerId}-${block}`}>{formatScore(player.blockScores[block])}</TableCell>
-                ))}
-                <TableCell>
-                  <Button size="sm" variant="ghost" onClick={() => onRemove(player.playerId)}>Remove</Button>
+            {displayedRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
+                  {showFavoritesOnly ? "No favorites yet." : "No players available."}
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              displayedRows.map((row) => (
+                <TableRow
+                  key={row.playerId}
+                  className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
+                >
+                  <TableCell>
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
+                      {rosterGenerated && teamAssignments[row.playerId] ? (
+                        <p className="text-xs text-[var(--color-green-700)]">
+                          Tried out for {teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "assigned team"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                      )}
+                      <button
+                        type="button"
+                        className={favoritePlayers.includes(row.playerId) ? "mt-1 text-xs text-[var(--color-yellow-700)]" : "mt-1 text-xs text-[var(--color-navy-400)]"}
+                        onClick={() => toggleFavoritePlayer(row.playerId)}
+                        aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
+                      >
+                        {favoritePlayers.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
+                      </button>
+                      {showComparePanel ? (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs font-semibold text-[var(--color-blue-700)]"
+                          onClick={() => toggleComparePlayer(row.playerId)}
+                        >
+                          {playersToCompare.includes(row.playerId) ? "Remove from compare" : "Add to compare"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>{row.age ?? "—"}</TableCell>
+                  <TableCell>{row.position ?? "—"}</TableCell>
+                  <TableCell>{formatScore(row.overallScore)}</TableCell>
+                  {blockNames.map((blockName) => (
+                    <TableCell key={`${row.playerId}-${blockName}`}>{formatScore(row.blockScores[blockName])}</TableCell>
+                  ))}
+                  <TableCell>
+                    <select
+                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                      value={playerStatuses[row.playerId] ?? "pending"}
+                      onChange={(event) =>
+                        setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
+                      }
+                    >
+                      {RESULT_STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
+                      value={teamAssignments[row.playerId] ?? ""}
+                      onChange={(event) =>
+                        setTeamAssignments((prev) => ({ ...prev, [row.playerId]: event.target.value }))
+                      }
+                    >
+                      <option value="">Select team</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -782,7 +838,9 @@ interface RosterGenerationPanelProps {
   assignedCount: number;
   lockedLabel: string | null;
   teamStats: TeamAssignmentStat[];
-  history: { downloadedAt: string; filename: string }[];
+  history: { downloadedAt: string; filename: string; sessionId: string | null }[];
+  historyFilter: "all" | "current";
+  onHistoryFilterChange: (value: "all" | "current") => void;
   onGenerateRosters: () => void;
   onViewTeams: () => void;
   onDownloadSummary: () => void;
@@ -796,6 +854,8 @@ function RosterGenerationPanel({
   lockedLabel,
   teamStats,
   history,
+  historyFilter,
+  onHistoryFilterChange,
   onGenerateRosters,
   onViewTeams,
   onDownloadSummary,
@@ -846,7 +906,25 @@ function RosterGenerationPanel({
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Recent exports</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-500)]">Recent exports</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={historyFilter === "all" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
+                onClick={() => onHistoryFilterChange("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={historyFilter === "current" ? "text-xs text-[var(--color-blue-700)]" : "text-xs text-[var(--color-navy-500)]"}
+                onClick={() => onHistoryFilterChange("current")}
+              >
+                Current
+              </button>
+            </div>
+          </div>
           {history.length === 0 ? (
             <p className="text-xs text-[var(--color-navy-500)]">Download history will appear after the first roster export.</p>
           ) : (
@@ -854,6 +932,7 @@ function RosterGenerationPanel({
               {history.map((entry) => (
                 <li key={`${entry.filename}-${entry.downloadedAt}`} className="flex flex-wrap justify-between gap-2">
                   <span>{entry.filename}</span>
+                  <span>{entry.sessionId ? `Session ${entry.sessionId}` : "All"}</span>
                   <span>{dateTimeFormatter.format(new Date(entry.downloadedAt))}</span>
                 </li>
               ))}
@@ -917,11 +996,14 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const buildRosterHistoryKey = () => `tryout-roster-history-${tryout.id}`;
 
   const loadRosterHistory = () => {
-    if (typeof window === "undefined") return [] as { downloadedAt: string; filename: string }[];
+    if (typeof window === "undefined") return [] as { downloadedAt: string; filename: string; sessionId: string | null }[];
     try {
       const stored = window.localStorage.getItem(buildRosterHistoryKey());
       if (!stored) return [];
-      return JSON.parse(stored) as { downloadedAt: string; filename: string }[];
+      return (JSON.parse(stored) as { downloadedAt: string; filename: string; sessionId?: string }[]).map((entry) => ({
+        ...entry,
+        sessionId: entry.sessionId ?? null,
+      }));
     } catch {
       return [];
     }
@@ -962,8 +1044,10 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     loadStoredStatuses(selectedSessionId)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
-  const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string }[]>(() => loadRosterHistory());
+  const [rosterHistory, setRosterHistory] = useState<{ downloadedAt: string; filename: string; sessionId: string | null }[]>(() => loadRosterHistory());
   const [favoritePlayers, setFavoritePlayers] = useState<string[]>(() => loadFavoritePlayers());
+  const [historyFilter, setHistoryFilter] = useState<"all" | "current">("all");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const teamAssignmentStats = useMemo(() => {
     const counts = new Map<string, number>();
     Object.values(teamAssignments).forEach((teamId) => {
@@ -1060,6 +1144,11 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const assignedCount = useMemo(() => Object.values(teamAssignments).filter(Boolean).length, [teamAssignments]);
   const lockedLabel = finalizedAt ? dateTimeFormatter.format(new Date(finalizedAt)) : null;
 
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === "all") return rosterHistory;
+    return rosterHistory.filter((entry) => (entry.sessionId ?? null) === (selectedSessionId || null));
+  }, [historyFilter, rosterHistory, selectedSessionId]);
+
   const sortedRows = useMemo(() => {
     if (!sortConfig) return rows;
     return [...rows].sort((a, b) => {
@@ -1096,6 +1185,11 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     if (values.length === 0) return tryout.summaryMetrics.averageScore ?? null;
     return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
   }, [rows, tryout.summaryMetrics.averageScore]);
+
+  const displayedRows = useMemo(() => {
+    if (!showFavoritesOnly) return sortedRows;
+    return sortedRows.filter((row) => favoritePlayers.includes(row.playerId));
+  }, [favoritePlayers, showFavoritesOnly, sortedRows]);
 
   const compareEntries = useMemo(() => {
     return playersToCompare
@@ -1210,8 +1304,9 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const buildRosterSummaryFilename = () => `tryout-roster-${tryout.id}-${selectedSessionId || "session"}.csv`;
 
   const recordRosterDownload = (filename: string) => {
+    const sessionId = selectedSessionId || null;
     setRosterHistory((prev) => {
-      const next = [{ downloadedAt: new Date().toISOString(), filename }, ...prev].slice(0, 5);
+      const next = [{ downloadedAt: new Date().toISOString(), filename, sessionId }, ...prev].slice(0, 5);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(buildRosterHistoryKey(), JSON.stringify(next));
         window.dispatchEvent(new CustomEvent("tryout-roster-history-updated", { detail: { tryoutId: tryout.id } }));
@@ -1376,6 +1471,9 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
             {showComparePanel ? "Hide Compare" : "Compare Players"}
           </Button>
           <Button variant="ghost" size="sm" onClick={handleExportCsv}>Export CSV</Button>
+          <Button variant={showFavoritesOnly ? "secondary" : "ghost"} size="sm" onClick={() => setShowFavoritesOnly((prev) => !prev)}>
+            {showFavoritesOnly ? "Show all players" : "Show favorites"}
+          </Button>
           {isFinalized ? (
             <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
               Locked {lockedLabel ?? "just now"}
@@ -1404,7 +1502,14 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedRows.map((row) => (
+            {displayedRows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
+                {showFavoritesOnly ? "No favorites yet." : "No players available."}
+              </TableCell>
+            </TableRow>
+          ) : (
+            displayedRows.map((row) => (
               <TableRow
                 key={row.playerId}
                 className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
@@ -1421,7 +1526,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                     )}
                     <button
                       type="button"
-                      className={`mt-1 text-xs ${favoritePlayers.includes(row.playerId) ? "text-[var(--color-yellow-700)]" : "text-[var(--color-navy-400)]"}`}
+                      className={favoritePlayers.includes(row.playerId) ? "mt-1 text-xs text-[var(--color-yellow-700)]" : "mt-1 text-xs text-[var(--color-navy-400)]"}
                       onClick={() => toggleFavoritePlayer(row.playerId)}
                       aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
                     >
@@ -1447,7 +1552,7 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                 <TableCell>
                   <select
                     className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
-                    value={(playerStatuses[row.playerId] ?? "pending")}
+                    value={playerStatuses[row.playerId] ?? "pending"}
                     onChange={(event) =>
                       setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
                     }
@@ -1476,7 +1581,8 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                   </select>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+          )}
           </TableBody>
         </Table>
       </div>
@@ -1488,7 +1594,9 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
         assignedCount={assignedCount}
         lockedLabel={lockedLabel}
         teamStats={teamAssignmentStats}
-        history={rosterHistory}
+        history={filteredHistory}
+        historyFilter={historyFilter}
+        onHistoryFilterChange={setHistoryFilter}
         onGenerateRosters={handleGenerateRosters}
         onViewTeams={() => router.push("/app/teams")}
         onDownloadSummary={downloadRosterSummary}
