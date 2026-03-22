@@ -53,6 +53,21 @@ export const queryKeys = {
     eventId,
   ] as const,
   coaches: (orgId: string) => ["coaches", orgId] as const,
+  tryouts: (orgId: string, filters?: unknown) => [
+    "tryouts",
+    orgId,
+    serialize(filters),
+  ] as const,
+  tryout: (orgId: string, tryoutId: string) => [
+    "tryout",
+    orgId,
+    tryoutId,
+  ] as const,
+  tryoutAttendance: (orgId: string, tryoutId: string) => [
+    "tryout-attendance",
+    orgId,
+    tryoutId,
+  ] as const,
   sessionMe: () => ["session", "me"] as const,
   evaluationBlocks: (orgId: string, filters?: unknown) => [
     "evaluation-blocks",
