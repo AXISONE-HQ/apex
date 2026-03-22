@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
@@ -479,6 +479,80 @@ function QuickCheckInPanel({ sessions, records, onQuickCheckIn, isSubmitting }: 
     </div>
   );
 }
+interface ComparePlayersPanelProps {
+  players: Array<{
+    playerId: string;
+    playerName: string;
+    age?: number | null;
+    position?: string | null;
+    overallScore: number | null;
+    blockScores: Record<string, number | null>;
+  }>;
+  blockNames: string[];
+  onClose: () => void;
+  onRemove: (playerId: string) => void;
+}
+
+function ComparePlayersPanel({ players, blockNames, onClose, onRemove }: ComparePlayersPanelProps) {
+  if (players.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Compare players</CardTitle>
+          <CardDescription>Select players above to see them side by side.</CardDescription>
+        </CardHeader>
+        <div className="p-6">
+          <EmptyState message="Use the compare toggle in the table to pin players." />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <CardTitle>Compare players</CardTitle>
+          <CardDescription>Key metrics for the pinned players.</CardDescription>
+        </div>
+        <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
+      </CardHeader>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Player</TableHeaderCell>
+              <TableHeaderCell>Age</TableHeaderCell>
+              <TableHeaderCell>Pos</TableHeaderCell>
+              <TableHeaderCell>Overall</TableHeaderCell>
+              {blockNames.map((block) => (
+                <TableHeaderCell key={`compare-${block}`}>{block}</TableHeaderCell>
+              ))}
+              <TableHeaderCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {players.map((player) => (
+              <TableRow key={player.playerId}>
+                <TableCell className="font-semibold text-[var(--color-navy-900)]">{player.playerName}</TableCell>
+                <TableCell>{player.age ?? "—"}</TableCell>
+                <TableCell>{player.position ?? "—"}</TableCell>
+                <TableCell>{formatScore(player.overallScore)}</TableCell>
+                {blockNames.map((block) => (
+                  <TableCell key={`${player.playerId}-${block}`}>{formatScore(player.blockScores[block])}</TableCell>
+                ))}
+                <TableCell>
+                  <Button size="sm" variant="ghost" onClick={() => onRemove(player.playerId)}>Remove</Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 function EvaluationSummaryPanel({ summary }: { summary?: EvaluationSessionSummary | null }) {
   if (!summary) {
     return (
@@ -680,13 +754,30 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const router = useRouter();
   const sessionOptions = tryout.sessions.length ? tryout.sessions : [{ id: "default", name: "Overall" }];
   const [selectedSessionId, setSelectedSessionId] = useState(sessionOptions[0]?.id ?? "");
+  const [showComparePanel, setShowComparePanel] = useState(false);
+  const [playersToCompare, setPlayersToCompare] = useState<string[]>([]);
+  const buildStatusStorageKey = (sessionId: string) => `tryout-status-${tryout.id}-${sessionId}`;
+
+  const loadStoredStatuses = (sessionId: string) => {
+    const baseline = initializeResultStatuses(tryout.participants);
+    if (typeof window === "undefined") return baseline;
+    try {
+      const stored = window.localStorage.getItem(buildStatusStorageKey(sessionId));
+      if (!stored) return baseline;
+      const parsed = JSON.parse(stored) as Record<string, ResultStatus>;
+      return { ...baseline, ...parsed };
+    } catch {
+      return baseline;
+    }
+  };
+
   const summaryQuery = useEvaluationSessionSummary(orgId, selectedSessionId);
   const scoresQuery = useSessionScores(orgId, selectedSessionId);
   const teamsQuery = useTeams(orgId);
   const teams = useMemo(() => teamsQuery.data ?? [], [teamsQuery.data]);
   const sessionSummary = summaryQuery.data;
   const [playerStatuses, setPlayerStatuses] = useState<Record<string, ResultStatus>>(() =>
-    initializeResultStatuses(tryout.participants)
+    loadStoredStatuses(selectedSessionId)
   );
   const [teamAssignments, setTeamAssignments] = useState<Record<string, string>>({});
   const teamAssignmentStats = useMemo(() => {
@@ -701,6 +792,16 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
       count: counts.get(team.id) ?? 0,
     }));
   }, [teamAssignments, teams]);
+
+  useEffect(() => {
+    setPlayerStatuses(loadStoredStatuses(selectedSessionId));
+  }, [selectedSessionId, tryout.participants]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildStatusStorageKey(selectedSessionId), JSON.stringify(playerStatuses));
+  }, [playerStatuses, selectedSessionId]);
+
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
@@ -767,6 +868,12 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     });
   }, [rows, sortConfig]);
 
+  useEffect(() => {
+    if (!showComparePanel) return;
+    if (playersToCompare.length > 0) return;
+    setPlayersToCompare(sortedRows.slice(0, 3).map((row) => row.playerId));
+  }, [showComparePanel, playersToCompare.length, sortedRows]);
+
   const resultCounts = useMemo(() => {
     return tryout.participants.reduce(
       (acc, participant) => {
@@ -785,6 +892,84 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
     if (values.length === 0) return tryout.summaryMetrics.averageScore ?? null;
     return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1));
   }, [rows, tryout.summaryMetrics.averageScore]);
+
+  const compareEntries = useMemo(() => {
+    return playersToCompare
+      .map((playerId) => sortedRows.find((row) => row.playerId === playerId))
+      .filter((row): row is typeof sortedRows[number] => Boolean(row));
+  }, [playersToCompare, sortedRows]);
+
+  const handleToggleComparePanel = () => {
+    setShowComparePanel((prev) => !prev);
+  };
+
+  const toggleComparePlayer = (playerId: string) => {
+    setPlayersToCompare((prev) => {
+      if (prev.includes(playerId)) {
+        return prev.filter((id) => id !== playerId);
+      }
+      const trimmed = prev.length >= 3 ? prev.slice(prev.length - 2) : prev;
+      return [...trimmed, playerId];
+    });
+  };
+
+  const toCsvValue = (value: string | number | null | undefined) => {
+    const normalized = value ?? "";
+    const safe = String(normalized).replace(/"/g, '""');
+    return `"${safe}"`;
+  };
+
+  const handleExportCsv = () => {
+    if (!sortedRows.length) return;
+    const headers = ["Player", "Age", "Position", "Overall", ...blockNames, "Status", "Team"]
+      .map(toCsvValue)
+      .join(",");
+    const csvRows = sortedRows.map((row) => {
+      const status = playerStatuses[row.playerId] ?? "pending";
+      const teamName = teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "";
+      const blockValues = blockNames.map((block) => formatScore(row.blockScores[block]));
+      const values = [
+        row.playerName,
+        row.age ?? "",
+        row.position ?? "",
+        formatScore(row.overallScore),
+        ...blockValues,
+        status,
+        teamName,
+      ];
+      return values.map(toCsvValue).join(",");
+    });
+    const csv = [headers, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `tryout-results-${selectedSessionId || "session"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    if (typeof window === "undefined") return;
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) return;
+    const rowsHtml = sortedRows
+      .slice(0, 25)
+      .map((row, index) =>
+        `<tr><td>${index + 1}</td><td>${row.playerName}</td><td>${row.position ?? ""}</td><td>${formatScore(
+          row.overallScore
+        )}</td><td>${playerStatuses[row.playerId] ?? "pending"}</td></tr>`
+      )
+      .join("");
+    reportWindow.document.write(
+      `<!doctype html><html><head><title>${tryout.name} Results</title><style>body{font-family:system-ui;padding:24px;}table{width:100%;border-collapse:collapse;margin-top:16px;}th,td{border:1px solid #d7dbe7;padding:6px 8px;font-size:12px;text-align:left;}th{background:#f0f4ff;}</style></head><body><h1>${tryout.name} — Results Snapshot</h1><table><thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Overall</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
+    );
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+  };
 
   const handleSort = (column: string) => {
     setSortConfig((prev) => {
@@ -874,10 +1059,21 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm">Compare Players</Button>
-          <Button variant="ghost" size="sm">Export PDF</Button>
+          <Button variant="secondary" size="sm" onClick={handleToggleComparePanel}>
+            {showComparePanel ? "Hide Compare" : "Compare Players"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportPdf}>Export PDF</Button>
         </div>
       </div>
+
+      {showComparePanel ? (
+        <ComparePlayersPanel
+          players={compareEntries}
+          blockNames={blockNames}
+          onClose={handleToggleComparePanel}
+          onRemove={toggleComparePlayer}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm font-medium text-[var(--color-navy-700)]">Session</label>
@@ -893,8 +1089,10 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           ))}
         </select>
         <div className="flex flex-wrap gap-2 ml-auto">
-          <Button variant="ghost" size="sm">Compare Players</Button>
-          <Button variant="ghost" size="sm">Export CSV</Button>
+          <Button variant="ghost" size="sm" onClick={handleToggleComparePanel}>
+            {showComparePanel ? "Hide Compare" : "Compare Players"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportCsv}>Export CSV</Button>
           {isFinalized ? (
             <div className="rounded-full bg-[var(--color-green-100)] px-3 py-1 text-xs font-semibold text-[var(--color-green-800)]">
               Locked {lockedLabel ?? "just now"}
@@ -924,7 +1122,10 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
           </TableHead>
           <TableBody>
             {sortedRows.map((row) => (
-              <TableRow key={row.playerId}>
+              <TableRow
+                key={row.playerId}
+                className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
+              >
                 <TableCell>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
@@ -935,6 +1136,15 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
                     ) : (
                       <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
                     )}
+                    {showComparePanel ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-semibold text-[var(--color-blue-700)]"
+                        onClick={() => toggleComparePlayer(row.playerId)}
+                      >
+                        {playersToCompare.includes(row.playerId) ? "Remove from compare" : "Add to compare"}
+                      </button>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell>{row.age ?? "—"}</TableCell>
