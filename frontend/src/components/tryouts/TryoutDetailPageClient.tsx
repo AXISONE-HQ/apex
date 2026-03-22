@@ -148,9 +148,19 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
 }
 
 function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
+  const router = useRouter();
   return (
     <div className="space-y-6">
       <EventDetails tryout={tryout} />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-blue-200)] bg-[var(--color-blue-50)] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-navy-900)]">Link the evaluation plan</p>
+          <p className="text-xs text-[var(--color-navy-600)]">Connect an AI-generated plan so evaluators see the block list across tabs.</p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => router.push("/app/practice-plans")}>
+          Link template
+        </Button>
+      </div>
       <RegisteredPlayersTable tryout={tryout} />
       <div className="flex flex-wrap gap-3">
         <Button>Start Check-In</Button>
@@ -278,7 +288,7 @@ function PlanTab() {
             ))}
           </ul>
           <Button size="sm" onClick={() => router.push("/app/practice-plans")}>
-            Open AI Plan Builder
+            Open builder
           </Button>
         </div>
       </Card>
@@ -809,6 +819,8 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const [playersToCompare, setPlayersToCompare] = useState<string[]>([]);
   const buildStatusStorageKey = (sessionId: string) => `tryout-status-${tryout.id}-${sessionId}`;
 
+  const buildFinalizeStorageKey = () => `tryout-finalize-${tryout.id}`;
+
   const loadStoredStatuses = (sessionId: string) => {
     const baseline = initializeResultStatuses(tryout.participants);
     if (typeof window === "undefined") return baseline;
@@ -859,6 +871,26 @@ function ResultsTab({ orgId, tryout }: ResultsTabProps) {
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
   const [isGeneratingRosters, setIsGeneratingRosters] = useState(false);
   const [rosterGenerated, setRosterGenerated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(buildFinalizeStorageKey());
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as { isFinalized?: boolean; finalizedAt?: string | null; rosterGenerated?: boolean };
+      setIsFinalized(Boolean(parsed.isFinalized));
+      setFinalizedAt(parsed.finalizedAt ?? null);
+      setRosterGenerated(Boolean(parsed.rosterGenerated));
+    } catch {
+      // ignore parse errors
+    }
+  }, [tryout.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = { isFinalized, finalizedAt, rosterGenerated };
+    window.localStorage.setItem(buildFinalizeStorageKey(), JSON.stringify(payload));
+  }, [isFinalized, finalizedAt, rosterGenerated, tryout.id]);
 
   const blockNames = useMemo(() => {
     const set = new Set<string>();
