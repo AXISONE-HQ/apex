@@ -158,6 +158,16 @@ test("payments invoice endpoints cover listing, guardian view, bulk create, patc
       isRequired: true,
     });
 
+    const secondFee = await createFee({
+      orgId: TEST_ORG_ID,
+      seasonId,
+      name: "Invoice Fee Two",
+      amountCents: 2500,
+      currency: "cad",
+      feeType: "registration",
+      isRequired: false,
+    });
+
     const bulkRes = await fetch(`${baseUrl}/payments/invoices`, {
       method: "POST",
       headers: adminHeaders,
@@ -173,7 +183,7 @@ test("payments invoice endpoints cover listing, guardian view, bulk create, patc
           },
           {
             registrationId,
-            feeId: fee.id,
+            feeId: secondFee.id,
             guardianUserId: TEST_USER_UUIDS.u2,
             amountCents: 2500,
             currency: "CAD",
