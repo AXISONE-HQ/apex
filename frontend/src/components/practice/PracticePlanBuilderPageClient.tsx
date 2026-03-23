@@ -7,7 +7,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/State";
 import { useTeams } from "@/queries/teams";
-import { useGeneratePracticePlanDraft, PracticePlanDraftPayload } from "@/queries/practicePlans";
+import { useGeneratePracticePlanDraft, usePracticePlans, PracticePlanDraftPayload } from "@/queries/practicePlans";
 import { PracticePlan, PracticePlanBlock, PracticePlanDraftSummary, Team } from "@/types/domain";
 
 const textareaClass =
@@ -29,6 +29,8 @@ const environmentOptions = [
   { value: "indoor", label: "Indoor" },
   { value: "outdoor", label: "Outdoor" },
 ];
+
+const planDateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 
 interface SessionConfig {
   date: string;
@@ -123,7 +125,7 @@ export function PracticePlanBuilderPageClient({ orgId }: { orgId: string }) {
         defaultTab="new-plan"
         tabs={[
           { id: "new-plan", label: "New plan", content: <NewPlanTab teams={teams} orgId={orgId} /> },
-          { id: "history", label: "Plan history", content: <HistoryPlaceholder /> },
+          { id: "history", label: "Plan history", content: <PlanHistoryTab orgId={orgId} teams={teams} /> },
         ]}
       />
     </div>
@@ -192,6 +194,22 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
       const message = error instanceof Error ? error.message : "Unable to generate plan";
       setStatusMessage(message);
     }
+  };
+
+  const handleSaveDraft = () => {
+    if (!draftPlan) {
+      setStatusMessage("Generate a plan before saving.");
+      return;
+    }
+    setStatusMessage("Save action wired once persistence endpoint is live — stub recorded.");
+  };
+
+  const handleExportDraft = () => {
+    if (!activities.length) {
+      setStatusMessage("Add at least one activity before exporting.");
+      return;
+    }
+    setStatusMessage("Export action stub — PDF/share integration landing in a follow-up.");
   };
 
   const handleActivityChange = (activityId: string, field: keyof PracticeActivity, value: string) => {
@@ -353,9 +371,28 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Activity blocks</CardTitle>
-          <CardDescription>Edit, add, or remove segments before sharing with staff.</CardDescription>
+        <CardHeader className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <CardTitle>Activity blocks</CardTitle>
+            <CardDescription>Edit, add, or remove segments before sharing with staff.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleSaveDraft} disabled={!draftPlan}>
+              Save draft
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={!canGenerate || generateDraft.isPending}
+            >
+              Regenerate
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleExportDraft} disabled={!activities.length}>
+              Export
+            </Button>
+          </div>
         </CardHeader>
         <div className="space-y-4">
           {activities.map((activity, index) => (
@@ -438,15 +475,94 @@ function ActivityCard({
   );
 }
 
-function HistoryPlaceholder() {
+function PlanHistoryTab({ orgId, teams }: { orgId: string; teams: Team[] }) {
+  const { data, isLoading, isError, refetch, isFetching } = usePracticePlans(orgId, { limit: 25 });
+  const teamLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    teams.forEach((team) => map.set(team.id, team.name));
+    return map;
+  }, [teams]);
+
+  if (isLoading) {
+    return <LoadingState message="Loading recent plans" />;
+  }
+
+  if (isError) {
+    return <ErrorState message="Unable to load plan history" onRetry={() => refetch()} />;
+  }
+
+  const plans = data ?? [];
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent plans</CardTitle>
-        <CardDescription>Previously generated plans from the last 7 days will land here.</CardDescription>
+        <CardTitle>Plan history</CardTitle>
+        <CardDescription>Latest AI-generated drafts across the club.</CardDescription>
       </CardHeader>
-      <EmptyState message="History is coming online with the backend endpoints. For now, export your plan from the New Plan tab." />
+      {isFetching ? <p className="px-6 text-xs text-[var(--color-navy-400)]">Refreshing…</p> : null}
+      {plans.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="text-left text-[var(--color-navy-500)]">
+                <th className="px-6 py-3 font-medium">Plan</th>
+                <th className="px-6 py-3 font-medium">Team</th>
+                <th className="px-6 py-3 font-medium">Date</th>
+                <th className="px-6 py-3 font-medium">Focus</th>
+                <th className="px-6 py-3 font-medium">Status</th>
+                <th className="px-6 py-3 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.map((plan) => (
+                <PlanHistoryRow key={plan.id} plan={plan} teamName={plan.teamId ? teamLookup.get(plan.teamId) ?? "Team removed" : "Club-wide"} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          message="No plans generated yet"
+          actionLabel="Generate plan"
+          onAction={() => {
+            if (typeof window !== "undefined") {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+function PlanHistoryRow({ plan, teamName }: { plan: PracticePlan; teamName: string }) {
+  const focus = plan.focusAreas.slice(0, 2).join(", ") || "—";
+  const dateLabel = formatPlanDate(plan.practiceDate);
+  return (
+    <tr className="border-t border-[var(--color-navy-100)]">
+      <td className="px-6 py-3">
+        <p className="font-medium text-[var(--color-navy-900)]">{plan.title}</p>
+        {plan.notes ? <p className="text-xs text-[var(--color-navy-500)]">{plan.notes}</p> : null}
+      </td>
+      <td className="px-6 py-3 text-[var(--color-navy-700)]">{teamName}</td>
+      <td className="px-6 py-3 text-[var(--color-navy-700)]">{dateLabel}</td>
+      <td className="px-6 py-3 text-[var(--color-navy-700)]">{focus}</td>
+      <td className="px-6 py-3">
+        <span className="rounded-full bg-[var(--color-navy-100)] px-2 py-0.5 text-xs font-semibold capitalize text-[var(--color-navy-700)]">
+          {plan.status}
+        </span>
+      </td>
+      <td className="px-6 py-3">
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" title="Load plan (coming soon)" disabled>
+            Load
+          </Button>
+          <Button type="button" variant="ghost" size="sm" title="Export plan (coming soon)" disabled>
+            Export
+          </Button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -496,6 +612,13 @@ function DraftSummaryCard({ plan, summary }: { plan: PracticePlan; summary: Prac
       ) : null}
     </div>
   );
+}
+
+function formatPlanDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return planDateFormatter.format(date);
 }
 
 function mapBlocksToActivities(blocks: PracticePlanBlock[]): PracticeActivity[] {
