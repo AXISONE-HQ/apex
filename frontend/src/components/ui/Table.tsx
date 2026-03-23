@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
-import { HTMLAttributes } from "react";
+import { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
 
-export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
+export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
   return (
     <table
       className={cn(
@@ -25,10 +25,10 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
   return <tr className={cn("border-b border-[var(--color-navy-100)]", className)} {...props} />;
 }
 
-export function TableHeaderCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
+export function TableHeaderCell({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return <th className={cn("px-4 py-3 text-xs font-semibold uppercase tracking-wide", className)} {...props} />;
 }
 
-export function TableCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
+export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={cn("px-4 py-3 text-sm text-[var(--color-navy-700)]", className)} {...props} />;
 }

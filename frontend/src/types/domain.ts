@@ -377,3 +377,81 @@ export interface PracticePlanDraftSummary {
   cautions?: string[];
   notes?: string[];
 }
+
+export type TryoutStatus = "scheduled" | "in_progress" | "completed";
+
+export type TryoutParticipantStatus = "registered" | "checked_in" | "evaluated" | "no_show";
+
+export interface TryoutSummary {
+  id: string;
+  orgId: string;
+  name: string;
+  seasonId?: string | null;
+  seasonLabel?: string | null;
+  status: TryoutStatus;
+  startsAt: string;
+  endsAt: string;
+  venueName?: string | null;
+  registeredCount: number;
+  checkedInCount: number;
+  waitlistCount?: number | null;
+  spotsAvailable?: number | null;
+}
+
+export interface TryoutSession {
+  id: string;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface TryoutOverviewMetrics {
+  registered: number;
+  checkedIn: number;
+  waitlisted: number;
+  spotsAvailable: number;
+  averageScore?: number | null;
+}
+
+export interface TryoutSessionAttendance {
+  sessionId: string;
+  status: "present" | "absent" | "pending";
+  checkedInAt?: string | null;
+}
+
+export interface TryoutAttendanceRecord {
+  playerId: string;
+  playerName: string;
+  age?: number | null;
+  position?: string | null;
+  status: TryoutParticipantStatus;
+  checkInTime?: string | null;
+  waitlistPosition?: number | null;
+  sessions: TryoutSessionAttendance[];
+}
+
+export type TryoutParticipant = TryoutAttendanceRecord;
+
+export interface TryoutDetail extends TryoutSummary {
+  description?: string | null;
+  averageScore?: number | null;
+  evaluators: UserSummary[];
+  divisions: string[];
+  sessions: TryoutSession[];
+  summaryMetrics: TryoutOverviewMetrics;
+  participants: TryoutParticipant[];
+}
+
+export interface TryoutAttendanceSummary {
+  totalRegistered: number;
+  checkedIn: number;
+  noShows: number;
+  attendanceRate: number;
+}
+
+export interface TryoutAttendanceData {
+  summary: TryoutAttendanceSummary;
+  records: TryoutAttendanceRecord[];
+}
+
+

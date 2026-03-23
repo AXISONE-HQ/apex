@@ -26,6 +26,13 @@ import {
   ApiPracticePlan,
   ApiPracticePlanBlock,
   PracticePlanDraftSummaryApi,
+  ApiTryoutListItem,
+  ApiTryoutDetail,
+  ApiTryoutAttendanceRecord,
+  ApiTryoutAttendanceSummary,
+  ApiTryoutParticipant,
+  ApiTryoutSession,
+  ApiTryoutSessionAttendance,
 } from "@/types/api";
 import {
   AttendanceRecord,
@@ -58,6 +65,14 @@ import {
   PracticePlan,
   PracticePlanBlock,
   PracticePlanDraftSummary,
+  TryoutSummary,
+  TryoutDetail,
+  TryoutAttendanceRecord,
+  TryoutAttendanceSummary,
+  TryoutParticipant,
+  TryoutSession,
+  TryoutSessionAttendance,
+  TryoutOverviewMetrics,
 } from "@/types/domain";
 
 export function mapTeam(api: ApiTeam): Team {
@@ -515,3 +530,106 @@ export function mapPracticePlanDraftSummary(api?: PracticePlanDraftSummaryApi | 
     notes: normalizeArray(api.notes),
   };
 }
+
+export function mapTryoutSummary(api: ApiTryoutListItem): TryoutSummary {
+  return {
+    id: api.id,
+    orgId: api.org_id,
+    name: api.name,
+    seasonId: api.season_id ?? null,
+    seasonLabel: api.season_label ?? null,
+    status: api.status,
+    startsAt: api.starts_at,
+    endsAt: api.ends_at,
+    venueName: api.venue_name ?? null,
+    registeredCount: api.registered_count,
+    checkedInCount: api.checked_in_count,
+    waitlistCount: api.waitlist_count ?? null,
+    spotsAvailable: api.spots_available ?? null,
+  };
+}
+
+export function mapTryoutDetail(api: ApiTryoutDetail): TryoutDetail {
+  const summary = mapTryoutSummary(api);
+  const summaryMetrics = normalizeTryoutMetrics(api.summary_metrics, {
+    registered: summary.registeredCount,
+    checkedIn: summary.checkedInCount,
+    waitlisted: summary.waitlistCount ?? 0,
+    spotsAvailable: summary.spotsAvailable ?? 0,
+    averageScore: api.average_score ?? null,
+  });
+  const evaluators = Array.isArray(api.evaluators)
+    ? (api.evaluators.map((entry) => mapUserSummary(entry)).filter(Boolean) as UserSummary[])
+    : [];
+  const divisions = Array.isArray(api.divisions)
+    ? api.divisions.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : [];
+  return {
+    ...summary,
+    description: api.description ?? null,
+    averageScore: api.average_score ?? null,
+    evaluators,
+    divisions,
+    sessions: Array.isArray(api.sessions) ? api.sessions.map(mapTryoutSession) : [],
+    summaryMetrics,
+    participants: Array.isArray(api.participants) ? api.participants.map(mapTryoutParticipant) : [],
+  };
+}
+
+export function mapTryoutAttendanceRecord(api: ApiTryoutAttendanceRecord): TryoutAttendanceRecord {
+  return mapTryoutParticipant(api);
+}
+
+export function mapTryoutAttendanceSummary(api: ApiTryoutAttendanceSummary): TryoutAttendanceSummary {
+  return {
+    totalRegistered: api.total_registered,
+    checkedIn: api.checked_in,
+    noShows: api.no_shows,
+    attendanceRate: api.attendance_rate,
+  };
+}
+
+function mapTryoutParticipant(api: ApiTryoutParticipant): TryoutParticipant {
+  return {
+    playerId: api.player_id,
+    playerName: api.player_name,
+    age: api.age ?? null,
+    position: api.position ?? null,
+    status: api.status,
+    checkInTime: api.check_in_time ?? null,
+    waitlistPosition: api.waitlist_position ?? null,
+    sessions: (api.sessions ?? []).map(mapTryoutSessionAttendance),
+  };
+}
+
+function mapTryoutSession(api: ApiTryoutSession): TryoutSession {
+  return {
+    id: api.id,
+    name: api.name,
+    startsAt: api.starts_at,
+    endsAt: api.ends_at,
+  };
+}
+
+function mapTryoutSessionAttendance(api: ApiTryoutSessionAttendance): TryoutSessionAttendance {
+  return {
+    sessionId: api.session_id,
+    status: api.status,
+    checkedInAt: api.checked_in_at ?? null,
+  };
+}
+
+function normalizeTryoutMetrics(
+  source: ApiTryoutDetail["summary_metrics"] | null | undefined,
+  fallback: Partial<TryoutOverviewMetrics> = {}
+): TryoutOverviewMetrics {
+  return {
+    registered: source?.registered ?? fallback.registered ?? 0,
+    checkedIn: source?.checked_in ?? fallback.checkedIn ?? 0,
+    waitlisted: source?.waitlisted ?? fallback.waitlisted ?? 0,
+    spotsAvailable: source?.spots_available ?? fallback.spotsAvailable ?? 0,
+    averageScore: source?.average_score ?? fallback.averageScore ?? null,
+  };
+}
+
+
