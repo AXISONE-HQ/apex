@@ -1,13 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/State";
 import { useTeams } from "@/queries/teams";
-import { useGeneratePracticePlanDraft, usePracticePlans, PracticePlanDraftPayload } from "@/queries/practicePlans";
+import {
+  useGeneratePracticePlanDraft,
+  usePracticePlans,
+  PracticePlanDraftPayload,
+  createPracticePlan,
+  createPracticePlanBlock,
+  fetchPracticePlan,
+  fetchPracticePlanBlocks,
+} from "@/queries/practicePlans";
 import { PracticePlan, PracticePlanBlock, PracticePlanDraftSummary, Team } from "@/types/domain";
 
 const textareaClass =
@@ -101,6 +109,23 @@ function buildInitialActivities(): PracticeActivity[] {
 export function PracticePlanBuilderPageClient({ orgId }: { orgId: string }) {
   const teamsQuery = useTeams(orgId);
 
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [canLoadPlan, setCanLoadPlan] = useState(false);
+  const planLoadHandlerRef = useRef<((planId: string) => void) | null>(null);
+
+  const registerLoadHandler = useCallback((handler: (planId: string) => void) => {
+    planLoadHandlerRef.current = handler;
+    setCanLoadPlan(true);
+  }, []);
+
+  const handleLoadPlanRequest = useCallback(
+    (planId: string) => {
+      planLoadHandlerRef.current?.(planId);
+    },
+    []
+  );
+
   if (teamsQuery.isLoading) {
     return <LoadingState message="Loading teams for your club" />;
   }
@@ -124,15 +149,52 @@ export function PracticePlanBuilderPageClient({ orgId }: { orgId: string }) {
       <Tabs
         defaultTab="new-plan"
         tabs={[
-          { id: "new-plan", label: "New plan", content: <NewPlanTab teams={teams} orgId={orgId} /> },
-          { id: "history", label: "Plan history", content: <PlanHistoryTab orgId={orgId} teams={teams} /> },
+          {
+            id: "new-plan",
+            label: "New plan",
+            content: (
+              <NewPlanTab
+                teams={teams}
+                orgId={orgId}
+                onPlanSaved={() => setHistoryRefreshKey((key) => key + 1)}
+                onRegisterLoadHandler={registerLoadHandler}
+                onLoadStateChange={setLoadingPlanId}
+              />
+            ),
+          },
+          {
+            id: "history",
+            label: "Plan history",
+            content: (
+              <PlanHistoryTab
+                orgId={orgId}
+                teams={teams}
+                loadingPlanId={loadingPlanId}
+                onLoadPlan={handleLoadPlanRequest}
+                refreshKey={historyRefreshKey}
+                canLoadPlan={canLoadPlan}
+              />
+            ),
+          },
         ]}
       />
     </div>
   );
 }
 
-function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
+function NewPlanTab({
+  teams,
+  orgId,
+  onPlanSaved,
+  onRegisterLoadHandler,
+  onLoadStateChange,
+}: {
+  teams: Team[];
+  orgId: string;
+  onPlanSaved: () => void;
+  onRegisterLoadHandler: (handler: (planId: string) => void) => void;
+  onLoadStateChange: (planId: string | null) => void;
+}) {
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [session, setSession] = useState<SessionConfig>({
     date: "",
@@ -146,6 +208,7 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
     notes: "",
   });
   const [activities, setActivities] = useState<PracticeActivity[]>(() => buildInitialActivities());
+  const [isSaving, setIsSaving] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("Waiting for inputs");
   const [draftPlan, setDraftPlan] = useState<PracticePlan | null>(null);
@@ -160,11 +223,44 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
   const plannedDuration = Number(session.durationMinutes) || 0;
   const canGenerate = Boolean(selectedTeamId && session.date && session.startTime && plannedDuration > 0);
 
+  useEffect(() => {
+    onRegisterLoadHandler(handleLoadPlanFromHistory);
+  }, [handleLoadPlanFromHistory, onRegisterLoadHandler]);
+
   const handleSessionChange = (field: keyof SessionConfig) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const value = event.target.value;
       setSession((prev) => ({ ...prev, [field]: value }));
     };
+
+  const handleLoadPlanFromHistory = useCallback(
+    async (planId: string) => {
+      onLoadStateChange(planId);
+      setStatusMessage("Loading plan from history …");
+      try {
+        const [planDetail, blocks] = await Promise.all([
+          fetchPracticePlan(orgId, planId),
+          fetchPracticePlanBlocks(orgId, planId),
+        ]);
+        setDraftPlan(planDetail);
+        setSelectedTeamId(planDetail.teamId ?? "");
+        setSession((prev) => ({
+          ...prev,
+          date: planDetail.practiceDate ?? "",
+          durationMinutes: planDetail.durationMinutes ? String(planDetail.durationMinutes) : prev.durationMinutes,
+          focusArea: planDetail.focusAreas[0] ?? prev.focusArea,
+          notes: planDetail.notes ?? "",
+        }));
+        setActivities(mapBlocksToActivities(blocks));
+        setStatusMessage(`Loaded plan “${planDetail.title}”`);
+      } catch (error) {
+        setStatusMessage(error instanceof Error ? error.message : "Unable to load plan");
+      } finally {
+        onLoadStateChange(null);
+      }
+    },
+    [orgId, onLoadStateChange]
+  );
 
   const handleGenerate = async () => {
     if (!canGenerate || generateDraft.isPending) return;
@@ -196,20 +292,86 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
     }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (!draftPlan) {
-      setStatusMessage("Generate a plan before saving.");
+      setStatusMessage("Generate or load a plan before saving.");
       return;
     }
-    setStatusMessage("Save action wired once persistence endpoint is live — stub recorded.");
+    setIsSaving(true);
+    setStatusMessage("Saving plan …");
+    try {
+      const durationValue = plannedDuration || draftPlan.durationMinutes || 90;
+      const focusAreas = deriveFocusAreas(draftPlan.focusAreas, activities);
+      const planPayload = {
+        title: draftPlan.title || "AI practice plan",
+        teamId: selectedTeamId || null,
+        practiceDate: session.date || draftPlan.practiceDate || null,
+        durationMinutes: durationValue,
+        focusAreas,
+        notes: session.notes || draftPlan.notes || null,
+        status: "draft" as const,
+      };
+      const savedPlan = await createPracticePlan(orgId, planPayload);
+      for (let index = 0; index < activities.length; index += 1) {
+        const activity = activities[index];
+        await createPracticePlanBlock(orgId, savedPlan.id, {
+          name: activity.title || `Block ${index + 1}`,
+          description: activity.instructions || undefined,
+          focusAreas: activity.focus ? [activity.focus] : [],
+          durationMinutes: activity.durationMinutes || undefined,
+          position: index + 1,
+        });
+      }
+      setDraftPlan(savedPlan);
+      setStatusMessage(`Saved plan “${savedPlan.title}”`);
+      onPlanSaved();
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Unable to save plan");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportDraft = () => {
+    if (!draftPlan) {
+      setStatusMessage("Generate or load a plan before exporting.");
+      return;
+    }
     if (!activities.length) {
       setStatusMessage("Add at least one activity before exporting.");
       return;
     }
-    setStatusMessage("Export action stub — PDF/share integration landing in a follow-up.");
+    if (typeof window === "undefined") return;
+    const durationValue = plannedDuration || draftPlan.durationMinutes || 90;
+    const exportPayload = {
+      plan: {
+        ...draftPlan,
+        teamId: selectedTeamId || draftPlan.teamId || null,
+        practiceDate: session.date || draftPlan.practiceDate || null,
+        durationMinutes: durationValue,
+        focusAreas: deriveFocusAreas(draftPlan.focusAreas, activities),
+        notes: session.notes || draftPlan.notes || null,
+      },
+      activities: activities.map((activity, index) => ({
+        position: index + 1,
+        title: activity.title,
+        durationMinutes: activity.durationMinutes,
+        focus: activity.focus,
+        instructions: activity.instructions,
+        equipment: activity.equipment,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const safeTitle = (draftPlan.title || "ai-practice-plan").replace(/\s+/g, "-").toLowerCase();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeTitle}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setStatusMessage("Exported JSON download");
   };
 
   const handleActivityChange = (activityId: string, field: keyof PracticeActivity, value: string) => {
@@ -377,8 +539,14 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
             <CardDescription>Edit, add, or remove segments before sharing with staff.</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={handleSaveDraft} disabled={!draftPlan}>
-              Save draft
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleSaveDraft}
+              disabled={!draftPlan || isSaving}
+            >
+              {isSaving ? "Saving…" : "Save draft"}
             </Button>
             <Button
               type="button"
@@ -389,7 +557,13 @@ function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
             >
               Regenerate
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={handleExportDraft} disabled={!activities.length}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleExportDraft}
+              disabled={!draftPlan || !activities.length}
+            >
               Export
             </Button>
           </div>
@@ -475,8 +649,22 @@ function ActivityCard({
   );
 }
 
-function PlanHistoryTab({ orgId, teams }: { orgId: string; teams: Team[] }) {
-  const { data, isLoading, isError, refetch, isFetching } = usePracticePlans(orgId, { limit: 25 });
+function PlanHistoryTab({
+  orgId,
+  teams,
+  onLoadPlan,
+  loadingPlanId,
+  refreshKey,
+  canLoadPlan,
+}: {
+  orgId: string;
+  teams: Team[];
+  onLoadPlan?: (planId: string) => void;
+  loadingPlanId: string | null;
+  refreshKey: number;
+  canLoadPlan: boolean;
+}) {
+  const { data, isLoading, isError, refetch, isFetching } = usePracticePlans(orgId, { limit: 25, refreshKey });
   const teamLookup = useMemo(() => {
     const map = new Map<string, string>();
     teams.forEach((team) => map.set(team.id, team.name));
@@ -515,7 +703,14 @@ function PlanHistoryTab({ orgId, teams }: { orgId: string; teams: Team[] }) {
             </thead>
             <tbody>
               {plans.map((plan) => (
-                <PlanHistoryRow key={plan.id} plan={plan} teamName={plan.teamId ? teamLookup.get(plan.teamId) ?? "Team removed" : "Club-wide"} />
+                <PlanHistoryRow
+                  key={plan.id}
+                  plan={plan}
+                  teamName={plan.teamId ? teamLookup.get(plan.teamId) ?? "Team removed" : "Club-wide"}
+                  onLoad={() => onLoadPlan?.(plan.id)}
+                  isLoading={loadingPlanId === plan.id}
+                  canLoad={canLoadPlan}
+                />
               ))}
             </tbody>
           </table>
@@ -535,7 +730,13 @@ function PlanHistoryTab({ orgId, teams }: { orgId: string; teams: Team[] }) {
   );
 }
 
-function PlanHistoryRow({ plan, teamName }: { plan: PracticePlan; teamName: string }) {
+function PlanHistoryRow({ plan, teamName, onLoad, isLoading, canLoad }: {
+  plan: PracticePlan;
+  teamName: string;
+  onLoad?: () => void;
+  isLoading: boolean;
+  canLoad: boolean;
+}) {
   const focus = plan.focusAreas.slice(0, 2).join(", ") || "—";
   const dateLabel = formatPlanDate(plan.practiceDate);
   return (
@@ -554,8 +755,14 @@ function PlanHistoryRow({ plan, teamName }: { plan: PracticePlan; teamName: stri
       </td>
       <td className="px-6 py-3">
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" title="Load plan (coming soon)" disabled>
-            Load
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onLoad}
+            disabled={!onLoad || isLoading || !canLoad}
+          >
+            {isLoading ? "Loading…" : "Load"}
           </Button>
           <Button type="button" variant="ghost" size="sm" title="Export plan (coming soon)" disabled>
             Export
@@ -612,6 +819,19 @@ function DraftSummaryCard({ plan, summary }: { plan: PracticePlan; summary: Prac
       ) : null}
     </div>
   );
+}
+
+function deriveFocusAreas(existing: string[] = [], activities: PracticeActivity[]): string[] {
+  const normalized = existing
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter((entry) => entry.length > 0);
+  const set = new Set(normalized);
+  activities.forEach((activity) => {
+    if (activity.focus && activity.focus.trim().length) {
+      set.add(activity.focus.trim());
+    }
+  });
+  return Array.from(set);
 }
 
 function formatPlanDate(value?: string | null) {

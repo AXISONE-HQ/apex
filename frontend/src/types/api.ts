@@ -563,6 +563,9 @@ export interface PracticePlanResponse {
   plan: ApiPracticePlan;
 }
 export type PracticePlanBlocksResponse = ApiListResponse<ApiPracticePlanBlock>;
+export interface PracticePlanBlockResponse {
+  block: ApiPracticePlanBlock;
+}
 
 export interface PracticePlanDraftSummaryApi {
   headline?: string | null;

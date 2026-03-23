@@ -8,6 +8,7 @@ import {
   PracticePlansResponse,
   PracticePlanResponse,
   PracticePlanBlocksResponse,
+  PracticePlanBlockResponse,
   PracticePlanDraftResponse,
 } from "@/types/api";
 import { PracticePlan, PracticePlanBlock, PracticePlanDraftSummary } from "@/types/domain";
@@ -17,6 +18,7 @@ export interface PracticePlanFilters {
   status?: "draft" | "published";
   search?: string;
   limit?: number;
+  refreshKey?: number;
 }
 
 export async function fetchPracticePlans(orgId: string, filters: PracticePlanFilters = {}): Promise<PracticePlan[]> {
@@ -114,4 +116,47 @@ export function useGeneratePracticePlanDraft(orgId: string) {
       });
     },
   });
+}
+
+
+export interface CreatePracticePlanPayload {
+  title: string;
+  teamId?: string | null;
+  practiceDate?: string | null;
+  durationMinutes?: number | null;
+  focusAreas?: string[];
+  notes?: string | null;
+  status?: "draft" | "published";
+}
+
+export interface CreatePracticePlanBlockPayload {
+  name: string;
+  description?: string | null;
+  focusAreas?: string[];
+  durationMinutes?: number | null;
+  startOffsetMinutes?: number | null;
+  playerGrouping?: string | null;
+  position?: number;
+}
+
+export async function createPracticePlan(orgId: string, payload: CreatePracticePlanPayload): Promise<PracticePlan> {
+  const data = await apiClient<PracticePlanResponse>("/practice/plans", {
+    method: "POST",
+    body: payload,
+    orgId,
+  });
+  return mapPracticePlan(data.plan);
+}
+
+export async function createPracticePlanBlock(
+  orgId: string,
+  planId: string,
+  payload: CreatePracticePlanBlockPayload
+): Promise<PracticePlanBlock> {
+  const data = await apiClient<PracticePlanBlockResponse>(`/practice/plans/${planId}/blocks`, {
+    method: "POST",
+    body: payload,
+    orgId,
+  });
+  return mapPracticePlanBlock(data.block);
 }
