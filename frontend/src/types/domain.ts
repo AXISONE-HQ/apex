@@ -337,3 +337,43 @@ export interface PlayerEvaluation {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type PracticePlanStatus = "draft" | "published";
+
+export interface PracticePlan {
+  id: string;
+  orgId: string;
+  teamId?: string | null;
+  coachUserId?: string | null;
+  title: string;
+  practiceDate?: string | null;
+  durationMinutes?: number | null;
+  focusAreas: string[];
+  notes?: string | null;
+  status: PracticePlanStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PracticePlanBlock {
+  id: string;
+  planId: string;
+  drillId?: string | null;
+  name: string;
+  description?: string | null;
+  focusAreas: string[];
+  durationMinutes?: number | null;
+  startOffsetMinutes?: number | null;
+  playerGrouping?: string | null;
+  position?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PracticePlanDraftSummary {
+  headline?: string | null;
+  focusAreas?: string[];
+  cues?: string[];
+  cautions?: string[];
+  notes?: string[];
+}

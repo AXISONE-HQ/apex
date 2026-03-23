@@ -7,7 +7,8 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/State";
 import { useTeams } from "@/queries/teams";
-import { Team } from "@/types/domain";
+import { useGeneratePracticePlanDraft, PracticePlanDraftPayload } from "@/queries/practicePlans";
+import { PracticePlan, PracticePlanBlock, PracticePlanDraftSummary, Team } from "@/types/domain";
 
 const textareaClass =
   "min-h-[96px] w-full rounded-md border border-[var(--color-navy-200)] bg-white px-3 py-2 text-sm text-[var(--color-navy-900)] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-600)]";
@@ -121,7 +122,7 @@ export function PracticePlanBuilderPageClient({ orgId }: { orgId: string }) {
       <Tabs
         defaultTab="new-plan"
         tabs={[
-          { id: "new-plan", label: "New plan", content: <NewPlanTab teams={teams} /> },
+          { id: "new-plan", label: "New plan", content: <NewPlanTab teams={teams} orgId={orgId} /> },
           { id: "history", label: "Plan history", content: <HistoryPlaceholder /> },
         ]}
       />
@@ -129,7 +130,7 @@ export function PracticePlanBuilderPageClient({ orgId }: { orgId: string }) {
   );
 }
 
-function NewPlanTab({ teams }: { teams: Team[] }) {
+function NewPlanTab({ teams, orgId }: { teams: Team[]; orgId: string }) {
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [session, setSession] = useState<SessionConfig>({
     date: "",
@@ -143,15 +144,19 @@ function NewPlanTab({ teams }: { teams: Team[] }) {
     notes: "",
   });
   const [activities, setActivities] = useState<PracticeActivity[]>(() => buildInitialActivities());
-  const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("Waiting for inputs");
+  const [draftPlan, setDraftPlan] = useState<PracticePlan | null>(null);
+  const [draftSummary, setDraftSummary] = useState<PracticePlanDraftSummary | null>(null);
+
+  const generateDraft = useGeneratePracticePlanDraft(orgId);
 
   const sortedTeams = useMemo(() => {
     return teams.slice().sort((a, b) => a.name.localeCompare(b.name));
   }, [teams]);
 
-  const canGenerate = Boolean(selectedTeamId && session.date && session.startTime && Number(session.durationMinutes) > 0);
+  const plannedDuration = Number(session.durationMinutes) || 0;
+  const canGenerate = Boolean(selectedTeamId && session.date && session.startTime && plannedDuration > 0);
 
   const handleSessionChange = (field: keyof SessionConfig) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -160,25 +165,33 @@ function NewPlanTab({ teams }: { teams: Team[] }) {
     };
 
   const handleGenerate = async () => {
-    if (!canGenerate) return;
-    setIsGenerating(true);
+    if (!canGenerate || generateDraft.isPending) return;
     setStatusMessage("Drafting plan with AI context …");
-    await new Promise((resolve) => setTimeout(resolve, 600));
 
-    setActivities((previous) =>
-      previous.map((activity, index) => ({
-        ...activity,
-        focus: session.focusArea || activity.focus,
-        instructions:
-          session.notes.trim().length && index === previous.length - 1
-            ? `${activity.instructions}\nCoach note: ${session.notes.trim()}`
-            : activity.instructions,
-      }))
-    );
+    const payload: PracticePlanDraftPayload = {
+      teamId: selectedTeamId,
+      practiceDate: session.date || undefined,
+      startTime: session.startTime || undefined,
+      durationMinutes: plannedDuration,
+      focusArea: session.focusArea || undefined,
+      emphasis: session.emphasis || undefined,
+      intensity: session.intensity,
+      playerGroup: session.playerGroup,
+      environment: session.environment,
+      notes: session.notes || undefined,
+    };
 
-    setIsGenerating(false);
-    setLastGeneratedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    setStatusMessage("Plan ready — edit blocks below");
+    try {
+      const result = await generateDraft.mutateAsync(payload);
+      setDraftPlan(result.plan);
+      setDraftSummary(result.summary);
+      setActivities(result.blocks.length ? mapBlocksToActivities(result.blocks) : buildInitialActivities());
+      setLastGeneratedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      setStatusMessage("Plan ready — edit blocks below");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to generate plan";
+      setStatusMessage(message);
+    }
   };
 
   const handleActivityChange = (activityId: string, field: keyof PracticeActivity, value: string) => {
@@ -257,11 +270,21 @@ function NewPlanTab({ teams }: { teams: Team[] }) {
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-medium text-[var(--color-navy-700)]">
             Focus area
-            <Input className="mt-1" placeholder="e.g. Midfield build-up" value={session.focusArea} onChange={handleSessionChange("focusArea")} />
+            <Input
+              className="mt-1"
+              placeholder="e.g. Midfield build-up"
+              value={session.focusArea}
+              onChange={handleSessionChange("focusArea")}
+            />
           </label>
           <label className="text-sm font-medium text-[var(--color-navy-700)]">
             Emphasis / goal
-            <Input className="mt-1" placeholder="e.g. Break first line in 4 passes" value={session.emphasis} onChange={handleSessionChange("emphasis")} />
+            <Input
+              className="mt-1"
+              placeholder="e.g. Break first line in 4 passes"
+              value={session.emphasis}
+              onChange={handleSessionChange("emphasis")}
+            />
           </label>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -322,10 +345,11 @@ function NewPlanTab({ teams }: { teams: Team[] }) {
             {statusMessage}
             {lastGeneratedAt ? ` • Last generated ${lastGeneratedAt}` : null}
           </div>
-          <Button onClick={handleGenerate} disabled={!canGenerate || isGenerating}>
-            {isGenerating ? "Generating…" : "Generate plan"}
+          <Button onClick={handleGenerate} disabled={!canGenerate || generateDraft.isPending}>
+            {generateDraft.isPending ? "Generating…" : "Generate plan"}
           </Button>
         </div>
+        {draftPlan ? <DraftSummaryCard plan={draftPlan} summary={draftSummary} /> : null}
       </Card>
 
       <Card>
@@ -424,4 +448,63 @@ function HistoryPlaceholder() {
       <EmptyState message="History is coming online with the backend endpoints. For now, export your plan from the New Plan tab." />
     </Card>
   );
+}
+
+function DraftSummaryCard({ plan, summary }: { plan: PracticePlan; summary: PracticePlanDraftSummary | null }) {
+  const focusLine = plan.focusAreas.length ? plan.focusAreas.join(", ") : "Not provided";
+  const cues = summary?.cues ?? [];
+  const cautions = summary?.cautions ?? [];
+
+  return (
+    <div className="mt-6 rounded-2xl border border-[var(--color-navy-100)] bg-[var(--color-background)] p-4">
+      <div className="grid gap-3 text-sm text-[var(--color-navy-700)] sm:grid-cols-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">Draft title</p>
+          <p className="font-medium text-[var(--color-navy-900)]">{plan.title}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">Duration</p>
+          <p>{plan.durationMinutes ? `${plan.durationMinutes} min` : "Not set"}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-navy-400)]">Focus areas</p>
+          <p>{focusLine}</p>
+        </div>
+      </div>
+      {summary?.headline ? (
+        <p className="mt-4 text-sm text-[var(--color-navy-600)]">{summary.headline}</p>
+      ) : null}
+      {cues.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-navy-400)]">Coaching cues</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-navy-700)]">
+            {cues.map((cue) => (
+              <li key={cue}>{cue}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {cautions.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-red-500)]">Cautions</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-navy-700)]">
+            {cautions.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function mapBlocksToActivities(blocks: PracticePlanBlock[]): PracticeActivity[] {
+  return blocks.map((block, index) => ({
+    id: block.id || createActivityId(`draft-block-${index}`),
+    title: block.name || `Block ${index + 1}`,
+    durationMinutes: block.durationMinutes ?? 10,
+    focus: block.focusAreas[0] ?? "General focus",
+    instructions: block.description ?? "",
+    equipment: "",
+  }));
 }

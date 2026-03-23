@@ -36,6 +36,21 @@ export const queryKeys = {
     serialize(filters),
   ] as const,
   event: (orgId: string, eventId: string) => ["event", orgId, eventId] as const,
+  practicePlans: (orgId: string, filters?: unknown) => [
+    "practice-plans",
+    orgId,
+    serialize(filters),
+  ] as const,
+  practicePlan: (orgId: string, planId: string) => [
+    "practice-plan",
+    orgId,
+    planId,
+  ] as const,
+  practicePlanBlocks: (orgId: string, planId: string) => [
+    "practice-plan-blocks",
+    orgId,
+    planId,
+  ] as const,
   attendance: (orgId: string, eventId: string) => ["attendance", orgId, eventId] as const,
   attendanceSummary: (orgId: string, eventId: string) => [
     "attendance-summary",
