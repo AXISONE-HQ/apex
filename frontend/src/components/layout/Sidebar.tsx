@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/app/seasons", label: "Seasons" },
   { href: "/app/registrations", label: "Registrations" },
   { href: "/app/schedule", label: "Schedule" },
+  { href: "/app/practice-plans", label: "Practice plans" },
   { href: "/app/players", label: "Players" },
   { href: "/app/guardians", label: "Guardians" },
   { href: "/app/events", label: "Events" },

@@ -526,6 +526,61 @@ export interface PlayerEvaluationResponse {
   evaluation: ApiPlayerEvaluation;
 }
 
+export type ApiPracticePlanStatus = "draft" | "published";
+
+export interface ApiPracticePlan {
+  id: string;
+  org_id: string;
+  team_id?: string | null;
+  coach_user_id?: string | null;
+  title: string;
+  practice_date?: string | null;
+  duration_minutes?: number | null;
+  focus_areas?: string[] | null;
+  notes?: string | null;
+  status: ApiPracticePlanStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ApiPracticePlanBlock {
+  id: string;
+  plan_id: string;
+  drill_id?: string | null;
+  name: string;
+  description?: string | null;
+  focus_areas?: string[] | null;
+  duration_minutes?: number | null;
+  start_offset_minutes?: number | null;
+  player_grouping?: string | null;
+  position?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type PracticePlansResponse = ApiPagedListResponse<ApiPracticePlan>;
+export interface PracticePlanResponse {
+  plan: ApiPracticePlan;
+}
+export type PracticePlanBlocksResponse = ApiListResponse<ApiPracticePlanBlock>;
+export interface PracticePlanBlockResponse {
+  block: ApiPracticePlanBlock;
+}
+
+export interface PracticePlanDraftSummaryApi {
+  headline?: string | null;
+  focus_areas?: string[] | null;
+  cues?: string[] | null;
+  cautions?: string[] | null;
+  notes?: string[] | null;
+}
+
+export interface PracticePlanDraftResponse {
+  plan: ApiPracticePlan;
+  blocks: ApiPracticePlanBlock[];
+  summary?: PracticePlanDraftSummaryApi | null;
+}
+
 export type ApiTryoutStatus = "scheduled" | "in_progress" | "completed";
 
 export type ApiTryoutParticipantStatus = "registered" | "checked_in" | "evaluated" | "no_show";
@@ -609,3 +664,5 @@ export interface TryoutAttendanceResponse {
 export interface TryoutCheckInResponse {
   attendance: ApiTryoutAttendanceRecord;
 }
+
+

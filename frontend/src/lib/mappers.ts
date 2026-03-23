@@ -23,6 +23,9 @@ import {
   ApiEvaluationPlanStrengthResponse,
   ApiSessionScore,
   ApiPlayerEvaluation,
+  ApiPracticePlan,
+  ApiPracticePlanBlock,
+  PracticePlanDraftSummaryApi,
   ApiTryoutListItem,
   ApiTryoutDetail,
   ApiTryoutAttendanceRecord,
@@ -59,6 +62,9 @@ import {
   EvaluationPlayerSummary,
   SessionScore,
   PlayerEvaluation,
+  PracticePlan,
+  PracticePlanBlock,
+  PracticePlanDraftSummary,
   TryoutSummary,
   TryoutDetail,
   TryoutAttendanceRecord,
@@ -469,6 +475,62 @@ export function mapPlayerEvaluation(api: ApiPlayerEvaluation): PlayerEvaluation 
   };
 }
 
+export function mapPracticePlan(api: ApiPracticePlan): PracticePlan {
+  return {
+    id: api.id,
+    orgId: api.org_id,
+    teamId: api.team_id ?? null,
+    coachUserId: api.coach_user_id ?? null,
+    title: api.title,
+    practiceDate: api.practice_date ?? null,
+    durationMinutes: typeof api.duration_minutes === "number" ? api.duration_minutes : null,
+    focusAreas: Array.isArray(api.focus_areas)
+      ? api.focus_areas.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)
+      : [],
+    notes: api.notes ?? null,
+    status: api.status,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export function mapPracticePlanBlock(api: ApiPracticePlanBlock): PracticePlanBlock {
+  return {
+    id: api.id,
+    planId: api.plan_id,
+    drillId: api.drill_id ?? null,
+    name: api.name,
+    description: api.description ?? null,
+    focusAreas: Array.isArray(api.focus_areas)
+      ? api.focus_areas.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)
+      : [],
+    durationMinutes: typeof api.duration_minutes === "number" ? api.duration_minutes : null,
+    startOffsetMinutes: typeof api.start_offset_minutes === "number" ? api.start_offset_minutes : null,
+    playerGrouping: api.player_grouping ?? null,
+    position: typeof api.position === "number" ? api.position : null,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export function mapPracticePlanDraftSummary(api?: PracticePlanDraftSummaryApi | null): PracticePlanDraftSummary | null {
+  if (!api) return null;
+  const normalizeArray = (value?: unknown | null) =>
+    Array.isArray(value)
+      ? value
+          .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+          .filter((entry) => entry.length > 0)
+      : [];
+
+  return {
+    headline: typeof api.headline === "string" ? api.headline : null,
+    focusAreas: normalizeArray(api.focus_areas),
+    cues: normalizeArray(api.cues),
+    cautions: normalizeArray(api.cautions),
+    notes: normalizeArray(api.notes),
+  };
+}
+
 export function mapTryoutSummary(api: ApiTryoutListItem): TryoutSummary {
   return {
     id: api.id,
@@ -569,3 +631,5 @@ function normalizeTryoutMetrics(
     averageScore: source?.average_score ?? fallback.averageScore ?? null,
   };
 }
+
+
