@@ -111,6 +111,23 @@ test("season creation + guardian registration approval", async (t) => {
   const createdSeason = await createSeasonRes.json();
   assert.ok(createdSeason?.item?.id, "season id missing");
 
+  const activateSeasonRes = await request(
+    `/admin/clubs/${TEST_ORG_ID}/seasons/${createdSeason.item.id}`,
+    {
+      method: "PATCH",
+      user: admin,
+      body: { status: "active" },
+    }
+  );
+  assert.equal(
+    activateSeasonRes.status,
+    200,
+    `season activate failed (${activateSeasonRes.status})`
+  );
+
+  const activatedSeason = await activateSeasonRes.json();
+  assert.equal(activatedSeason?.item?.status, "active", "season status not active");
+
   const { guardianId, playerId } = await bootstrapGuardianPlayer();
   const guardian = guardianUser(guardianId);
 
