@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import app from "../src/server.js";
 import { DB_ENABLED, TEST_ORG_ID, TEST_USER_UUIDS, seedTestOrgAndUsers } from "./helpers/dbTestUtils.js";
@@ -79,16 +80,17 @@ test.after(async () => {
 });
 
 async function bootstrapGuardianPlayer() {
+  const uniqueSuffix = randomUUID().slice(0, 8);
   const guardian = await createGuardian({
     orgId: TEST_ORG_ID,
     firstName: "E2E",
-    lastName: `Guardian-${RUN_ID}`,
-    email: `guardian-${RUN_ID}@example.com`,
+    lastName: `Guardian-${RUN_ID}-${uniqueSuffix}`,
+    email: `guardian-${RUN_ID}-${uniqueSuffix}@example.com`,
   });
   const player = await createPlayer({
     orgId: TEST_ORG_ID,
     firstName: "E2E",
-    lastName: `Player-${RUN_ID}`,
+    lastName: `Player-${RUN_ID}-${uniqueSuffix}`,
   });
   await linkGuardianToPlayer({ orgId: TEST_ORG_ID, guardianId: guardian.id, playerId: player.id });
   return { guardianId: guardian.id, playerId: player.id };
