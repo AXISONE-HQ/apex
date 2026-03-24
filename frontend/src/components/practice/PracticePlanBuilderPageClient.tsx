@@ -223,10 +223,6 @@ function NewPlanTab({
   const plannedDuration = Number(session.durationMinutes) || 0;
   const canGenerate = Boolean(selectedTeamId && session.date && session.startTime && plannedDuration > 0);
 
-  useEffect(() => {
-    onRegisterLoadHandler(handleLoadPlanFromHistory);
-  }, [handleLoadPlanFromHistory, onRegisterLoadHandler]);
-
   const handleSessionChange = (field: keyof SessionConfig) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const value = event.target.value;
@@ -261,6 +257,10 @@ function NewPlanTab({
     },
     [orgId, onLoadStateChange]
   );
+
+  useEffect(() => {
+    onRegisterLoadHandler(handleLoadPlanFromHistory);
+  }, [handleLoadPlanFromHistory, onRegisterLoadHandler]);
 
   const handleGenerate = async () => {
     if (!canGenerate || generateDraft.isPending) return;

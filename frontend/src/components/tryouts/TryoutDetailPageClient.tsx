@@ -149,7 +149,7 @@ export function TryoutDetailPageClient({ orgId, tryoutId }: TryoutDetailPageClie
 
 function OverviewTab({ tryout }: { tryout: TryoutDetail }) {
   const router = useRouter();
-  const [overviewHistory, setOverviewHistory] = useState<{ downloadedAt: string; filename: string }[]>([]);
+  const [overviewHistory, setOverviewHistory] = useState<{ downloadedAt: string; filename: string; sessionId?: string | null }[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -665,83 +665,49 @@ function ComparePlayersPanel({ players, blockNames, onClose, onClear, onRemove, 
             </TableRow>
           </TableHead>
           <TableBody>
-            {displayedRows.length === 0 ? (
+            {players.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={blockNames.length + 6} className="text-center text-sm text-[var(--color-navy-500)]">
-                  {showFavoritesOnly ? "No favorites yet — star players to populate this view." : "No players available."}
+                  No players selected for comparison yet.
                 </TableCell>
               </TableRow>
             ) : (
-              displayedRows.map((row) => (
-                <TableRow
-                  key={row.playerId}
-                  className={playersToCompare.includes(row.playerId) ? "bg-[var(--color-blue-50)]" : undefined}
-                >
+              players.map((row) => (
+                <TableRow key={row.playerId}>
                   <TableCell>
                     <div>
                       <p className="text-sm font-semibold text-[var(--color-navy-900)]">{row.playerName}</p>
-                      {rosterGenerated && teamAssignments[row.playerId] ? (
-                        <p className="text-xs text-[var(--color-green-700)]">
-                          Tried out for {teamNameMap.get(teamAssignments[row.playerId] ?? "") ?? "assigned team"}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
-                      )}
-                      <button
-                        type="button"
-                        className={favoritePlayers.includes(row.playerId) ? "mt-1 text-xs text-[var(--color-yellow-700)]" : "mt-1 text-xs text-[var(--color-navy-400)]"}
-                        onClick={() => toggleFavoritePlayer(row.playerId)}
-                        aria-label={favoritePlayers.includes(row.playerId) ? "Unfavorite player" : "Favorite player"}
-                      >
-                        {favoritePlayers.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
-                      </button>
-                      {showComparePanel ? (
+                      <p className="text-xs text-[var(--color-navy-500)]">ID: {row.playerId}</p>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs">
                         <button
                           type="button"
-                          className="mt-1 text-xs font-semibold text-[var(--color-blue-700)]"
-                          onClick={() => toggleComparePlayer(row.playerId)}
+                          className={favorites.includes(row.playerId) ? "text-[var(--color-yellow-700)]" : "text-[var(--color-navy-400)]"}
+                          onClick={() => onToggleFavorite(row.playerId)}
                         >
-                          {playersToCompare.includes(row.playerId) ? "Remove from compare" : "Add to compare"}
+                          {favorites.includes(row.playerId) ? "★ Favorite" : "☆ Favorite"}
                         </button>
-                      ) : null}
+                        <button
+                          type="button"
+                          className="font-semibold text-[var(--color-blue-700)]"
+                          onClick={() => onRemove(row.playerId)}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>{row.age ?? "—"}</TableCell>
                   <TableCell>{row.position ?? "—"}</TableCell>
                   <TableCell>{formatScore(row.overallScore)}</TableCell>
+                  <TableCell>{RESULT_STATUS_OPTIONS.find((option) => option.value === row.status)?.label ?? row.status}</TableCell>
+                  <TableCell>{row.teamName || "Unassigned"}</TableCell>
                   {blockNames.map((blockName) => (
-                    <TableCell key={`${row.playerId}-${blockName}`}>{formatScore(row.blockScores[blockName])}</TableCell>
+                    <TableCell key={`compare-${row.playerId}-${blockName}`}>{formatScore(row.blockScores[blockName])}</TableCell>
                   ))}
                   <TableCell>
-                    <select
-                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
-                      value={playerStatuses[row.playerId] ?? "pending"}
-                      onChange={(event) =>
-                        setPlayerStatuses((prev) => ({ ...prev, [row.playerId]: event.target.value as ResultStatus }))
-                      }
-                    >
-                      {RESULT_STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </TableCell>
-                  <TableCell>
-                    <select
-                      className="rounded-md border border-[var(--color-navy-200)] px-2 py-1 text-sm"
-                      value={teamAssignments[row.playerId] ?? ""}
-                      onChange={(event) =>
-                        setTeamAssignments((prev) => ({ ...prev, [row.playerId]: event.target.value }))
-                      }
-                    >
-                      <option value="">Select team</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Button size="sm" variant="ghost" onClick={() => onRemove(row.playerId)}>
+                      Remove
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
