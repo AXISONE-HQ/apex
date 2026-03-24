@@ -6,6 +6,8 @@ import { DB_ENABLED, TEST_ORG_ID, TEST_USER_UUIDS, seedTestOrgAndUsers } from ".
 import { createPlayer } from "../src/repositories/playersRepo.js";
 import { createGuardian } from "../src/repositories/guardiansRepo.js";
 import { linkGuardianToPlayer } from "../src/repositories/guardianPlayersRepo.js";
+import { createFee, createInvoice, getInvoiceById } from "../src/repositories/paymentsRepo.js";
+import { ensureStripeAccount } from "./helpers/paymentsFixtures.js";
 
 const RUN_ID = Date.now().toString(36);
 let server;
@@ -37,6 +39,8 @@ function guardianUser(guardianId) {
       "registrations.page.view_own",
       "registrations.function.create",
       "registrations.function.withdraw",
+      "payments.page.view_own",
+      "payments.function.pay",
     ],
   };
 }
@@ -155,9 +159,134 @@ test("season creation + guardian registration approval", async (t) => {
   assert.ok(mine.items.find((item) => item.id === registration.id));
 });
 
+test("payments checkout + invoice reconciliation across the seeded registration", async (t) => {
+  if (!DB_ENABLED) {
+    t.skip("DATABASE_URL not configured for DB-backed e2e test");
+    return;
+  }
+
+  await ensureStripeAccount();
+
+  const admin = adminUser();
+  const seasonPayload = {
+    label: `E2E Payments Season ${RUN_ID}`,
+    year: 2027,
+    starts_on: "2027-10-01",
+  };
+
+  const seasonRes = await request(`/admin/clubs/${TEST_ORG_ID}/seasons`, {
+    method: "POST",
+    user: admin,
+    body: seasonPayload,
+  });
+  assert.equal(seasonRes.status, 201, `payments season create failed (${seasonRes.status})`);
+  const createdSeason = await seasonRes.json();
+  const seasonId = createdSeason?.item?.id;
+  assert.ok(seasonId, "payments season id missing");
+
+  const activateSeasonRes = await request(`/admin/clubs/${TEST_ORG_ID}/seasons/${seasonId}`, {
+    method: "PATCH",
+    user: admin,
+    body: { status: "active" },
+  });
+  assert.equal(
+    activateSeasonRes.status,
+    200,
+    `payments season activate failed (${activateSeasonRes.status})`
+  );
+
+  const { guardianId, playerId } = await bootstrapGuardianPlayer();
+  const guardian = guardianUser(guardianId);
+
+  const registrationRes = await request(`/registrations`, {
+    method: "POST",
+    user: guardian,
+    body: { playerId, seasonId },
+  });
+  assert.equal(registrationRes.status, 201, `registration create failed (${registrationRes.status})`);
+  const { registration } = await registrationRes.json();
+  assert.ok(registration?.id, "registration id missing for payments scenario");
+
+  const fee = await createFee({
+    orgId: TEST_ORG_ID,
+    seasonId,
+    name: `Registration Fee ${RUN_ID}`,
+    amountCents: 7500,
+    currency: "cad",
+    feeType: "registration",
+    isRequired: true,
+  });
+  assert.ok(fee?.id, "fee creation failed");
+
+  const invoice = await createInvoice({
+    orgId: TEST_ORG_ID,
+    registrationId: registration.id,
+    feeId: fee.id,
+    guardianUserId: guardian.id,
+    amountCents: 7500,
+    currency: "cad",
+    notes: "E2E payments flow",
+  });
+  assert.ok(invoice?.id, "invoice creation failed");
+
+  const guardianInvoicesRes = await request(`/payments/invoices/mine`, { user: guardian });
+  assert.equal(guardianInvoicesRes.status, 200, "guardian invoices listing failed");
+  const guardianInvoices = await guardianInvoicesRes.json();
+  assert.ok(
+    guardianInvoices.items.some((item) => item.id === invoice.id),
+    "invoice missing from guardian view"
+  );
+
+  const originalPayments = app.locals.payments;
+  const recorded = {};
+  app.locals.payments = {
+    createCheckoutSession: async (params) => {
+      recorded.params = params;
+      return {
+        id: "cs_test_e2e",
+        url: "https://stripe.test/cs_test_e2e",
+        payment_intent: "pi_test_e2e",
+      };
+    },
+  };
+
+  try {
+    const checkoutRes = await request(`/payments/invoices/${invoice.id}/checkout`, {
+      method: "POST",
+      user: guardian,
+      body: {
+        successUrl: "https://app.example.com/payments/success",
+        cancelUrl: "https://app.example.com/payments/cancel",
+      },
+    });
+    assert.equal(checkoutRes.status, 200, `checkout failed (${checkoutRes.status})`);
+    const checkoutBody = await checkoutRes.json();
+    assert.equal(checkoutBody.sessionUrl, "https://stripe.test/cs_test_e2e");
+  } finally {
+    app.locals.payments = originalPayments;
+  }
+
+  assert.equal(recorded.params?.invoiceId, invoice.id, "invoice id missing from checkout params");
+  assert.equal(
+    recorded.params?.clubStripeAccountId,
+    "acct_test_123",
+    "stripe account not passed to checkout"
+  );
+
+  const updatedInvoice = await getInvoiceById({ orgId: TEST_ORG_ID, invoiceId: invoice.id });
+  assert.equal(updatedInvoice?.stripe_checkout_session_id, "cs_test_e2e");
+  assert.equal(updatedInvoice?.stripe_payment_intent_id, "pi_test_e2e");
+
+  const guardianInvoicesAfterRes = await request(`/payments/invoices/mine`, { user: guardian });
+  assert.equal(guardianInvoicesAfterRes.status, 200, "guardian invoices post-checkout failed");
+  const guardianInvoicesAfter = await guardianInvoicesAfterRes.json();
+  const hydratedInvoice = guardianInvoicesAfter.items.find((item) => item.id === invoice.id);
+  assert.ok(hydratedInvoice, "invoice missing after checkout");
+  assert.equal(hydratedInvoice.stripe_checkout_session_id, "cs_test_e2e");
+});
+
 // Upcoming scenarios stitched together in the same e2e harness
 
-test.todo("payments checkout + invoice reconciliation across the seeded registration");
 test.todo("AI practice plan generation, save, load, and export round-trip");
 test.todo("tryout creation, scoring, and roster generation pipeline");
 test.todo("dashboard rollups reflect season + payment + tryout signals");
